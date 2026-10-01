@@ -1,4 +1,4 @@
-import{c as a,j as e}from"./app-nav-mt4kt1FA.js";/**
+import{c as a,j as e}from"./app-nav-Bo1LF9kr.js";/**
  * @license lucide-react v1.48.0 - ISC
  *
  * This source code is licensed under the ISC license.

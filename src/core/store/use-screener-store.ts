@@ -1,7 +1,7 @@
 /**
  * Screener Reactive State Store (Zustand)
  * Unifies market instruments, filter criteria, active selections, column definitions,
- * drawer state, and real-time tick integration.
+ * drawer state, multi-asset configurations, and real-time tick integration.
  */
 
 import { create } from 'zustand';
@@ -9,6 +9,10 @@ import { Instrument, CountryCode } from '../market-data';
 import { dataLayer } from '../data-layer';
 import { ALL_COLUMNS, ColumnDef, TAB_COLUMN_PRESETS } from '../columns';
 import { AdvancedFilterState, DEFAULT_ADVANCED_FILTERS } from '../filters';
+import { ScreenerType, SCREENER_CONFIG } from '../filter-config';
+import { ScreenDefinition, BUILTIN_SCREENS } from '../screen-definitions';
+
+const CUSTOM_SCREENS_STORAGE_KEY = 'honba_custom_screens_v1';
 
 export interface ScreenerState {
   // Market & Instruments
@@ -19,12 +23,18 @@ export interface ScreenerState {
   searchQuery: string;
   isLive: boolean;
 
-  // Tabs & Filters
-  screenerType: string; // 'stocks' | 'etf' | 'bonds' | 'crypto' | 'cex' | 'dex'
+  // Multi-Asset Screener Type & Dynamic Title
+  screenerType: ScreenerType; // 'stocks' | 'etf' | 'bonds' | 'mf'
+  activeScreenTitle: string; // e.g. "All stocks", "ETF vault", "All bonds", "All mutual funds"
+  activeScreenId: string;
   autosave: boolean;
-  activeTab: string; // 'overview' | 'performance' | 'valuation' | 'technicals' | 'fundamentals'
+  activeTab: string; // 'overview' | 'performance' | etc.
   quickPreset: string; // 'all' | 'gainers' | 'losers' | 'most_active' | etc.
   advancedFilters: AdvancedFilterState;
+
+  // Screen Library / Catalog
+  customScreens: ScreenDefinition[];
+  isOpenScreenModalOpen: boolean;
 
   // Table Configuration & Pagination
   columns: ColumnDef[];
@@ -40,7 +50,7 @@ export interface ScreenerState {
   isColumnModalOpen: boolean;
 
   // Actions
-  setScreenerType: (screenerType: string) => void;
+  setScreenerType: (screenerType: ScreenerType) => void;
   setAutosave: (autosave: boolean) => void;
   setMarket: (market: CountryCode) => void;
   setActiveSymbol: (symbol: string) => void;
@@ -51,6 +61,13 @@ export interface ScreenerState {
   setQuickPreset: (preset: string) => void;
   setAdvancedFilters: (filters: Partial<AdvancedFilterState>) => void;
   resetFilters: () => void;
+
+  // Screen Catalog Actions
+  setOpenScreenModalOpen: (open: boolean) => void;
+  selectScreen: (screen: ScreenDefinition) => void;
+  saveCurrentAsNewScreen: (name: string, description?: string) => ScreenDefinition;
+  deleteCustomScreen: (screenId: string) => void;
+
   setColumns: (columns: ColumnDef[]) => void;
   setSort: (field: string) => void;
   setPage: (page: number) => void;
@@ -96,9 +113,21 @@ const getStoredColumns = (): ColumnDef[] => {
   return [...ALL_COLUMNS];
 };
 
+const getStoredCustomScreens = (): ScreenDefinition[] => {
+  try {
+    const raw = localStorage.getItem(CUSTOM_SCREENS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+  return [];
+};
+
 export const useScreenerStore = create<ScreenerState>((set, get) => {
   const initialDataLayerState = dataLayer.getState();
-  const initialInstruments = dataLayer.getInstruments(initialDataLayerState.currentMarket);
+  const initialInstruments = dataLayer.getInstruments(initialDataLayerState.currentMarket, 'stocks');
+  const initialConfig = SCREENER_CONFIG.stocks;
 
   return {
     currentMarket: initialDataLayerState.currentMarket,
@@ -109,10 +138,15 @@ export const useScreenerStore = create<ScreenerState>((set, get) => {
     isLive: dataLayer.isLiveSimulationActive(),
 
     screenerType: 'stocks',
+    activeScreenTitle: initialConfig.defaultTitle, // "All stocks"
+    activeScreenId: 'stock_all',
     autosave: true,
     activeTab: 'overview',
     quickPreset: 'all',
     advancedFilters: { ...DEFAULT_ADVANCED_FILTERS },
+
+    customScreens: getStoredCustomScreens(),
+    isOpenScreenModalOpen: false,
 
     columns: getStoredColumns(),
     sortField: 'marketCap',
@@ -125,15 +159,25 @@ export const useScreenerStore = create<ScreenerState>((set, get) => {
     isFilterModalOpen: false,
     isColumnModalOpen: false,
 
-    setScreenerType: (screenerType: string) => {
+    setScreenerType: (type: ScreenerType) => {
+      const config = SCREENER_CONFIG[type] || SCREENER_CONFIG.stocks;
       const currentMarket = get().currentMarket;
-      const instruments = dataLayer.getInstruments(currentMarket, screenerType);
+      const instruments = dataLayer.getInstruments(currentMarket, type);
       const active = instruments[0]?.symbol || '';
       if (active) dataLayer.setActiveSymbol(active);
+
+      // Reset filters and active title to the default for this asset class
       set({
-        screenerType,
+        screenerType: type,
+        activeScreenTitle: config.defaultTitle,
+        activeScreenId: `${type}_all`,
         instruments,
         activeSymbol: active,
+        activeTab: config.tabs[0]?.id || 'overview',
+        quickPreset: 'all',
+        advancedFilters: { ...DEFAULT_ADVANCED_FILTERS },
+        sortField: config.defaultSort.field,
+        sortOrder: config.defaultSort.direction,
         currentPage: 1,
       });
     },
@@ -191,7 +235,21 @@ export const useScreenerStore = create<ScreenerState>((set, get) => {
     },
 
     setQuickPreset: (quickPreset: string) => {
-      set({ quickPreset, currentPage: 1 });
+      // Find if there is a builtin screen matching this quick preset
+      const screenerType = get().screenerType;
+      const matchingScreen = BUILTIN_SCREENS.find(
+        (s) => s.screenerType === screenerType && s.quickPreset === quickPreset
+      );
+      if (matchingScreen) {
+        set({
+          quickPreset,
+          activeScreenTitle: matchingScreen.name,
+          activeScreenId: matchingScreen.id,
+          currentPage: 1,
+        });
+      } else {
+        set({ quickPreset, currentPage: 1 });
+      }
     },
 
     setAdvancedFilters: (filters: Partial<AdvancedFilterState>) => {
@@ -202,13 +260,80 @@ export const useScreenerStore = create<ScreenerState>((set, get) => {
     },
 
     resetFilters: () => {
+      const config = SCREENER_CONFIG[get().screenerType] || SCREENER_CONFIG.stocks;
       set({
         quickPreset: 'all',
+        activeScreenTitle: config.defaultTitle,
         searchQuery: '',
         advancedFilters: { ...DEFAULT_ADVANCED_FILTERS },
         currentPage: 1,
       });
       dataLayer.setSearchQuery('');
+    },
+
+    // Screen Library Actions
+    setOpenScreenModalOpen: (open: boolean) => {
+      set({ isOpenScreenModalOpen: open });
+    },
+
+    selectScreen: (screen: ScreenDefinition) => {
+      const currentFilters = { ...DEFAULT_ADVANCED_FILTERS, ...(screen.filters || {}) };
+      set({
+        screenerType: screen.screenerType,
+        activeScreenTitle: screen.name,
+        activeScreenId: screen.id,
+        quickPreset: screen.quickPreset || 'all',
+        advancedFilters: currentFilters,
+        sortField: screen.sortField || get().sortField,
+        sortOrder: screen.sortDirection || get().sortOrder,
+        isOpenScreenModalOpen: false,
+        currentPage: 1,
+      });
+    },
+
+    saveCurrentAsNewScreen: (name: string, description: string = 'User customized screen'): ScreenDefinition => {
+      const state = get();
+      const newScreen: ScreenDefinition = {
+        id: `custom_${Date.now()}`,
+        name: name.trim() || 'Untitled Screen',
+        screenerType: state.screenerType,
+        category: 'custom',
+        description,
+        isBuiltin: false,
+        filters: { ...state.advancedFilters },
+        quickPreset: state.quickPreset,
+        sortField: state.sortField,
+        sortDirection: state.sortOrder || 'desc',
+      };
+
+      const updatedCustom = [newScreen, ...state.customScreens];
+      try {
+        localStorage.setItem(CUSTOM_SCREENS_STORAGE_KEY, JSON.stringify(updatedCustom));
+      } catch {}
+
+      set({
+        customScreens: updatedCustom,
+        activeScreenTitle: newScreen.name,
+        activeScreenId: newScreen.id,
+      });
+      return newScreen;
+    },
+
+    deleteCustomScreen: (screenId: string) => {
+      const updatedCustom = get().customScreens.filter((s) => s.id !== screenId);
+      try {
+        localStorage.setItem(CUSTOM_SCREENS_STORAGE_KEY, JSON.stringify(updatedCustom));
+      } catch {}
+
+      const state = get();
+      const nextTitle = state.activeScreenId === screenId
+        ? SCREENER_CONFIG[state.screenerType]?.defaultTitle || 'All stocks'
+        : state.activeScreenTitle;
+
+      set({
+        customScreens: updatedCustom,
+        activeScreenTitle: nextTitle,
+      });
     },
 
     setColumns: (columns: ColumnDef[]) => {

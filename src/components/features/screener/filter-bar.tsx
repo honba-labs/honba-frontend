@@ -23,10 +23,11 @@ import {
 } from 'lucide-react';
 import { IndexDrawer } from './index-drawer';
 import { getIndicesForMarket } from '../../../core/indices';
+import { ScreenerType, SCREENER_CONFIG } from '../../../core/filter-config';
 
-export const SCREENER_TYPES = [
+export const SCREENER_TYPES: { id: ScreenerType; name: string; defaultPresetTitle: string }[] = [
   { id: 'stocks', name: 'Stock Screener', defaultPresetTitle: 'All stocks' },
-  { id: 'etf', name: 'ETF Screener', defaultPresetTitle: 'All ETFs' },
+  { id: 'etf', name: 'ETF Screener', defaultPresetTitle: 'ETF vault' },
   { id: 'bonds', name: 'Bond Screener', defaultPresetTitle: 'All bonds' },
   { id: 'mf', name: 'MF Screener', defaultPresetTitle: 'All mutual funds' },
 ];
@@ -135,11 +136,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({
 
   const marketInfo = dataLayer.getCurrentMarketInfo();
   const allMarkets = dataLayer.getSupportedMarkets();
+  const activeScreenTitle = useScreenerStore((state) => state.activeScreenTitle);
   const currentScreenerObj = SCREENER_TYPES.find((s) => s.id === screenerType) || SCREENER_TYPES[0];
-  const currentPresetObj = SCREEN_PRESETS.find((p) => p.id === quickPreset) || SCREEN_PRESETS[0];
-  const currentScreenTitle = quickPreset === 'all' ? currentScreenerObj.defaultPresetTitle : currentPresetObj.name;
-
-
+  const currentScreenTitle = activeScreenTitle || currentScreenerObj.defaultPresetTitle;
 
   const toggleDropdown = (id: string) => {
     setActiveDropdown((prev) => (prev === id ? null : id));
