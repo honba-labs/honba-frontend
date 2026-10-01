@@ -3,7 +3,7 @@
  * Resets, font imports, scrollbars, and global element defaults.
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400;1,6..72,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -24,13 +24,26 @@ html, body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Number formatting: Tabular figures prevent layout jumping on ticks */
+/* Number formatting: Tabular & lining figures prevent layout jumping on ticks */
 .tabular, .num, td, th {
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums lining-nums;
 }
 
 .mono {
   font-family: var(--font-family-mono);
+}
+
+.display-serif {
+  font-family: var(--font-family-serif);
+}
+
+/* Proof ledger stamp styling */
+.stamp-label {
+  font-family: var(--font-family-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 /* Custom Sleek Scrollbars */

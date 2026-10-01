@@ -416,6 +416,8 @@ export const SymbolDetailDrawer: React.FC = () => {
         <div className="drawer-action-top-group">
           <a
             href={`/instrument.html?symbol=${encodeURIComponent(inst.symbol)}`}
+            target="_blank"
+            rel="noopener noreferrer"
             className="shortlist-btn shortlist-btn-primary"
             style={{ width: '100%', justifyContent: 'center', padding: '8px 12px', fontSize: 12, textDecoration: 'none', background: 'var(--accent-primary)', color: '#fff', fontWeight: 600 }}
           >

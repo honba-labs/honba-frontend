@@ -791,6 +791,8 @@
   padding: 2px 8px;
   color: var(--text-secondary);
   font-size: 11px;
+  font-family: var(--font-family-mono);
+  font-variant-numeric: tabular-nums lining-nums;
 }
 
 .tv-status-item.tv-highlight {

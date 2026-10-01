@@ -174,8 +174,10 @@ export const ALL_COLUMNS: ColumnDef[] = [
               <span className="tv-symbol-ticker">{inst.symbol}</span>
               <a
                 href={`/instrument.html?symbol=${encodeURIComponent(inst.symbol)}`}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="tv-symbol-open-icon"
-                title="Open Dedicated Instrument Page"
+                title="Open Dedicated Instrument Page in New Window"
                 onClick={(e) => e.stopPropagation()}
                 style={{
                   display: 'inline-flex',

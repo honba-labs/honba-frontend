@@ -32,6 +32,73 @@ import {
   Cpu,
 } from 'lucide-react';
 
+/**
+ * Embedded TradingView Advanced Real-Time Chart Widget
+ * Generates official TradingView embed iframe synchronized with dark/light theme
+ */
+const TradingViewChartWidget: React.FC<{ symbol: string; exchange: string; isDark?: boolean }> = ({
+  symbol,
+  exchange,
+  isDark = true,
+}) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const tvSymbol = `${exchange || 'NSE'}:${symbol}`;
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    containerRef.current.innerHTML = '';
+
+    const script = document.createElement('script');
+    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+    script.type = 'text/javascript';
+    script.async = true;
+    script.innerHTML = JSON.stringify({
+      autosize: true,
+      symbol: tvSymbol,
+      interval: 'D',
+      timezone: 'Asia/Kolkata',
+      theme: isDark ? 'dark' : 'light',
+      style: '1',
+      locale: 'in',
+      enable_publishing: false,
+      allow_symbol_change: false,
+      calendar: false,
+      support_host: 'https://www.tradingview.com',
+      hide_side_toolbar: false,
+      save_image: true,
+      container_id: 'tradingview_widget_container',
+    });
+
+    const widgetDiv = document.createElement('div');
+    widgetDiv.id = 'tradingview_widget_container';
+    widgetDiv.className = 'tradingview-widget-container__widget';
+    widgetDiv.style.height = 'calc(100% - 32px)';
+    widgetDiv.style.width = '100%';
+
+    const copyrightDiv = document.createElement('div');
+    copyrightDiv.className = 'tradingview-widget-copyright';
+    copyrightDiv.innerHTML = `<a href="https://in.tradingview.com/symbols/${exchange}-${symbol}/" rel="noopener nofollow" target="_blank"><span class="blue-text">${symbol} Chart</span></a> by TradingView`;
+
+    containerRef.current.appendChild(widgetDiv);
+    containerRef.current.appendChild(copyrightDiv);
+    containerRef.current.appendChild(script);
+
+    return () => {
+      if (containerRef.current) {
+        containerRef.current.innerHTML = '';
+      }
+    };
+  }, [tvSymbol, isDark, exchange, symbol]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="tradingview-widget-container"
+      style={{ height: '420px', width: '100%', background: 'transparent' }}
+    />
+  );
+};
+
 export const InstrumentApp: React.FC = () => {
   // Read initial symbol from URL query or fallback
   const getUrlSymbol = () => {
@@ -54,6 +121,7 @@ export const InstrumentApp: React.FC = () => {
   const [priceFlash, setPriceFlash] = useState<'bullish' | 'bearish' | null>(null);
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
   const [lotsCount, setLotsCount] = useState<number>(1);
+  const [chartViewMode, setChartViewMode] = useState<'honba' | 'tradingview'>('honba');
 
   // Initialize theme
   useEffect(() => {
@@ -160,6 +228,49 @@ export const InstrumentApp: React.FC = () => {
     if (n >= 100000) return `₹${(n / 100000).toFixed(2)} L`;
     if (n >= 1000) return `₹${(n / 1000).toFixed(1)}k`;
     return `₹${n.toFixed(0)}`;
+  };
+
+  // TradingView Symbol URL & Breadcrumb helpers
+  // Follows TradingView hierarchy: Markets -> Country -> Asset Class -> Sector -> Industry -> Symbol
+  // e.g. https://in.tradingview.com/symbols/NSE-RELIANCE/
+  const getTradingViewUrl = (item: Instrument) => {
+    const exchange = item.exchange || 'NSE';
+    const isIndia = item.country === 'IN' || ['NSE', 'BSE'].includes(exchange);
+    const domain = isIndia ? 'https://in.tradingview.com' : 'https://www.tradingview.com';
+    return `${domain}/symbols/${exchange}-${encodeURIComponent(item.symbol)}/`;
+  };
+
+  const getTradingViewBreadcrumbs = (item: Instrument) => {
+    const isIndia = item.country === 'IN' || ['NSE', 'BSE'].includes(item.exchange);
+    const countryName = item.country === 'IN' ? 'India' : item.country === 'US' ? 'United States' : item.country === 'JP' ? 'Japan' : item.country === 'UK' ? 'UK' : 'Global';
+    const assetLabel = item.assetType === 'index' ? 'Indices' : item.assetType === 'mf' ? 'Mutual Funds' : item.assetType === 'ipo' ? 'IPOs' : 'Stocks';
+    
+    // TradingView exact sector/industry mappings for key symbols
+    let sector = item.sector || 'Energy Minerals';
+    let industry = item.industry || 'Oil Refining/Marketing';
+    
+    if (item.symbol === 'RELIANCE') {
+      sector = 'Energy Minerals';
+      industry = 'Oil Refining/Marketing';
+    } else if (item.symbol === 'TCS' || item.symbol === 'INFY' || item.symbol === 'WIPRO') {
+      sector = 'Technology Services';
+      industry = 'Information Technology Services';
+    } else if (item.symbol === 'HDFCBANK' || item.symbol === 'ICICIBANK' || item.symbol === 'SBIN') {
+      sector = 'Finance';
+      industry = 'Major Banks';
+    } else if (item.symbol === 'TATAMOTORS' || item.symbol === 'MARUTI') {
+      sector = 'Consumer Durables';
+      industry = 'Motor Vehicles';
+    }
+
+    return [
+      { label: 'Markets', href: '/index.html' },
+      { label: countryName, href: `/index.html?market=${item.country}` },
+      { label: assetLabel, href: `/instrument.html?category=${item.assetType || 'stocks'}` },
+      { label: sector, href: '#' },
+      { label: industry, href: '#' },
+      { label: item.symbol, href: getTradingViewUrl(item), isCurrent: true, isExternal: true },
+    ];
   };
 
   // Determine tabs based on Asset Type
@@ -305,14 +416,32 @@ export const InstrumentApp: React.FC = () => {
       {inst && (
         <section className="inst-hero-header">
           <div className="inst-hero-left">
+            {/* TradingView Hierarchical Breadcrumb Route */}
             <div className="inst-hero-breadcrumbs">
-              <a href="/index.html">Honba</a>
-              <span>/</span>
-              <span>{inst.exchange}</span>
-              <span>/</span>
-              <span style={{ textTransform: 'capitalize' }}>{inst.assetType || 'Equity'}</span>
-              <span>/</span>
-              <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{inst.symbol}</span>
+              {getTradingViewBreadcrumbs(inst).map((crumb, idx, arr) => (
+                <React.Fragment key={crumb.label}>
+                  {idx > 0 && <span className="inst-breadcrumb-sep">›</span>}
+                  {crumb.isCurrent ? (
+                    <a
+                      href={crumb.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inst-breadcrumb-active"
+                      title={`View ${crumb.label} on TradingView`}
+                    >
+                      <span>{crumb.label}</span>
+                      <ExternalLink size={10} style={{ marginLeft: 3, opacity: 0.7 }} />
+                    </a>
+                  ) : (
+                    <a
+                      href={crumb.href}
+                      className="inst-breadcrumb-link"
+                    >
+                      {crumb.label}
+                    </a>
+                  )}
+                </React.Fragment>
+              ))}
             </div>
 
             <div className="inst-hero-title-row">
@@ -406,6 +535,20 @@ export const InstrumentApp: React.FC = () => {
           {/* Action Buttons */}
           <div className="inst-hero-actions">
             <a
+              href={getTradingViewUrl(inst)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inst-action-btn inst-btn-tv"
+              title={`Open ${inst.symbol} on TradingView in a new window (${getTradingViewUrl(inst)})`}
+            >
+              <svg width="13" height="13" viewBox="0 0 36 28" fill="currentColor">
+                <path d="M14 22H7V6h7v16zm8-22h-6v28h6V0zm14 11h-7v17h7V11z"/>
+              </svg>
+              <span>TradingView</span>
+              <ExternalLink size={11} />
+            </a>
+
+            <a
               href={`/workbench.html?symbol=${encodeURIComponent(inst.symbol)}`}
               className="inst-action-btn inst-btn-primary"
               title="Open full interactive charting in WorkBench"
@@ -481,65 +624,107 @@ export const InstrumentApp: React.FC = () => {
         <section className="inst-chart-wrapper">
           <div className="inst-chart-controls">
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span style={{ fontSize: 13, fontWeight: 600 }}>Interactive Price Chart</span>
+              {/* Chart Engine Switcher: Honba Chart vs TradingView Chart */}
+              <div className="inst-view-mode-toggle">
+                <button
+                  className={`inst-vm-btn ${chartViewMode === 'honba' ? 'active' : ''}`}
+                  onClick={() => setChartViewMode('honba')}
+                >
+                  Honba Native
+                </button>
+                <button
+                  className={`inst-vm-btn ${chartViewMode === 'tradingview' ? 'active' : ''}`}
+                  onClick={() => setChartViewMode('tradingview')}
+                  title="Switch to official TradingView interactive chart"
+                >
+                  TradingView
+                </button>
+              </div>
+
+              {chartViewMode === 'honba' && (
+                <div className="inst-timeframe-selector">
+                  {(['candle', 'line'] as const).map((t) => (
+                    <button
+                      key={t}
+                      className={`inst-tf-btn ${chartType === t ? 'active' : ''}`}
+                      onClick={() => setChartType(t)}
+                    >
+                      {t === 'candle' ? 'Candles' : 'Line'}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {chartViewMode === 'honba' ? (
               <div className="inst-timeframe-selector">
-                {(['candle', 'line'] as const).map((t) => (
+                {['1D', '5D', '1M', '6M', '1Y', '5Y'].map((tf) => (
                   <button
-                    key={t}
-                    className={`inst-tf-btn ${chartType === t ? 'active' : ''}`}
-                    onClick={() => setChartType(t)}
+                    key={tf}
+                    className={`inst-tf-btn ${timeframe === tf ? 'active' : ''}`}
+                    onClick={() => setTimeframe(tf)}
                   >
-                    {t === 'candle' ? 'Candles' : 'Line'}
+                    {tf}
                   </button>
                 ))}
               </div>
-            </div>
-
-            <div className="inst-timeframe-selector">
-              {['1D', '5D', '1M', '6M', '1Y', '5Y'].map((tf) => (
-                <button
-                  key={tf}
-                  className={`inst-tf-btn ${timeframe === tf ? 'active' : ''}`}
-                  onClick={() => setTimeframe(tf)}
-                >
-                  {tf}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Interactive SVG Chart */}
-          <div
-            style={{
-              position: 'relative',
-              width: '100%',
-              height: 340,
-              background: 'var(--bg-app)',
-              borderRadius: 'var(--radius-sm)',
-              overflow: 'hidden',
-            }}
-          >
-            {candles.length > 0 ? (
-              <InteractiveSvgChart
-                candles={candles}
-                chartType={chartType}
-                hoverCandle={hoverCandle}
-                setHoverCandle={setHoverCandle}
-              />
             ) : (
-              <div
-                style={{
-                  height: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'var(--text-muted)',
-                }}
-              >
-                No historical candle data available
-              </div>
+              inst && (
+                <a
+                  href={getTradingViewUrl(inst)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inst-tv-external-link"
+                >
+                  <span>Open in TradingView</span>
+                  <ExternalLink size={12} />
+                </a>
+              )
             )}
           </div>
+
+          {/* Chart Display Area: Either Native Honba SVG or TradingView Widget */}
+          {chartViewMode === 'tradingview' && inst ? (
+            <div className="inst-tv-widget-box">
+              <TradingViewChartWidget
+                symbol={inst.symbol}
+                exchange={inst.exchange || 'NSE'}
+                isDark={true}
+              />
+            </div>
+          ) : (
+            <div
+              style={{
+                position: 'relative',
+                width: '100%',
+                height: 340,
+                background: 'var(--bg-app)',
+                borderRadius: 'var(--radius-sm)',
+                overflow: 'hidden',
+              }}
+            >
+              {candles.length > 0 ? (
+                <InteractiveSvgChart
+                  candles={candles}
+                  chartType={chartType}
+                  hoverCandle={hoverCandle}
+                  setHoverCandle={setHoverCandle}
+                />
+              ) : (
+                <div
+                  style={{
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--text-muted)',
+                  }}
+                >
+                  No historical candle data available
+                </div>
+              )}
+            </div>
+          )}
         </section>
 
         {/* Asset-Specific Deep-Dive Content */}

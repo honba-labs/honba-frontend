@@ -46,6 +46,7 @@
 
   --font-family-sans: -apple-system, BlinkMacSystemFont, 'Trebuchet MS', Roboto, Ubuntu, sans-serif;
   --font-family-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-family-serif: 'Newsreader', Georgia, Cambria, 'Times New Roman', serif;
 
   --header-height: 48px;
   --filter-bar-height: 42px;
@@ -183,6 +184,46 @@
   --bearish: #fb7185;
 }
 
+/* Arbkit Proof-Ledger Theme (Warm Paper & Ink) */
+[data-theme='arbkit-ledger'] {
+  --bg-app: #f3efe5;
+  --bg-surface: #eae4d3;
+  --bg-surface-elevated: #ffffff;
+  --bg-surface-hover: #e2dbca;
+  --bg-surface-active: #d7d0bf;
+
+  --border-subtle: #d7d0c0;
+  --border-medium: #c2baa8;
+  --border-strong: #aaa291;
+  --border-focus: #315a78;
+  --border-table-row: rgba(0, 0, 0, 0.05);
+
+  --text-primary: #171814;
+  --text-secondary: #5d5b52;
+  --text-muted: #807c70;
+  --text-disabled: #aaa291;
+
+  --accent-primary: #315a78;
+  --accent-primary-hover: #26465e;
+  --accent-subtle: rgba(49, 90, 120, 0.12);
+  --accent-gold: #9a4d2f;
+  --accent-gold-subtle: rgba(154, 77, 47, 0.12);
+
+  --bullish: #2f6d43;
+  --bullish-hover: #255836;
+  --bullish-subtle: #dbe7d9;
+  --bullish-flash: rgba(47, 109, 67, 0.35);
+
+  --bearish: #9a4d2f;
+  --bearish-hover: #7d3e25;
+  --bearish-subtle: rgba(154, 77, 47, 0.14);
+  --bearish-flash: rgba(154, 77, 47, 0.35);
+
+  --shadow-sm: 0 1px 2px 0 rgba(23, 24, 20, 0.06);
+  --shadow-md: 0 4px 12px 0 rgba(23, 24, 20, 0.08);
+  --shadow-lg: 0 12px 28px -4px rgba(23, 24, 20, 0.12);
+}
+
 /* Typography presets */
 [data-typography='honba-sans'] {
   --font-family-sans: -apple-system, BlinkMacSystemFont, 'Trebuchet MS', Roboto, Ubuntu, sans-serif;
@@ -202,4 +243,11 @@
 [data-typography='system-pro'] {
   --font-family-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-family-mono: 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace;
+}
+
+/* Arbkit Proof-Ledger Typography Preset */
+[data-typography='arbkit-ledger'] {
+  --font-family-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-family-mono: 'IBM Plex Mono', 'JetBrains Mono', monospace;
+  --font-family-serif: 'Newsreader', Georgia, serif;
 }

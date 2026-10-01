@@ -8,13 +8,15 @@ export type ColorPalette =
   | 'honba-dark'
   | 'honba-light'
   | 'tokyo-midnight'
-  | 'kyoto-mist';
+  | 'kyoto-mist'
+  | 'arbkit-ledger';
 
 export type TypographyPreset =
   | 'honba-sans'
   | 'inter-mono'
   | 'jakarta-fira'
-  | 'system-pro';
+  | 'system-pro'
+  | 'arbkit-ledger';
 export type LayoutPreset = 'default' | 'full-table' | 'compact-matrix';
 
 export interface ThemeConfig {

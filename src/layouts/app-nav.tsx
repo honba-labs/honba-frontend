@@ -108,7 +108,7 @@ export const AppNav: React.FC<AppNavProps> = ({ currentAppId = 'screener' }) => 
           {activeMenu === 'apps' && (
             <div className="honba-dropdown-menu" id="app-switcher-menu" style={{ display: 'block' }}>
               <div className="app-menu-header">Honba Trading Platform Suite</div>
-              {HONBA_APPS.map((app) => (
+              {HONBA_APPS.filter((app) => app.id !== 'instrument').map((app) => (
                 <a
                   key={app.id}
                   href={app.url}
@@ -116,9 +116,7 @@ export const AppNav: React.FC<AppNavProps> = ({ currentAppId = 'screener' }) => 
                 >
                   <div className="app-menu-icon">{getAppIcon(app.icon)}</div>
                   <div className="app-menu-info">
-                    <div className="app-menu-title">
-                      {app.name}
-                    </div>
+                    <div className="app-menu-title">{app.name}</div>
                     <div className="app-menu-desc">{app.tagline}</div>
                   </div>
                 </a>
@@ -234,6 +232,13 @@ export const AppNav: React.FC<AppNavProps> = ({ currentAppId = 'screener' }) => 
                 <span>Kyoto Mist (Indigo)</span>
                 <span style={{ width: 12, height: 12, borderRadius: '50%', background: '#60a5fa', display: 'inline-block' }} />
               </div>
+              <div
+                className={`market-item ${themeConfig.palette === 'arbkit-ledger' ? 'active' : ''}`}
+                onClick={() => handlePaletteChange('arbkit-ledger')}
+              >
+                <span>Arbkit Paper &amp; Ink</span>
+                <span style={{ width: 12, height: 12, borderRadius: '50%', background: '#f3efe5', border: '1px solid #aaa291', display: 'inline-block' }} />
+              </div>
 
               <div className="app-menu-header" style={{ marginTop: 6 }}>Typography Stack</div>
               <div
@@ -253,6 +258,12 @@ export const AppNav: React.FC<AppNavProps> = ({ currentAppId = 'screener' }) => 
                 onClick={() => handleTypographyChange('jakarta-fira')}
               >
                 <span>Plus Jakarta + Fira Code</span>
+              </div>
+              <div
+                className={`market-item ${themeConfig.typography === 'arbkit-ledger' ? 'active' : ''}`}
+                onClick={() => handleTypographyChange('arbkit-ledger')}
+              >
+                <span>Arbkit Ledger (Newsreader + IBM Plex)</span>
               </div>
             </div>
           )}
