@@ -9,6 +9,10 @@ import '../styles/screener.css';
 import { themeEngine } from '../core/theme-engine';
 import { useScreenerStore } from '../core/store/use-screener-store';
 import { Instrument } from '../core/market-data';
+
+if (typeof window !== 'undefined') {
+  (window as any).__screenerStore = useScreenerStore;
+}
 import { AppShell } from '../layouts/app-shell';
 import { DockableWorkspace } from '../layouts/dockable-workspace';
 import { FilterBar } from '../components/features/screener/filter-bar';
@@ -16,6 +20,7 @@ import { ScreenerTable } from '../components/features/screener/screener-table';
 import { SymbolDetailDrawer } from '../components/features/screener/symbol-detail-drawer';
 import { ColumnModal } from '../components/features/screener/column-modal';
 import { FiltersModal } from '../components/features/screener/filters-modal';
+import { OpenScreenModal } from '../components/features/screener/open-screen-modal';
 
 import { useLayoutStore } from '../layouts/use-layout-store';
 import { ScreenerHeatmap } from '../components/features/screener/screener-heatmap';
@@ -27,10 +32,38 @@ export const ScreenerApp: React.FC = () => {
   const quickPreset = useScreenerStore((state) => state.quickPreset);
   const advanced = useScreenerStore((state) => state.advancedFilters);
   const viewMode = useLayoutStore((state) => state.viewMode);
+  const setOpenScreenModalOpen = useScreenerStore((state) => state.setOpenScreenModalOpen);
 
   useEffect(() => {
     themeEngine.applyToDOM();
-  }, []);
+
+    // Hotkey listener: '.' opens "Open screen…", 'Shift+N' creates new custom screen
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input / textarea / contenteditable
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      if (e.key === '.' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        setOpenScreenModalOpen(true);
+      } else if (e.key === 'N' && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        const screenName = prompt('Enter a name for the new screen:');
+        if (screenName && screenName.trim()) {
+          useScreenerStore.getState().saveCurrentAsNewScreen(screenName.trim());
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [setOpenScreenModalOpen]);
 
   // Filter instruments
   const filteredInstruments = useMemo(() => {
@@ -101,6 +134,23 @@ export const ScreenerApp: React.FC = () => {
       if (advanced.priceAbove200Sma && inst.price <= inst.sma200) return false;
       if (advanced.near52WeekHigh && inst.price < inst.high52 * 0.95) return false;
 
+      // 4. ETF Specific Filters
+      if (advanced.focus && advanced.focus !== 'all' && inst.focus !== advanced.focus) return false;
+      if (advanced.brand && advanced.brand !== 'all' && !inst.name.toLowerCase().includes(advanced.brand.toLowerCase())) return false;
+      if (advanced.maxExpenseRatio !== null && advanced.maxExpenseRatio !== undefined && inst.expenseRatio !== undefined && inst.expenseRatio > advanced.maxExpenseRatio) return false;
+
+      // 5. Bond Specific Filters
+      if (advanced.issuerType && advanced.issuerType !== 'all' && inst.issuerType !== advanced.issuerType) return false;
+      if (advanced.creditRating && advanced.creditRating !== 'all' && inst.creditRating !== advanced.creditRating) return false;
+      if (advanced.minYtw !== null && advanced.minYtw !== undefined && inst.ytw !== undefined && inst.ytw < advanced.minYtw) return false;
+
+      // 6. Mutual Fund Specific Filters
+      if (advanced.mfCategory && advanced.mfCategory !== 'all' && inst.mfCategory !== advanced.mfCategory && inst.sector !== advanced.mfCategory) return false;
+      if (advanced.mfSchemeType && advanced.mfSchemeType !== 'all' && inst.schemeType !== advanced.mfSchemeType) return false;
+      if (advanced.minSharpeRatio !== null && advanced.minSharpeRatio !== undefined && inst.sharpeRatio !== undefined && inst.sharpeRatio < advanced.minSharpeRatio) return false;
+      if (advanced.minCagr3y !== null && advanced.minCagr3y !== undefined && inst.cagr3y !== undefined && inst.cagr3y < advanced.minCagr3y) return false;
+      if (advanced.minCagr5y !== null && advanced.minCagr5y !== undefined && inst.cagr5y !== undefined && inst.cagr5y < advanced.minCagr5y) return false;
+
       return true;
     });
   }, [instruments, searchQuery, quickPreset, advanced]);
@@ -155,6 +205,7 @@ export const ScreenerApp: React.FC = () => {
       {/* Modals */}
       <ColumnModal />
       <FiltersModal />
+      <OpenScreenModal />
     </AppShell>
   );
 };
@@ -162,6 +213,9 @@ export const ScreenerApp: React.FC = () => {
 // Mount to DOM
 const container = document.getElementById('root');
 if (container) {
+  if (typeof window !== 'undefined') {
+    (window as any).__screenerStore = useScreenerStore;
+  }
   const root = createRoot(container);
   root.render(<ScreenerApp />);
 }

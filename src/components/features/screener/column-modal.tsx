@@ -69,13 +69,13 @@ export const ColumnModal: React.FC = () => {
             borderBottom: '1px solid var(--border-subtle)',
           }}
         >
-          {['all', 'overview', 'valuation', 'technicals', 'performance', 'fundamentals'].map((cat) => (
+          {['all', 'overview', 'performance', 'valuation', 'technicals', 'fundamentals', 'funds', 'bonds'].map((cat) => (
             <button
               key={cat}
               className={`view-tab-btn ${selectedCategory === cat ? 'active' : ''}`}
               onClick={() => setSelectedCategory(cat)}
             >
-              {cat.charAt(0).toUpperCase() + cat.slice(1)} {cat === 'all' ? `(${localColumns.length})` : ''}
+              {cat === 'mf' || cat === 'funds' ? 'Funds & ETFs' : cat.charAt(0).toUpperCase() + cat.slice(1)} {cat === 'all' ? `(${localColumns.length})` : ''}
             </button>
           ))}
         </div>

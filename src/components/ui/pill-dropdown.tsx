@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 export interface PillDropdownProps {
   isOpen: boolean;
   onClose: () => void;
-  triggerRef: React.RefObject<HTMLElement | null>;
+  triggerRef?: React.RefObject<HTMLElement | null>;
   children: React.ReactNode;
   width?: number | string;
   maxHeight?: number | string;
@@ -28,7 +28,7 @@ export const PillDropdown: React.FC<PillDropdownProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const updatePosition = useCallback(() => {
-    if (!triggerRef.current) return;
+    if (!triggerRef?.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
     if (rect.width === 0 && rect.height === 0) return;
 
@@ -64,25 +64,28 @@ export const PillDropdown: React.FC<PillDropdownProps> = ({
       return;
     }
 
-    updatePosition();
+    if (triggerRef?.current) {
+      updatePosition();
+    }
 
     const handleOutsideClick = (e: MouseEvent) => {
       const target = e.target as Node;
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(target) &&
-        triggerRef.current &&
-        !triggerRef.current.contains(target)
-      ) {
-        onClose();
+      if (dropdownRef.current && dropdownRef.current.contains(target)) {
+        return;
       }
+      if (triggerRef?.current && triggerRef.current.contains(target)) {
+        return;
+      }
+      onClose();
     };
 
     const handleScrollOrResize = (e: Event) => {
       if (dropdownRef.current && dropdownRef.current.contains(e.target as Node)) {
         return;
       }
-      updatePosition();
+      if (triggerRef?.current) {
+        updatePosition();
+      }
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -104,25 +107,50 @@ export const PillDropdown: React.FC<PillDropdownProps> = ({
     };
   }, [isOpen, updatePosition, onClose, triggerRef]);
 
-  if (!isOpen || !coords) return null;
+  if (!isOpen) return null;
 
-  return createPortal(
+  // If floating portal with calculated trigger coordinates
+  if (triggerRef?.current && coords) {
+    return createPortal(
+      <div
+        ref={dropdownRef}
+        className={`tv-pill-dropdown ${className}`}
+        style={{
+          position: 'fixed',
+          top: coords.top,
+          left: coords.left,
+          width,
+          maxHeight,
+          zIndex: 9999,
+          ...style,
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {children}
+      </div>,
+      document.body
+    );
+  }
+
+  // Fallback: render anchored relatively to parent container
+  return (
     <div
       ref={dropdownRef}
       className={`tv-pill-dropdown ${className}`}
       style={{
-        position: 'fixed',
-        top: coords.top,
-        left: coords.left,
+        position: 'absolute',
+        top: '100%',
+        left: align === 'right' ? 'auto' : 0,
+        right: align === 'right' ? 0 : 'auto',
+        marginTop: 4,
         width,
         maxHeight,
-        zIndex: 9999,
+        zIndex: 1000,
         ...style,
       }}
       onClick={(e) => e.stopPropagation()}
     >
       {children}
-    </div>,
-    document.body
+    </div>
   );
 };

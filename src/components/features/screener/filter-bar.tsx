@@ -123,7 +123,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      if (target?.closest?.('.tv-pill-dropdown')) {
+      if (target?.closest?.('.tv-pill-dropdown') || target?.closest?.('.tv-screener-type-btn') || target?.closest?.('.tv-screen-title-btn')) {
         return;
       }
       if (containerRef.current && !containerRef.current.contains(target)) {
@@ -140,7 +140,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   const currentScreenerObj = SCREENER_TYPES.find((s) => s.id === screenerType) || SCREENER_TYPES[0];
   const currentScreenTitle = activeScreenTitle || currentScreenerObj.defaultPresetTitle;
 
-  const toggleDropdown = (id: string) => {
+  const toggleDropdown = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     setActiveDropdown((prev) => (prev === id ? null : id));
   };
 
@@ -185,7 +186,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             <button
               ref={screenerTypeBtnRef}
               className={`tv-screener-type-btn ${activeDropdown === 'screenerType' ? 'active' : ''}`}
-              onClick={() => toggleDropdown('screenerType')}
+              onClick={(e) => toggleDropdown('screenerType', e)}
               title="Select Screener Instrument"
             >
               <span>{currentScreenerObj.name}</span>
@@ -277,11 +278,49 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                 <div
                   className="tv-pill-option"
                   onClick={() => {
+                    const name = prompt('Name for copy of current screen:', `${currentScreenTitle} (Copy)`);
+                    if (name && name.trim()) {
+                      useScreenerStore.getState().saveCurrentAsNewScreen(name.trim());
+                    }
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span>Make a copy…</span>
+                </div>
+                <div
+                  className="tv-pill-option"
+                  onClick={() => {
                     onExportCSV();
                     setActiveDropdown(null);
                   }}
                 >
                   <span>Download results as CSV</span>
+                </div>
+
+                <div className="tv-pill-divider" />
+
+                <div
+                  className="tv-pill-option"
+                  onClick={() => {
+                    setActiveDropdown(null);
+                    const name = prompt('Enter a name for your new screen:');
+                    if (name && name.trim()) {
+                      useScreenerStore.getState().saveCurrentAsNewScreen(name.trim());
+                    }
+                  }}
+                >
+                  <span>Create new screen…</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted, #787b86)', fontFamily: 'monospace' }}>Shift + N</span>
+                </div>
+                <div
+                  className="tv-pill-option"
+                  onClick={() => {
+                    setActiveDropdown(null);
+                    useScreenerStore.getState().setOpenScreenModalOpen(true);
+                  }}
+                >
+                  <span>Open screen…</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted, #787b86)', fontFamily: 'monospace' }}>.</span>
                 </div>
               </div>
 
@@ -441,375 +480,780 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           </PillDropdown>
         </div>
 
-        {/* Index Pill (Honba Index Drawer) */}
-        <div className="tv-filter-pill-wrapper">
-          <button
-            ref={indexBtnRef}
-            className={`tv-filter-pill ${advanced.indices && advanced.indices.length > 0 ? 'active' : ''}`}
-            onClick={() => toggleDropdown('index')}
-          >
-            <span>
-              {advanced.indices && advanced.indices.length === 1
-                ? `Index: ${getIndicesForMarket(currentMarket).find((i) => i.code === advanced.indices[0])?.name || advanced.indices[0]}`
-                : advanced.indices && advanced.indices.length > 1
-                ? `Index: ${advanced.indices.length} selected`
-                : 'Index: All'}
-            </span>
-            <ChevronDown size={11} style={{ opacity: 0.6 }} />
-          </button>
-          <IndexDrawer
-            isOpen={activeDropdown === 'index'}
-            onClose={() => setActiveDropdown(null)}
-            triggerRef={indexBtnRef}
-            selectedIndices={advanced.indices || []}
-            onSelectIndices={(indices) => setAdvanced({ indices })}
-            country={currentMarket}
-          />
-        </div>
-
-        {/* Price Pill */}
-        <div className="tv-filter-pill-wrapper">
-          <button
-            ref={priceBtnRef}
-            className={`tv-filter-pill ${advanced.minPrice !== null || advanced.maxPrice !== null ? 'active' : ''}`}
-            onClick={() => toggleDropdown('price')}
-          >
-            <span>
-              Price
-              {advanced.minPrice !== null || advanced.maxPrice !== null ? ` (${advanced.minPrice || 0}-${advanced.maxPrice || '∞'})` : ''}
-            </span>
-            <ChevronDown size={11} style={{ opacity: 0.6 }} />
-          </button>
-          <PillDropdown
-            isOpen={activeDropdown === 'price'}
-            onClose={() => setActiveDropdown(null)}
-            triggerRef={priceBtnRef}
-            width={200}
-          >
-            <div
-              className="tv-pill-option"
-              onClick={() => {
-                setAdvanced({ minPrice: null, maxPrice: null });
-                setActiveDropdown(null);
-              }}
-            >
-              <span>Any Price</span>
-            </div>
-            <div
-              className="tv-pill-option"
-              onClick={() => {
-                setAdvanced({ minPrice: null, maxPrice: 100 });
-                setActiveDropdown(null);
-              }}
-            >
-              <span>Under ₹100</span>
-            </div>
-            <div
-              className="tv-pill-option"
-              onClick={() => {
-                setAdvanced({ minPrice: 100, maxPrice: 500 });
-                setActiveDropdown(null);
-              }}
-            >
-              <span>₹100 – ₹500</span>
-            </div>
-            <div
-              className="tv-pill-option"
-              onClick={() => {
-                setAdvanced({ minPrice: 500, maxPrice: 2000 });
-                setActiveDropdown(null);
-              }}
-            >
-              <span>₹500 – ₹2,000</span>
-            </div>
-            <div
-              className="tv-pill-option"
-              onClick={() => {
-                setAdvanced({ minPrice: 2000, maxPrice: null });
-                setActiveDropdown(null);
-              }}
-            >
-              <span>Over ₹2,000</span>
-            </div>
-          </PillDropdown>
-        </div>
-
-        {/* Chg % Pill */}
-        <div className="tv-filter-pill-wrapper">
-          <button
-            ref={chgBtnRef}
-            className={`tv-filter-pill ${quickPreset === 'gainers' || quickPreset === 'losers' ? 'active' : ''}`}
-            onClick={() => toggleDropdown('chg')}
-          >
-            <span>Chg %</span>
-            <ChevronDown size={11} style={{ opacity: 0.6 }} />
-          </button>
-          <PillDropdown
-            isOpen={activeDropdown === 'chg'}
-            onClose={() => setActiveDropdown(null)}
-            triggerRef={chgBtnRef}
-            width={180}
-          >
-            <div
-              className="tv-pill-option"
-              onClick={() => {
-                setQuickPreset('all');
-                setActiveDropdown(null);
-              }}
-            >
-              <span>All Changes</span>
-            </div>
-            <div
-              className="tv-pill-option"
-              onClick={() => {
-                setQuickPreset('gainers');
-                setActiveDropdown(null);
-              }}
-            >
-              <span style={{ color: '#089981', fontWeight: 600 }}>▲ Gainers (&gt; 0%)</span>
-            </div>
-            <div
-              className="tv-pill-option"
-              onClick={() => {
-                setQuickPreset('losers');
-                setActiveDropdown(null);
-              }}
-            >
-              <span style={{ color: '#f23645', fontWeight: 600 }}>▼ Losers (&lt; 0%)</span>
-            </div>
-          </PillDropdown>
-        </div>
-
-        {/* Mkt cap Pill */}
-        <div className="tv-filter-pill-wrapper">
-          <button
-            ref={mktCapBtnRef}
-            className={`tv-filter-pill ${advanced.marketCapTier !== 'all' ? 'active' : ''}`}
-            onClick={() => toggleDropdown('mktCap')}
-          >
-            <span>Mkt cap: {advanced.marketCapTier === 'all' ? 'All' : advanced.marketCapTier}</span>
-            <ChevronDown size={11} style={{ opacity: 0.6 }} />
-          </button>
-          <PillDropdown
-            isOpen={activeDropdown === 'mktCap'}
-            onClose={() => setActiveDropdown(null)}
-            triggerRef={mktCapBtnRef}
-            width={220}
-          >
-            {[
-              { id: 'all', label: 'All Market Caps' },
-              { id: 'mega', label: 'Mega Cap (> ₹2T)' },
-              { id: 'large', label: 'Large Cap (> ₹500B)' },
-              { id: 'mid', label: 'Mid Cap (₹100B–₹500B)' },
-              { id: 'small', label: 'Small Cap (< ₹100B)' },
-            ].map((tier) => (
-              <div
-                key={tier.id}
-                className={`tv-pill-option ${advanced.marketCapTier === tier.id ? 'selected' : ''}`}
-                onClick={() => {
-                  setAdvanced({ marketCapTier: tier.id as any });
-                  setActiveDropdown(null);
-                }}
+        {/* ===================== STOCKS SPECIFIC PILLS ===================== */}
+        {screenerType === 'stocks' && (
+          <>
+            {/* Index Pill (Honba Index Drawer) */}
+            <div className="tv-filter-pill-wrapper">
+              <button
+                ref={indexBtnRef}
+                className={`tv-filter-pill ${advanced.indices && advanced.indices.length > 0 ? 'active' : ''}`}
+                onClick={() => toggleDropdown('index')}
               >
-                <span>{tier.label}</span>
-                {advanced.marketCapTier === tier.id && <Check size={13} />}
-              </div>
-            ))}
-          </PillDropdown>
-        </div>
+                <span>
+                  {advanced.indices && advanced.indices.length === 1
+                    ? `Index: ${getIndicesForMarket(currentMarket).find((i) => i.code === advanced.indices[0])?.name || advanced.indices[0]}`
+                    : advanced.indices && advanced.indices.length > 1
+                    ? `Index: ${advanced.indices.length} selected`
+                    : 'Index: All'}
+                </span>
+                <ChevronDown size={11} style={{ opacity: 0.6 }} />
+              </button>
+              <IndexDrawer
+                isOpen={activeDropdown === 'index'}
+                onClose={() => setActiveDropdown(null)}
+                triggerRef={indexBtnRef}
+                selectedIndices={advanced.indices || []}
+                onSelectIndices={(indices) => setAdvanced({ indices })}
+                country={currentMarket}
+              />
+            </div>
 
-        {/* P/E Pill */}
-        <div className="tv-filter-pill-wrapper">
-          <button
-            ref={peBtnRef}
-            className={`tv-filter-pill ${advanced.peMin !== null || advanced.peMax !== null ? 'active' : ''}`}
-            onClick={() => toggleDropdown('pe')}
-          >
-            <span>P/E</span>
-            <ChevronDown size={11} style={{ opacity: 0.6 }} />
-          </button>
-          <PillDropdown
-            isOpen={activeDropdown === 'pe'}
-            onClose={() => setActiveDropdown(null)}
-            triggerRef={peBtnRef}
-            width={190}
-          >
-            <div
-              className="tv-pill-option"
-              onClick={() => {
-                setAdvanced({ peMin: null, peMax: null });
-                setActiveDropdown(null);
-              }}
-            >
-              <span>Any P/E</span>
-            </div>
-            <div
-              className="tv-pill-option"
-              onClick={() => {
-                setAdvanced({ peMin: 0, peMax: 15 });
-                setActiveDropdown(null);
-              }}
-            >
-              <span>Value (&lt; 15)</span>
-            </div>
-            <div
-              className="tv-pill-option"
-              onClick={() => {
-                setAdvanced({ peMin: 15, peMax: 25 });
-                setActiveDropdown(null);
-              }}
-            >
-              <span>Reasonable (15 – 25)</span>
-            </div>
-            <div
-              className="tv-pill-option"
-              onClick={() => {
-                setAdvanced({ peMin: 25, peMax: 50 });
-                setActiveDropdown(null);
-              }}
-            >
-              <span>Growth (25 – 50)</span>
-            </div>
-          </PillDropdown>
-        </div>
-
-        {/* Div yield % Pill */}
-        <div className="tv-filter-pill-wrapper">
-          <button
-            ref={dividendBtnRef}
-            className={`tv-filter-pill ${advanced.minDividendYield !== null ? 'active' : ''}`}
-            onClick={() => toggleDropdown('dividend')}
-          >
-            <span>Div yield %</span>
-            <ChevronDown size={11} style={{ opacity: 0.6 }} />
-          </button>
-          <PillDropdown
-            isOpen={activeDropdown === 'dividend'}
-            onClose={() => setActiveDropdown(null)}
-            triggerRef={dividendBtnRef}
-            width={190}
-          >
-            <div
-              className="tv-pill-option"
-              onClick={() => {
-                setAdvanced({ minDividendYield: null });
-                setActiveDropdown(null);
-              }}
-            >
-              <span>Any Yield</span>
-            </div>
-            <div
-              className="tv-pill-option"
-              onClick={() => {
-                setAdvanced({ minDividendYield: 1.0 });
-                setActiveDropdown(null);
-              }}
-            >
-              <span>Over 1%</span>
-            </div>
-            <div
-              className="tv-pill-option"
-              onClick={() => {
-                setAdvanced({ minDividendYield: 2.0 });
-                setActiveDropdown(null);
-              }}
-            >
-              <span>Over 2%</span>
-            </div>
-            <div
-              className="tv-pill-option"
-              onClick={() => {
-                setAdvanced({ minDividendYield: 4.0 });
-                setActiveDropdown(null);
-              }}
-            >
-              <span>High Yield (&gt; 4%)</span>
-            </div>
-          </PillDropdown>
-        </div>
-
-        {/* Sector Pill */}
-        <div className="tv-filter-pill-wrapper">
-          <button
-            ref={sectorBtnRef}
-            className={`tv-filter-pill ${advanced.sector !== 'all' ? 'active' : ''}`}
-            onClick={() => toggleDropdown('sector')}
-          >
-            <span>Sector: {advanced.sector === 'all' ? 'All' : advanced.sector}</span>
-            <ChevronDown size={11} style={{ opacity: 0.6 }} />
-          </button>
-          <PillDropdown
-            isOpen={activeDropdown === 'sector'}
-            onClose={() => setActiveDropdown(null)}
-            triggerRef={sectorBtnRef}
-            width={220}
-            maxHeight={320}
-          >
-            {[
-              'all',
-              'Financials',
-              'Technology',
-              'Energy',
-              'Healthcare',
-              'Automobile',
-              'Consumer Goods',
-              'Materials',
-              'Telecom',
-              'Industrials',
-            ].map((sec) => (
-              <div
-                key={sec}
-                className={`tv-pill-option ${advanced.sector === sec ? 'selected' : ''}`}
-                onClick={() => {
-                  setAdvanced({ sector: sec });
-                  setActiveDropdown(null);
-                }}
+            {/* Price Pill */}
+            <div className="tv-filter-pill-wrapper">
+              <button
+                ref={priceBtnRef}
+                className={`tv-filter-pill ${advanced.minPrice !== null || advanced.maxPrice !== null ? 'active' : ''}`}
+                onClick={() => toggleDropdown('price')}
               >
-                <span>{sec === 'all' ? 'All Sectors' : sec}</span>
-                {advanced.sector === sec && <Check size={13} />}
-              </div>
-            ))}
-          </PillDropdown>
-        </div>
-
-        {/* Analyst Rating Pill */}
-        <div className="tv-filter-pill-wrapper">
-          <button
-            ref={ratingBtnRef}
-            className={`tv-filter-pill ${advanced.technicalRating !== 'all' ? 'active' : ''}`}
-            onClick={() => toggleDropdown('rating')}
-          >
-            <span>Analyst rating: {advanced.technicalRating === 'all' ? 'All' : advanced.technicalRating}</span>
-            <ChevronDown size={11} style={{ opacity: 0.6 }} />
-          </button>
-          <PillDropdown
-            isOpen={activeDropdown === 'rating'}
-            onClose={() => setActiveDropdown(null)}
-            triggerRef={ratingBtnRef}
-            width={200}
-          >
-            {[
-              { id: 'all', label: 'All Ratings' },
-              { id: 'Strong Buy', label: 'Strong Buy', color: '#089981', bold: true },
-              { id: 'Buy', label: 'Buy', color: '#089981' },
-              { id: 'Neutral', label: 'Neutral', color: 'var(--text-secondary)' },
-              { id: 'Sell', label: 'Sell', color: '#f23645' },
-              { id: 'Strong Sell', label: 'Strong Sell', color: '#f23645', bold: true },
-            ].map((r) => (
-              <div
-                key={r.id}
-                className={`tv-pill-option ${advanced.technicalRating === r.id ? 'selected' : ''}`}
-                onClick={() => {
-                  setAdvanced({ technicalRating: r.id as any });
-                  setActiveDropdown(null);
-                }}
+                <span>
+                  Price
+                  {advanced.minPrice !== null || advanced.maxPrice !== null ? ` (${advanced.minPrice || 0}-${advanced.maxPrice || '∞'})` : ''}
+                </span>
+                <ChevronDown size={11} style={{ opacity: 0.6 }} />
+              </button>
+              <PillDropdown
+                isOpen={activeDropdown === 'price'}
+                onClose={() => setActiveDropdown(null)}
+                triggerRef={priceBtnRef}
+                width={200}
               >
-                <span style={{ color: r.color, fontWeight: r.bold ? 700 : r.id !== 'all' ? 500 : 400 }}>{r.label}</span>
-                {advanced.technicalRating === r.id && <Check size={13} />}
-              </div>
-            ))}
-          </PillDropdown>
-        </div>
+                <div
+                  className="tv-pill-option"
+                  onClick={() => {
+                    setAdvanced({ minPrice: null, maxPrice: null });
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span>Any Price</span>
+                </div>
+                <div
+                  className="tv-pill-option"
+                  onClick={() => {
+                    setAdvanced({ minPrice: null, maxPrice: 100 });
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span>Under ₹100</span>
+                </div>
+                <div
+                  className="tv-pill-option"
+                  onClick={() => {
+                    setAdvanced({ minPrice: 100, maxPrice: 500 });
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span>₹100 – ₹500</span>
+                </div>
+                <div
+                  className="tv-pill-option"
+                  onClick={() => {
+                    setAdvanced({ minPrice: 500, maxPrice: 2000 });
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span>₹500 – ₹2,000</span>
+                </div>
+                <div
+                  className="tv-pill-option"
+                  onClick={() => {
+                    setAdvanced({ minPrice: 2000, maxPrice: null });
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span>Over ₹2,000</span>
+                </div>
+              </PillDropdown>
+            </div>
+
+            {/* Chg % Pill */}
+            <div className="tv-filter-pill-wrapper">
+              <button
+                ref={chgBtnRef}
+                className={`tv-filter-pill ${quickPreset === 'gainers' || quickPreset === 'losers' ? 'active' : ''}`}
+                onClick={() => toggleDropdown('chg')}
+              >
+                <span>Chg %</span>
+                <ChevronDown size={11} style={{ opacity: 0.6 }} />
+              </button>
+              <PillDropdown
+                isOpen={activeDropdown === 'chg'}
+                onClose={() => setActiveDropdown(null)}
+                triggerRef={chgBtnRef}
+                width={180}
+              >
+                <div
+                  className="tv-pill-option"
+                  onClick={() => {
+                    setQuickPreset('all');
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span>All Changes</span>
+                </div>
+                <div
+                  className="tv-pill-option"
+                  onClick={() => {
+                    setQuickPreset('gainers');
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span style={{ color: '#089981', fontWeight: 600 }}>▲ Gainers (&gt; 0%)</span>
+                </div>
+                <div
+                  className="tv-pill-option"
+                  onClick={() => {
+                    setQuickPreset('losers');
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span style={{ color: '#f23645', fontWeight: 600 }}>▼ Losers (&lt; 0%)</span>
+                </div>
+              </PillDropdown>
+            </div>
+
+            {/* Mkt cap Pill */}
+            <div className="tv-filter-pill-wrapper">
+              <button
+                ref={mktCapBtnRef}
+                className={`tv-filter-pill ${advanced.marketCapTier !== 'all' ? 'active' : ''}`}
+                onClick={() => toggleDropdown('mktCap')}
+              >
+                <span>Mkt cap: {advanced.marketCapTier === 'all' ? 'All' : advanced.marketCapTier}</span>
+                <ChevronDown size={11} style={{ opacity: 0.6 }} />
+              </button>
+              <PillDropdown
+                isOpen={activeDropdown === 'mktCap'}
+                onClose={() => setActiveDropdown(null)}
+                triggerRef={mktCapBtnRef}
+                width={220}
+              >
+                {[
+                  { id: 'all', label: 'All Market Caps' },
+                  { id: 'mega', label: 'Mega Cap (> ₹2T)' },
+                  { id: 'large', label: 'Large Cap (> ₹500B)' },
+                  { id: 'mid', label: 'Mid Cap (₹100B–₹500B)' },
+                  { id: 'small', label: 'Small Cap (< ₹100B)' },
+                ].map((tier) => (
+                  <div
+                    key={tier.id}
+                    className={`tv-pill-option ${advanced.marketCapTier === tier.id ? 'selected' : ''}`}
+                    onClick={() => {
+                      setAdvanced({ marketCapTier: tier.id as any });
+                      setActiveDropdown(null);
+                    }}
+                  >
+                    <span>{tier.label}</span>
+                    {advanced.marketCapTier === tier.id && <Check size={13} />}
+                  </div>
+                ))}
+              </PillDropdown>
+            </div>
+
+            {/* P/E Pill */}
+            <div className="tv-filter-pill-wrapper">
+              <button
+                ref={peBtnRef}
+                className={`tv-filter-pill ${advanced.peMin !== null || advanced.peMax !== null ? 'active' : ''}`}
+                onClick={() => toggleDropdown('pe')}
+              >
+                <span>P/E</span>
+                <ChevronDown size={11} style={{ opacity: 0.6 }} />
+              </button>
+              <PillDropdown
+                isOpen={activeDropdown === 'pe'}
+                onClose={() => setActiveDropdown(null)}
+                triggerRef={peBtnRef}
+                width={190}
+              >
+                <div
+                  className="tv-pill-option"
+                  onClick={() => {
+                    setAdvanced({ peMin: null, peMax: null });
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span>Any P/E</span>
+                </div>
+                <div
+                  className="tv-pill-option"
+                  onClick={() => {
+                    setAdvanced({ peMin: 0, peMax: 15 });
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span>Value (&lt; 15)</span>
+                </div>
+                <div
+                  className="tv-pill-option"
+                  onClick={() => {
+                    setAdvanced({ peMin: 15, peMax: 25 });
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span>Reasonable (15 – 25)</span>
+                </div>
+                <div
+                  className="tv-pill-option"
+                  onClick={() => {
+                    setAdvanced({ peMin: 25, peMax: 50 });
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span>Growth (25 – 50)</span>
+                </div>
+              </PillDropdown>
+            </div>
+
+            {/* Div yield % Pill */}
+            <div className="tv-filter-pill-wrapper">
+              <button
+                ref={dividendBtnRef}
+                className={`tv-filter-pill ${advanced.minDividendYield !== null ? 'active' : ''}`}
+                onClick={() => toggleDropdown('dividend')}
+              >
+                <span>Div yield %</span>
+                <ChevronDown size={11} style={{ opacity: 0.6 }} />
+              </button>
+              <PillDropdown
+                isOpen={activeDropdown === 'dividend'}
+                onClose={() => setActiveDropdown(null)}
+                triggerRef={dividendBtnRef}
+                width={190}
+              >
+                <div
+                  className="tv-pill-option"
+                  onClick={() => {
+                    setAdvanced({ minDividendYield: null });
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span>Any Yield</span>
+                </div>
+                <div
+                  className="tv-pill-option"
+                  onClick={() => {
+                    setAdvanced({ minDividendYield: 1.0 });
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span>Over 1%</span>
+                </div>
+                <div
+                  className="tv-pill-option"
+                  onClick={() => {
+                    setAdvanced({ minDividendYield: 2.0 });
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span>Over 2%</span>
+                </div>
+                <div
+                  className="tv-pill-option"
+                  onClick={() => {
+                    setAdvanced({ minDividendYield: 4.0 });
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span>High Yield (&gt; 4%)</span>
+                </div>
+              </PillDropdown>
+            </div>
+
+            {/* Sector Pill */}
+            <div className="tv-filter-pill-wrapper">
+              <button
+                ref={sectorBtnRef}
+                className={`tv-filter-pill ${advanced.sector !== 'all' ? 'active' : ''}`}
+                onClick={() => toggleDropdown('sector')}
+              >
+                <span>Sector: {advanced.sector === 'all' ? 'All' : advanced.sector}</span>
+                <ChevronDown size={11} style={{ opacity: 0.6 }} />
+              </button>
+              <PillDropdown
+                isOpen={activeDropdown === 'sector'}
+                onClose={() => setActiveDropdown(null)}
+                triggerRef={sectorBtnRef}
+                width={220}
+                maxHeight={320}
+              >
+                {[
+                  'all',
+                  'Financials',
+                  'Technology',
+                  'Energy',
+                  'Healthcare',
+                  'Automobile',
+                  'Consumer Goods',
+                  'Materials',
+                  'Telecom',
+                  'Industrials',
+                ].map((sec) => (
+                  <div
+                    key={sec}
+                    className={`tv-pill-option ${advanced.sector === sec ? 'selected' : ''}`}
+                    onClick={() => {
+                      setAdvanced({ sector: sec });
+                      setActiveDropdown(null);
+                    }}
+                  >
+                    <span>{sec === 'all' ? 'All Sectors' : sec}</span>
+                    {advanced.sector === sec && <Check size={13} />}
+                  </div>
+                ))}
+              </PillDropdown>
+            </div>
+
+            {/* Analyst Rating Pill */}
+            <div className="tv-filter-pill-wrapper">
+              <button
+                ref={ratingBtnRef}
+                className={`tv-filter-pill ${advanced.technicalRating !== 'all' ? 'active' : ''}`}
+                onClick={() => toggleDropdown('rating')}
+              >
+                <span>Analyst rating: {advanced.technicalRating === 'all' ? 'All' : advanced.technicalRating}</span>
+                <ChevronDown size={11} style={{ opacity: 0.6 }} />
+              </button>
+              <PillDropdown
+                isOpen={activeDropdown === 'rating'}
+                onClose={() => setActiveDropdown(null)}
+                triggerRef={ratingBtnRef}
+                width={200}
+              >
+                {[
+                  { id: 'all', label: 'All Ratings' },
+                  { id: 'Strong Buy', label: 'Strong Buy', color: '#089981', bold: true },
+                  { id: 'Buy', label: 'Buy', color: '#089981' },
+                  { id: 'Neutral', label: 'Neutral', color: 'var(--text-secondary)' },
+                  { id: 'Sell', label: 'Sell', color: '#f23645' },
+                  { id: 'Strong Sell', label: 'Strong Sell', color: '#f23645', bold: true },
+                ].map((r) => (
+                  <div
+                    key={r.id}
+                    className={`tv-pill-option ${advanced.technicalRating === r.id ? 'selected' : ''}`}
+                    onClick={() => {
+                      setAdvanced({ technicalRating: r.id as any });
+                      setActiveDropdown(null);
+                    }}
+                  >
+                    <span style={{ color: r.color, fontWeight: r.bold ? 700 : r.id !== 'all' ? 500 : 400 }}>{r.label}</span>
+                    {advanced.technicalRating === r.id && <Check size={13} />}
+                  </div>
+                ))}
+              </PillDropdown>
+            </div>
+          </>
+        )}
+
+        {/* ===================== ETF SPECIFIC PILLS ===================== */}
+        {screenerType === 'etf' && (
+          <>
+            {/* Focus Pill */}
+            <div className="tv-filter-pill-wrapper">
+              <button
+                className={`tv-filter-pill ${advanced.focus && advanced.focus !== 'all' ? 'active' : ''}`}
+                onClick={() => toggleDropdown('etf_focus')}
+              >
+                <span>Focus: {advanced.focus === 'all' || !advanced.focus ? 'All' : advanced.focus}</span>
+                <ChevronDown size={11} style={{ opacity: 0.6 }} />
+              </button>
+              <PillDropdown
+                isOpen={activeDropdown === 'etf_focus'}
+                onClose={() => setActiveDropdown(null)}
+                width={200}
+              >
+                {['all', 'Broad Market', 'Large Cap', 'Technology', 'Gold & Metals', 'PSU & Div'].map((f) => (
+                  <div
+                    key={f}
+                    className={`tv-pill-option ${advanced.focus === f ? 'selected' : ''}`}
+                    onClick={() => {
+                      setAdvanced({ focus: f });
+                      setActiveDropdown(null);
+                    }}
+                  >
+                    <span>{f === 'all' ? 'All Focuses' : f}</span>
+                    {advanced.focus === f && <Check size={13} />}
+                  </div>
+                ))}
+              </PillDropdown>
+            </div>
+
+            {/* Expense Ratio Pill */}
+            <div className="tv-filter-pill-wrapper">
+              <button
+                className={`tv-filter-pill ${advanced.maxExpenseRatio !== null && advanced.maxExpenseRatio !== undefined ? 'active' : ''}`}
+                onClick={() => toggleDropdown('etf_expense')}
+              >
+                <span>Expense: {advanced.maxExpenseRatio ? `≤ ${advanced.maxExpenseRatio}%` : 'All'}</span>
+                <ChevronDown size={11} style={{ opacity: 0.6 }} />
+              </button>
+              <PillDropdown
+                isOpen={activeDropdown === 'etf_expense'}
+                onClose={() => setActiveDropdown(null)}
+                width={190}
+              >
+                {[
+                  { label: 'Any Expense Ratio', val: null },
+                  { label: '≤ 0.15% (Ultra-Low)', val: 0.15 },
+                  { label: '≤ 0.30% (Standard)', val: 0.30 },
+                  { label: '≤ 0.50%', val: 0.50 },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className={`tv-pill-option ${advanced.maxExpenseRatio === item.val ? 'selected' : ''}`}
+                    onClick={() => {
+                      setAdvanced({ maxExpenseRatio: item.val });
+                      setActiveDropdown(null);
+                    }}
+                  >
+                    <span>{item.label}</span>
+                    {advanced.maxExpenseRatio === item.val && <Check size={13} />}
+                  </div>
+                ))}
+              </PillDropdown>
+            </div>
+
+            {/* Brand / AMC Pill */}
+            <div className="tv-filter-pill-wrapper">
+              <button
+                className={`tv-filter-pill ${advanced.brand && advanced.brand !== 'all' ? 'active' : ''}`}
+                onClick={() => toggleDropdown('etf_brand')}
+              >
+                <span>Brand: {advanced.brand === 'all' || !advanced.brand ? 'All' : advanced.brand}</span>
+                <ChevronDown size={11} style={{ opacity: 0.6 }} />
+              </button>
+              <PillDropdown
+                isOpen={activeDropdown === 'etf_brand'}
+                onClose={() => setActiveDropdown(null)}
+                width={180}
+              >
+                {['all', 'Nippon', 'HDFC', 'SBI', 'ICICI', 'Vanguard', 'iShares'].map((b) => (
+                  <div
+                    key={b}
+                    className={`tv-pill-option ${advanced.brand === b ? 'selected' : ''}`}
+                    onClick={() => {
+                      setAdvanced({ brand: b });
+                      setActiveDropdown(null);
+                    }}
+                  >
+                    <span>{b === 'all' ? 'All Brands' : b}</span>
+                    {advanced.brand === b && <Check size={13} />}
+                  </div>
+                ))}
+              </PillDropdown>
+            </div>
+          </>
+        )}
+
+        {/* ===================== BOND SPECIFIC PILLS ===================== */}
+        {screenerType === 'bonds' && (
+          <>
+            {/* Issuer Type Pill */}
+            <div className="tv-filter-pill-wrapper">
+              <button
+                className={`tv-filter-pill ${advanced.issuerType && advanced.issuerType !== 'all' ? 'active' : ''}`}
+                onClick={() => toggleDropdown('bond_issuer_type')}
+              >
+                <span>Issuer: {advanced.issuerType === 'all' || !advanced.issuerType ? 'All' : advanced.issuerType}</span>
+                <ChevronDown size={11} style={{ opacity: 0.6 }} />
+              </button>
+              <PillDropdown
+                isOpen={activeDropdown === 'bond_issuer_type'}
+                onClose={() => setActiveDropdown(null)}
+                width={200}
+              >
+                {['all', 'Sovereign', 'Corporate PSU', 'Corporate Private'].map((t) => (
+                  <div
+                    key={t}
+                    className={`tv-pill-option ${advanced.issuerType === t ? 'selected' : ''}`}
+                    onClick={() => {
+                      setAdvanced({ issuerType: t });
+                      setActiveDropdown(null);
+                    }}
+                  >
+                    <span>{t === 'all' ? 'All Issuer Types' : t}</span>
+                    {advanced.issuerType === t && <Check size={13} />}
+                  </div>
+                ))}
+              </PillDropdown>
+            </div>
+
+            {/* Credit Rating Pill */}
+            <div className="tv-filter-pill-wrapper">
+              <button
+                className={`tv-filter-pill ${advanced.creditRating && advanced.creditRating !== 'all' ? 'active' : ''}`}
+                onClick={() => toggleDropdown('bond_rating')}
+              >
+                <span>Rating: {advanced.creditRating === 'all' || !advanced.creditRating ? 'All' : advanced.creditRating}</span>
+                <ChevronDown size={11} style={{ opacity: 0.6 }} />
+              </button>
+              <PillDropdown
+                isOpen={activeDropdown === 'bond_rating'}
+                onClose={() => setActiveDropdown(null)}
+                width={180}
+              >
+                {['all', 'SOV', 'AAA', 'AA+', 'AA'].map((r) => (
+                  <div
+                    key={r}
+                    className={`tv-pill-option ${advanced.creditRating === r ? 'selected' : ''}`}
+                    onClick={() => {
+                      setAdvanced({ creditRating: r });
+                      setActiveDropdown(null);
+                    }}
+                  >
+                    <span>{r === 'all' ? 'All Ratings' : r}</span>
+                    {advanced.creditRating === r && <Check size={13} />}
+                  </div>
+                ))}
+              </PillDropdown>
+            </div>
+
+            {/* YTW % Pill */}
+            <div className="tv-filter-pill-wrapper">
+              <button
+                className={`tv-filter-pill ${advanced.minYtw !== null && advanced.minYtw !== undefined ? 'active' : ''}`}
+                onClick={() => toggleDropdown('bond_ytw')}
+              >
+                <span>YTW: {advanced.minYtw ? `≥ ${advanced.minYtw}%` : 'All'}</span>
+                <ChevronDown size={11} style={{ opacity: 0.6 }} />
+              </button>
+              <PillDropdown
+                isOpen={activeDropdown === 'bond_ytw'}
+                onClose={() => setActiveDropdown(null)}
+                width={190}
+              >
+                {[
+                  { label: 'Any Yield to Worst', val: null },
+                  { label: '≥ 7.0% Yield', val: 7.0 },
+                  { label: '≥ 7.3% Yield', val: 7.3 },
+                  { label: '≥ 7.5% Yield', val: 7.5 },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className={`tv-pill-option ${advanced.minYtw === item.val ? 'selected' : ''}`}
+                    onClick={() => {
+                      setAdvanced({ minYtw: item.val });
+                      setActiveDropdown(null);
+                    }}
+                  >
+                    <span>{item.label}</span>
+                    {advanced.minYtw === item.val && <Check size={13} />}
+                  </div>
+                ))}
+              </PillDropdown>
+            </div>
+          </>
+        )}
+
+        {/* ===================== MUTUAL FUND (MF) SPECIFIC PILLS ===================== */}
+        {screenerType === 'mf' && (
+          <>
+            {/* Scheme Type Pill */}
+            <div className="tv-filter-pill-wrapper">
+              <button
+                className={`tv-filter-pill ${advanced.mfSchemeType && advanced.mfSchemeType !== 'all' ? 'active' : ''}`}
+                onClick={() => toggleDropdown('mf_type')}
+              >
+                <span>Type: {advanced.mfSchemeType === 'all' || !advanced.mfSchemeType ? 'All' : advanced.mfSchemeType}</span>
+                <ChevronDown size={11} style={{ opacity: 0.6 }} />
+              </button>
+              <PillDropdown
+                isOpen={activeDropdown === 'mf_type'}
+                onClose={() => setActiveDropdown(null)}
+                width={190}
+              >
+                {['all', 'Growth', 'Liquid', 'Debt', 'Hybrid', 'ELSS'].map((t) => (
+                  <div
+                    key={t}
+                    className={`tv-pill-option ${advanced.mfSchemeType === t ? 'selected' : ''}`}
+                    onClick={() => {
+                      setAdvanced({ mfSchemeType: t });
+                      setActiveDropdown(null);
+                    }}
+                  >
+                    <span>{t === 'all' ? 'All Types' : t}</span>
+                    {advanced.mfSchemeType === t && <Check size={13} />}
+                  </div>
+                ))}
+              </PillDropdown>
+            </div>
+
+            {/* Category Pill */}
+            <div className="tv-filter-pill-wrapper">
+              <button
+                className={`tv-filter-pill ${advanced.mfCategory && advanced.mfCategory !== 'all' ? 'active' : ''}`}
+                onClick={() => toggleDropdown('mf_category')}
+              >
+                <span>Category: {advanced.mfCategory === 'all' || !advanced.mfCategory ? 'All' : advanced.mfCategory}</span>
+                <ChevronDown size={11} style={{ opacity: 0.6 }} />
+              </button>
+              <PillDropdown
+                isOpen={activeDropdown === 'mf_category'}
+                onClose={() => setActiveDropdown(null)}
+                width={220}
+              >
+                {['all', 'Equity: Large Cap', 'Equity: Mid Cap', 'Equity: Small Cap', 'Equity: Flexi Cap'].map((c) => (
+                  <div
+                    key={c}
+                    className={`tv-pill-option ${advanced.mfCategory === c ? 'selected' : ''}`}
+                    onClick={() => {
+                      setAdvanced({ mfCategory: c });
+                      setActiveDropdown(null);
+                    }}
+                  >
+                    <span>{c === 'all' ? 'All Categories' : c}</span>
+                    {advanced.mfCategory === c && <Check size={13} />}
+                  </div>
+                ))}
+              </PillDropdown>
+            </div>
+
+            {/* AMC / Fund House Pill */}
+            <div className="tv-filter-pill-wrapper">
+              <button
+                className={`tv-filter-pill ${advanced.brand && advanced.brand !== 'all' ? 'active' : ''}`}
+                onClick={() => toggleDropdown('mf_amc')}
+              >
+                <span>AMC: {advanced.brand === 'all' || !advanced.brand ? 'All' : advanced.brand}</span>
+                <ChevronDown size={11} style={{ opacity: 0.6 }} />
+              </button>
+              <PillDropdown
+                isOpen={activeDropdown === 'mf_amc'}
+                onClose={() => setActiveDropdown(null)}
+                width={200}
+              >
+                {['all', 'PPFAS', 'HDFC', 'Nippon', 'Mirae Asset', 'SBI', 'ICICI'].map((a) => (
+                  <div
+                    key={a}
+                    className={`tv-pill-option ${advanced.brand === a ? 'selected' : ''}`}
+                    onClick={() => {
+                      setAdvanced({ brand: a });
+                      setActiveDropdown(null);
+                    }}
+                  >
+                    <span>{a === 'all' ? 'All AMCs' : a}</span>
+                    {advanced.brand === a && <Check size={13} />}
+                  </div>
+                ))}
+              </PillDropdown>
+            </div>
+
+            {/* Expense Ratio (Base + Total) Pill */}
+            <div className="tv-filter-pill-wrapper">
+              <button
+                className={`tv-filter-pill ${advanced.maxExpenseRatio !== null && advanced.maxExpenseRatio !== undefined ? 'active' : ''}`}
+                onClick={() => toggleDropdown('mf_expense')}
+              >
+                <span>Exp Ratio (Base+Total): {advanced.maxExpenseRatio ? `≤ ${advanced.maxExpenseRatio}%` : 'All'}</span>
+                <ChevronDown size={11} style={{ opacity: 0.6 }} />
+              </button>
+              <PillDropdown
+                isOpen={activeDropdown === 'mf_expense'}
+                onClose={() => setActiveDropdown(null)}
+                width={220}
+              >
+                {[
+                  { label: 'Any Expense Ratio', val: null },
+                  { label: '≤ 0.50% (Cat Low)', val: 0.50 },
+                  { label: '≤ 0.70% (Direct Plan)', val: 0.70 },
+                  { label: '≤ 1.00%', val: 1.00 },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className={`tv-pill-option ${advanced.maxExpenseRatio === item.val ? 'selected' : ''}`}
+                    onClick={() => {
+                      setAdvanced({ maxExpenseRatio: item.val });
+                      setActiveDropdown(null);
+                    }}
+                  >
+                    <span>{item.label}</span>
+                    {advanced.maxExpenseRatio === item.val && <Check size={13} />}
+                  </div>
+                ))}
+              </PillDropdown>
+            </div>
+
+            {/* Sharpe Ratio Pill */}
+            <div className="tv-filter-pill-wrapper">
+              <button
+                className={`tv-filter-pill ${advanced.minSharpeRatio !== null && advanced.minSharpeRatio !== undefined ? 'active' : ''}`}
+                onClick={() => toggleDropdown('mf_sharpe')}
+              >
+                <span>Sharpe: {advanced.minSharpeRatio ? `≥ ${advanced.minSharpeRatio}` : 'All'}</span>
+                <ChevronDown size={11} style={{ opacity: 0.6 }} />
+              </button>
+              <PillDropdown
+                isOpen={activeDropdown === 'mf_sharpe'}
+                onClose={() => setActiveDropdown(null)}
+                width={200}
+              >
+                {[
+                  { label: 'Any Sharpe Ratio', val: null },
+                  { label: '≥ 1.0 (Above Avg)', val: 1.0 },
+                  { label: '≥ 1.3 (High Alpha)', val: 1.3 },
+                  { label: '≥ 1.5 (Top Decile)', val: 1.5 },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className={`tv-pill-option ${advanced.minSharpeRatio === item.val ? 'selected' : ''}`}
+                    onClick={() => {
+                      setAdvanced({ minSharpeRatio: item.val });
+                      setActiveDropdown(null);
+                    }}
+                  >
+                    <span>{item.label}</span>
+                    {advanced.minSharpeRatio === item.val && <Check size={13} />}
+                  </div>
+                ))}
+              </PillDropdown>
+            </div>
+
+            {/* 3Y Return % Pill */}
+            <div className="tv-filter-pill-wrapper">
+              <button
+                className={`tv-filter-pill ${advanced.minCagr3y !== null && advanced.minCagr3y !== undefined ? 'active' : ''}`}
+                onClick={() => toggleDropdown('mf_cagr3y')}
+              >
+                <span>3Y CAGR: {advanced.minCagr3y ? `≥ ${advanced.minCagr3y}%` : 'All'}</span>
+                <ChevronDown size={11} style={{ opacity: 0.6 }} />
+              </button>
+              <PillDropdown
+                isOpen={activeDropdown === 'mf_cagr3y'}
+                onClose={() => setActiveDropdown(null)}
+                width={200}
+              >
+                {[
+                  { label: 'Any 3Y Return', val: null },
+                  { label: '≥ 15% CAGR', val: 15 },
+                  { label: '≥ 20% CAGR', val: 20 },
+                  { label: '≥ 25% CAGR', val: 25 },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className={`tv-pill-option ${advanced.minCagr3y === item.val ? 'selected' : ''}`}
+                    onClick={() => {
+                      setAdvanced({ minCagr3y: item.val });
+                      setActiveDropdown(null);
+                    }}
+                  >
+                    <span>{item.label}</span>
+                    {advanced.minCagr3y === item.val && <Check size={13} />}
+                  </div>
+                ))}
+              </PillDropdown>
+            </div>
+          </>
+        )}
 
         {/* Add Filter (+) Button */}
         <button
@@ -964,9 +1408,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             </button>
           </div>
 
-          {/* View Category Tabs */}
+          {/* View Category Tabs (Dynamic based on selected asset class) */}
           <div className="tv-tabs-group">
-            {HONBA_TABS.map((tab) => (
+            {(SCREENER_CONFIG[screenerType]?.tabs || HONBA_TABS).map((tab) => (
               <button
                 key={tab.id}
                 className={`tv-category-tab ${activeTab === tab.id ? 'active' : ''}`}

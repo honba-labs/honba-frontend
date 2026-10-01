@@ -103,6 +103,33 @@ export interface Instrument {
   sparkline: number[];
   history: CandleData[];
   description: string;
+
+  // ETF & Mutual Fund & Bond domain fields
+  aum?: number;
+  expenseRatio?: number;
+  baseExpenseRatio?: number;
+  totalExpenseRatio?: number;
+  catTotalExpenseRatio?: number;
+  sharpeRatio?: number;
+  catSharpeRatio?: number;
+  cagr3y?: number;
+  cagr5y?: number;
+  nav?: number;
+  navReturn?: number;
+  focus?: string;
+  brand?: string;
+  schemeType?: string; // Growth, Liquid, Debt, Hybrid
+  mfCategory?: string;
+  riskometer?: string;
+
+  // Bond fields
+  ytw?: number;
+  coupon?: number;
+  couponType?: string;
+  couponFreq?: string;
+  maturityDate?: string;
+  issuerType?: string;
+  creditRating?: string;
 }
 
 // Generate realistic synthetic OHLCV candles
@@ -2053,7 +2080,49 @@ export const INSTRUMENTS_DATABASE: Instrument[] = [
   }
 ];
 
-// Initialize sparklines
+// Initialize sparklines and multi-asset domain defaults
 INSTRUMENTS_DATABASE.forEach((item) => {
   item.sparkline = generateSparkline(item.history);
+
+  // If ETF
+  if (item.assetType === 'etf') {
+    item.aum = item.aum || item.marketCap;
+    item.expenseRatio = item.expenseRatio || (item.symbol.includes('GOLD') ? 0.45 : item.symbol.includes('SILVER') ? 0.48 : 0.12);
+    item.totalExpenseRatio = item.totalExpenseRatio || item.expenseRatio;
+    item.catTotalExpenseRatio = item.catTotalExpenseRatio || 0.22;
+    item.sharpeRatio = item.sharpeRatio || Number((1.2 + (item.perf1Y > 20 ? 0.6 : 0)).toFixed(2));
+    item.catSharpeRatio = item.catSharpeRatio || 0.85;
+    item.cagr3y = item.cagr3y || Number((item.perf1Y * 0.75).toFixed(2));
+    item.cagr5y = item.cagr5y || Number((item.perf1Y * 0.68).toFixed(2));
+    item.focus = item.focus || (item.sector.includes('Commodities') ? 'Gold & Metals' : 'Broad Market');
+    item.brand = item.brand || (item.name.includes('Nippon') ? 'Nippon India' : 'HDFC AMC');
+  }
+
+  // If Mutual Fund
+  if (item.assetType === 'mf') {
+    item.aum = item.aum || item.marketCap;
+    item.baseExpenseRatio = item.baseExpenseRatio || 0.52;
+    item.totalExpenseRatio = item.totalExpenseRatio || (item.symbol.includes('PPFAS') ? 0.63 : 0.69);
+    item.expenseRatio = item.expenseRatio || item.totalExpenseRatio;
+    item.catTotalExpenseRatio = item.catTotalExpenseRatio || 0.53;
+    item.sharpeRatio = item.sharpeRatio || Number((1.35 + (item.perf1Y > 30 ? 0.5 : 0)).toFixed(2));
+    item.catSharpeRatio = item.catSharpeRatio || -0.89;
+    item.cagr3y = item.cagr3y || Number((item.perf1Y * 0.78).toFixed(2));
+    item.cagr5y = item.cagr5y || Number((item.perf1Y * 0.71).toFixed(2));
+    item.schemeType = item.schemeType || 'Growth';
+    item.mfCategory = item.mfCategory || item.sector;
+    item.brand = item.brand || (item.name.includes('Parag') ? 'PPFAS' : item.name.includes('HDFC') ? 'HDFC' : item.name.includes('Nippon') ? 'Nippon' : item.name.includes('Mirae') ? 'Mirae Asset' : 'SBI');
+    item.riskometer = item.riskometer || 'Very High';
+  }
+
+  // If Bond
+  if (item.assetType === 'bonds') {
+    item.ytw = item.ytw || (item.eps > 0 ? item.eps : 7.18);
+    item.coupon = item.coupon || (item.eps > 0 ? item.eps : 7.15);
+    item.couponType = item.couponType || 'Fixed';
+    item.couponFreq = item.couponFreq || 'Semi-Annual';
+    item.maturityDate = item.maturityDate || '2034-06-15';
+    item.issuerType = item.issuerType || (item.sector.includes('Government') ? 'Sovereign' : 'Corporate PSU');
+    item.creditRating = item.creditRating || (item.sector.includes('Government') ? 'SOV' : 'AAA');
+  }
 });

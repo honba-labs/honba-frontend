@@ -7,10 +7,12 @@
 import { create } from 'zustand';
 import { Instrument, CountryCode } from '../market-data';
 import { dataLayer } from '../data-layer';
-import { ALL_COLUMNS, ColumnDef, TAB_COLUMN_PRESETS } from '../columns';
+import { ALL_COLUMNS, ColumnDef, TAB_COLUMN_PRESETS, getPresetForScreenerTab } from '../columns';
 import { AdvancedFilterState, DEFAULT_ADVANCED_FILTERS } from '../filters';
 import { ScreenerType, SCREENER_CONFIG } from '../filter-config';
 import { ScreenDefinition, BUILTIN_SCREENS } from '../screen-definitions';
+
+import { userPreferencesService } from '../user-preferences';
 
 const CUSTOM_SCREENS_STORAGE_KEY = 'honba_custom_screens_v1';
 
@@ -82,35 +84,16 @@ export interface ScreenerState {
   refreshFromDataLayer: () => void;
 }
 
-const getStoredColumns = (): ColumnDef[] => {
-  const columnMap = new Map(ALL_COLUMNS.map((c) => [c.id, c]));
-  try {
-    const raw = localStorage.getItem('honba_screener_columns_v4') || localStorage.getItem('honba_screener_columns_v3');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        const merged: ColumnDef[] = [];
-        for (const item of parsed) {
-          const base = columnMap.get(item.id);
-          if (base) {
-            merged.push({
-              ...base,
-              visible: typeof item.visible === 'boolean' ? item.visible : base.visible,
-            });
-          }
-        }
-        // Include any new columns from ALL_COLUMNS
-        const seen = new Set(merged.map((c) => c.id));
-        for (const col of ALL_COLUMNS) {
-          if (!seen.has(col.id)) {
-            merged.push(col);
-          }
-        }
-        if (merged.length > 0) return merged;
-      }
-    }
-  } catch {}
-  return [...ALL_COLUMNS];
+const getColumnsForAssetAndTab = (screenerType: ScreenerType, tabId: string): ColumnDef[] => {
+  const userPref = userPreferencesService.getScreenerPreference(screenerType);
+  const visiblePreset = userPref?.visibleColumns?.length
+    ? userPref.visibleColumns
+    : getPresetForScreenerTab(screenerType, tabId);
+
+  return ALL_COLUMNS.map((c) => ({
+    ...c,
+    visible: visiblePreset.includes(c.id),
+  }));
 };
 
 const getStoredCustomScreens = (): ScreenDefinition[] => {
@@ -125,9 +108,13 @@ const getStoredCustomScreens = (): ScreenDefinition[] => {
 };
 
 export const useScreenerStore = create<ScreenerState>((set, get) => {
+  const userPrefs = userPreferencesService.getPreferences();
+  const initialScreenerType = userPrefs.activeScreenerType || 'stocks';
   const initialDataLayerState = dataLayer.getState();
-  const initialInstruments = dataLayer.getInstruments(initialDataLayerState.currentMarket, 'stocks');
-  const initialConfig = SCREENER_CONFIG.stocks;
+  const initialInstruments = dataLayer.getInstruments(initialDataLayerState.currentMarket, initialScreenerType);
+  const initialConfig = SCREENER_CONFIG[initialScreenerType] || SCREENER_CONFIG.stocks;
+  const initialAssetPref = userPreferencesService.getScreenerPreference(initialScreenerType);
+  const initialTab = initialAssetPref?.activeTab || initialConfig.tabs[0]?.id || 'overview';
 
   return {
     currentMarket: initialDataLayerState.currentMarket,
@@ -137,20 +124,20 @@ export const useScreenerStore = create<ScreenerState>((set, get) => {
     searchQuery: initialDataLayerState.searchQuery || '',
     isLive: dataLayer.isLiveSimulationActive(),
 
-    screenerType: 'stocks',
-    activeScreenTitle: initialConfig.defaultTitle, // "All stocks"
-    activeScreenId: 'stock_all',
+    screenerType: initialScreenerType,
+    activeScreenTitle: initialConfig.defaultTitle,
+    activeScreenId: `${initialScreenerType}_all`,
     autosave: true,
-    activeTab: 'overview',
+    activeTab: initialTab,
     quickPreset: 'all',
     advancedFilters: { ...DEFAULT_ADVANCED_FILTERS },
 
     customScreens: getStoredCustomScreens(),
     isOpenScreenModalOpen: false,
 
-    columns: getStoredColumns(),
-    sortField: 'marketCap',
-    sortOrder: 'desc',
+    columns: getColumnsForAssetAndTab(initialScreenerType, initialTab),
+    sortField: initialAssetPref?.sortField || initialConfig.defaultSort.field,
+    sortOrder: (initialAssetPref?.sortOrder as 'asc' | 'desc') || initialConfig.defaultSort.direction,
     currentPage: 1,
     pageSize: 100,
 
@@ -160,11 +147,23 @@ export const useScreenerStore = create<ScreenerState>((set, get) => {
     isColumnModalOpen: false,
 
     setScreenerType: (type: ScreenerType) => {
+      userPreferencesService.updateActiveScreenerType(type);
       const config = SCREENER_CONFIG[type] || SCREENER_CONFIG.stocks;
       const currentMarket = get().currentMarket;
       const instruments = dataLayer.getInstruments(currentMarket, type);
       const active = instruments[0]?.symbol || '';
       if (active) dataLayer.setActiveSymbol(active);
+
+      const userPref = userPreferencesService.getScreenerPreference(type);
+      const initialTab = userPref?.activeTab || config.tabs[0]?.id || 'overview';
+      const visiblePreset = userPref?.visibleColumns?.length
+        ? userPref.visibleColumns
+        : getPresetForScreenerTab(type, initialTab);
+
+      const updatedColumns = ALL_COLUMNS.map((c) => ({
+        ...c,
+        visible: visiblePreset.includes(c.id),
+      }));
 
       // Reset filters and active title to the default for this asset class
       set({
@@ -173,11 +172,12 @@ export const useScreenerStore = create<ScreenerState>((set, get) => {
         activeScreenId: `${type}_all`,
         instruments,
         activeSymbol: active,
-        activeTab: config.tabs[0]?.id || 'overview',
+        activeTab: initialTab,
+        columns: updatedColumns,
         quickPreset: 'all',
         advancedFilters: { ...DEFAULT_ADVANCED_FILTERS },
-        sortField: config.defaultSort.field,
-        sortOrder: config.defaultSort.direction,
+        sortField: userPref?.sortField || config.defaultSort.field,
+        sortOrder: (userPref?.sortOrder as 'asc' | 'desc') || config.defaultSort.direction,
         currentPage: 1,
       });
     },
@@ -222,15 +222,21 @@ export const useScreenerStore = create<ScreenerState>((set, get) => {
     },
 
     setActiveTab: (activeTab: string) => {
-      const preset = TAB_COLUMN_PRESETS[activeTab];
-      if (preset) {
+      const screenerType = get().screenerType || 'stocks';
+      const preset = getPresetForScreenerTab(screenerType, activeTab);
+      if (preset && preset.length > 0) {
         const updated = ALL_COLUMNS.map((c) => ({
           ...c,
           visible: preset.includes(c.id),
         }));
         set({ activeTab, columns: updated, currentPage: 1 });
+        userPreferencesService.updateScreenerView(screenerType, {
+          activeTab,
+          visibleColumns: preset,
+        });
       } else {
         set({ activeTab });
+        userPreferencesService.updateScreenerView(screenerType, { activeTab });
       }
     },
 
@@ -337,10 +343,11 @@ export const useScreenerStore = create<ScreenerState>((set, get) => {
     },
 
     setColumns: (columns: ColumnDef[]) => {
-      try {
-        const toStore = columns.map(({ id, visible }) => ({ id, visible }));
-        localStorage.setItem('honba_screener_columns_v4', JSON.stringify(toStore));
-      } catch {}
+      const screenerType = get().screenerType || 'stocks';
+      const visibleIds = columns.filter((c) => c.visible).map((c) => c.id);
+      userPreferencesService.updateScreenerView(screenerType, {
+        visibleColumns: visibleIds,
+      });
       set({ columns });
     },
 
@@ -414,3 +421,7 @@ dataLayer.subscribe(() => {
 dataLayer.onTick((tick) => {
   useScreenerStore.getState().updateTick(tick);
 });
+
+if (typeof window !== 'undefined') {
+  (window as any).__screenerStore = useScreenerStore;
+}
