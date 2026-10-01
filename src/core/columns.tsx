@@ -13,6 +13,7 @@ import { Instrument, MarketCountry, CountryCode } from './market-data';
 import { Sparkline } from '../components/ui/sparkline';
 import { RangeBar } from '../components/ui/range-bar';
 import { ExternalLink } from 'lucide-react';
+import { ScreenerType } from './filter-config';
 
 export interface ColumnRenderContext {
   market?: MarketCountry;
@@ -37,6 +38,7 @@ export interface ColumnDef {
   align?: 'left' | 'right' | 'center';
   width?: number | string;
   tooltip?: string;
+  applicableAssets?: ScreenerType[];
   render?: (inst: Instrument, ctx?: ColumnRenderContext) => React.ReactNode;
 }
 
@@ -436,6 +438,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
     visible: true,
     align: 'right',
     tooltip: 'Total Market Capitalization',
+    applicableAssets: ['stocks'],
     render: (inst, ctx) => (
       <div>
         <span className="tv-num-val">{formatCompact(inst.marketCap)}</span>
@@ -450,6 +453,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
     visible: true,
     align: 'right',
     tooltip: 'Price to Earnings Ratio (TTM)',
+    applicableAssets: ['stocks'],
     render: (inst) => <span className="tv-num-val">{inst.pe ? inst.pe.toFixed(2) : '—'}</span>,
   },
   {
@@ -458,6 +462,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
     category: 'valuation',
     visible: false,
     align: 'right',
+    applicableAssets: ['stocks'],
     render: (inst) => <span className="tv-num-val">{inst.forwardPe ? inst.forwardPe.toFixed(2) : '—'}</span>,
   },
   {
@@ -466,6 +471,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
     category: 'valuation',
     visible: false,
     align: 'right',
+    applicableAssets: ['stocks'],
     render: (inst) => <span className="tv-num-val">{inst.pb ? inst.pb.toFixed(2) : '—'}</span>,
   },
   {
@@ -474,6 +480,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
     category: 'overview',
     visible: true,
     align: 'right',
+    applicableAssets: ['stocks'],
     render: (inst, ctx) => (
       <div>
         <span className="tv-num-val">{inst.eps ? inst.eps.toFixed(2) : '—'}</span>
@@ -487,6 +494,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
     category: 'overview',
     visible: true,
     align: 'right',
+    applicableAssets: ['stocks'],
     render: (inst) => {
       const { text, className } = formatPercent(inst.revenueGrowth);
       return <span className={className}>{text}</span>;
@@ -498,6 +506,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
     category: 'overview',
     visible: true,
     align: 'right',
+    applicableAssets: ['stocks', 'etf'],
     render: (inst) => (
       <span className="tv-num-val">
         {inst.dividendYield ? inst.dividendYield.toFixed(2) + '%' : '0.00%'}
@@ -510,6 +519,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
     category: 'overview',
     visible: true,
     align: 'left',
+    applicableAssets: ['stocks', 'etf', 'mf', 'bonds'],
     render: (inst) => <span className="tv-sector-text">{inst.sector || '—'}</span>,
   },
   {
@@ -518,6 +528,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
     category: 'overview',
     visible: true,
     align: 'center',
+    applicableAssets: ['stocks'],
     render: (inst) => renderRatingBadge(inst.technicalRating),
   },
   {
@@ -526,6 +537,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
     category: 'fundamentals',
     visible: false,
     align: 'right',
+    applicableAssets: ['stocks'],
     render: (inst) => <span className="tv-num-val">{inst.netMargin ? inst.netMargin.toFixed(1) + '%' : '—'}</span>,
   },
   {
@@ -534,6 +546,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
     category: 'fundamentals',
     visible: false,
     align: 'right',
+    applicableAssets: ['stocks'],
     render: (inst) => <span className="tv-num-val">{inst.roce ? inst.roce.toFixed(1) + '%' : '—'}</span>,
   },
   {
@@ -542,6 +555,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
     category: 'fundamentals',
     visible: false,
     align: 'right',
+    applicableAssets: ['stocks'],
     render: (inst) => <span className="tv-num-val">{inst.roe ? inst.roe.toFixed(1) + '%' : '—'}</span>,
   },
   {
@@ -550,6 +564,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
     category: 'fundamentals',
     visible: false,
     align: 'right',
+    applicableAssets: ['stocks'],
     render: (inst) => <span className="tv-num-val">{inst.debtToEquity ? inst.debtToEquity.toFixed(2) : '—'}</span>,
   },
 
@@ -563,6 +578,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
     visible: false,
     align: 'right',
     tooltip: 'Assets Under Management',
+    applicableAssets: ['etf', 'mf', 'bonds'],
     render: (inst, ctx) => (
       <div>
         <span className="tv-num-val">{formatCompact(inst.aum || inst.marketCap)}</span>
@@ -577,6 +593,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
     visible: false,
     align: 'right',
     tooltip: 'Base Expense Ratio %',
+    applicableAssets: ['etf', 'mf'],
     render: (inst) => (
       <span className="tv-num-val">
         {inst.expenseRatio !== undefined
@@ -596,6 +613,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
     visible: false,
     align: 'right',
     tooltip: 'Total Expense Ratio (Direct / Regular)',
+    applicableAssets: ['mf'],
     render: (inst) => (
       <span className="tv-num-val">
         {inst.totalExpenseRatio !== undefined
@@ -613,6 +631,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
     visible: false,
     align: 'right',
     tooltip: 'Peer Category Average Total Expense Ratio',
+    applicableAssets: ['mf'],
     render: (inst) => (
       <span className="tv-num-val" style={{ color: 'var(--text-muted)' }}>
         {inst.catTotalExpenseRatio !== undefined
@@ -630,6 +649,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
     visible: false,
     align: 'right',
     tooltip: 'Risk-adjusted return Sharpe ratio',
+    applicableAssets: ['etf', 'mf'],
     render: (inst) => {
       const val = inst.sharpeRatio !== undefined ? inst.sharpeRatio : inst.assetType === 'mf' ? 1.42 : null;
       if (val === null) return <span>—</span>;
@@ -642,6 +662,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
     category: 'funds',
     visible: false,
     align: 'right',
+    applicableAssets: ['mf'],
     render: (inst) => (
       <span className="tv-num-val" style={{ color: 'var(--text-muted)' }}>
         {inst.catSharpeRatio !== undefined ? inst.catSharpeRatio.toFixed(2) : '—'}
@@ -654,6 +675,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
     category: 'performance',
     visible: false,
     align: 'right',
+    applicableAssets: ['etf', 'mf'],
     render: (inst) => {
       const val = inst.cagr3y ?? (inst.perf1Y ? inst.perf1Y * 0.8 : null);
       const { text, className } = formatPercent(val);
@@ -666,6 +688,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
     category: 'performance',
     visible: false,
     align: 'right',
+    applicableAssets: ['etf', 'mf'],
     render: (inst) => {
       const val = inst.cagr5y ?? (inst.perf1Y ? inst.perf1Y * 0.72 : null);
       const { text, className } = formatPercent(val);
@@ -679,6 +702,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
     visible: false,
     align: 'left',
     tooltip: 'Fund Scheme Type (Growth, Liquid, Debt, Hybrid)',
+    applicableAssets: ['mf'],
     render: (inst) => (
       <span className="tv-sector-text">
         {inst.schemeType || (inst.industry.includes('Fund') ? 'Growth' : inst.industry)}
@@ -691,6 +715,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
     category: 'funds',
     visible: false,
     align: 'left',
+    applicableAssets: ['etf', 'mf'],
     render: (inst) => <span className="tv-sector-text">{inst.brand || '—'}</span>,
   },
 
@@ -704,6 +729,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
     visible: false,
     align: 'right',
     tooltip: 'Yield to Worst %',
+    applicableAssets: ['bonds'],
     render: (inst) => (
       <span className="tv-num-val" style={{ color: '#089981', fontWeight: 600 }}>
         {inst.ytw !== undefined ? `${inst.ytw.toFixed(2)}%` : inst.dividendYield ? `${inst.dividendYield.toFixed(2)}%` : '—'}
@@ -717,6 +743,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
     visible: false,
     align: 'right',
     tooltip: 'Annual Coupon Interest Rate %',
+    applicableAssets: ['bonds'],
     render: (inst) => (
       <span className="tv-num-val">
         {inst.coupon !== undefined ? `${inst.coupon.toFixed(2)}%` : inst.eps ? `${inst.eps.toFixed(2)}%` : '—'}
@@ -730,6 +757,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
     visible: false,
     align: 'center',
     tooltip: 'Independent Credit Rating (CRISIL, ICRA, CARE, Moody’s)',
+    applicableAssets: ['bonds'],
     render: (inst) => (
       <span className="tv-analyst-badge rating-strong-buy" style={{ fontSize: 11, padding: '2px 6px' }}>
         {inst.creditRating || (inst.assetType === 'bonds' ? 'AAA' : '—')}
@@ -742,6 +770,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
     category: 'bonds',
     visible: false,
     align: 'center',
+    applicableAssets: ['bonds'],
     render: (inst) => (
       <span className="tv-sector-text">
         {inst.maturityDate || (inst.assetType === 'bonds' ? '2034-06-15' : '—')}
@@ -754,6 +783,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
     category: 'bonds',
     visible: false,
     align: 'left',
+    applicableAssets: ['bonds'],
     render: (inst) => (
       <span className="tv-sector-text">
         {inst.issuerType || (inst.assetType === 'bonds' ? 'Sovereign' : '—')}
@@ -811,4 +841,69 @@ export const getPresetForScreenerTab = (screenerType: string, tabId: string): st
     return TAB_COLUMN_PRESETS.overview;
   }
   return TAB_COLUMN_PRESETS[tabId] || TAB_COLUMN_PRESETS.overview;
+};
+
+/**
+ * Filter columns applicable to a given screener instrument type.
+ * Universal columns (where applicableAssets is undefined) apply to all asset classes.
+ */
+export const getColumnsForScreenerType = (screenerType: ScreenerType): ColumnDef[] => {
+  return ALL_COLUMNS.filter((col) => {
+    if (!col.applicableAssets) return true;
+    return col.applicableAssets.includes(screenerType);
+  });
+};
+
+/**
+ * Returns the relevant column categories for a given screener asset class.
+ */
+export const getCategoriesForScreenerType = (
+  screenerType: ScreenerType
+): { id: string; label: string }[] => {
+  switch (screenerType) {
+    case 'stocks':
+      return [
+        { id: 'all', label: 'All' },
+        { id: 'overview', label: 'Overview' },
+        { id: 'performance', label: 'Performance' },
+        { id: 'valuation', label: 'Valuation' },
+        { id: 'technicals', label: 'Technicals' },
+        { id: 'fundamentals', label: 'Fundamentals' },
+      ];
+    case 'etf':
+      return [
+        { id: 'all', label: 'All' },
+        { id: 'overview', label: 'Overview' },
+        { id: 'funds', label: 'Fund Metrics' },
+        { id: 'performance', label: 'Performance' },
+        { id: 'technicals', label: 'Technicals' },
+      ];
+    case 'mf':
+      return [
+        { id: 'all', label: 'All' },
+        { id: 'overview', label: 'Overview' },
+        { id: 'funds', label: 'Fund Metrics' },
+        { id: 'performance', label: 'Performance' },
+        { id: 'technicals', label: 'Technicals' },
+      ];
+    case 'bonds':
+      return [
+        { id: 'all', label: 'All' },
+        { id: 'overview', label: 'Overview' },
+        { id: 'bonds', label: 'Bond Details' },
+        { id: 'performance', label: 'Performance' },
+        { id: 'technicals', label: 'Technicals' },
+      ];
+    default:
+      return [
+        { id: 'all', label: 'All' },
+        { id: 'overview', label: 'Overview' },
+        { id: 'performance', label: 'Performance' },
+        { id: 'valuation', label: 'Valuation' },
+        { id: 'technicals', label: 'Technicals' },
+        { id: 'fundamentals', label: 'Fundamentals' },
+        { id: 'funds', label: 'Funds & ETFs' },
+        { id: 'bonds', label: 'Bonds' },
+      ];
+  }
 };

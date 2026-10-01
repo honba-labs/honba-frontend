@@ -7,7 +7,13 @@
 import { create } from 'zustand';
 import { Instrument, CountryCode } from '../market-data';
 import { dataLayer } from '../data-layer';
-import { ALL_COLUMNS, ColumnDef, TAB_COLUMN_PRESETS, getPresetForScreenerTab } from '../columns';
+import {
+  ALL_COLUMNS,
+  ColumnDef,
+  TAB_COLUMN_PRESETS,
+  getPresetForScreenerTab,
+  getColumnsForScreenerType,
+} from '../columns';
 import { AdvancedFilterState, DEFAULT_ADVANCED_FILTERS } from '../filters';
 import { ScreenerType, SCREENER_CONFIG } from '../filter-config';
 import { ScreenDefinition, BUILTIN_SCREENS } from '../screen-definitions';
@@ -90,7 +96,7 @@ const getColumnsForAssetAndTab = (screenerType: ScreenerType, tabId: string): Co
     ? userPref.visibleColumns
     : getPresetForScreenerTab(screenerType, tabId);
 
-  return ALL_COLUMNS.map((c) => ({
+  return getColumnsForScreenerType(screenerType).map((c) => ({
     ...c,
     visible: visiblePreset.includes(c.id),
   }));
@@ -160,7 +166,7 @@ export const useScreenerStore = create<ScreenerState>((set, get) => {
         ? userPref.visibleColumns
         : getPresetForScreenerTab(type, initialTab);
 
-      const updatedColumns = ALL_COLUMNS.map((c) => ({
+      const updatedColumns = getColumnsForScreenerType(type).map((c) => ({
         ...c,
         visible: visiblePreset.includes(c.id),
       }));
@@ -225,7 +231,7 @@ export const useScreenerStore = create<ScreenerState>((set, get) => {
       const screenerType = get().screenerType || 'stocks';
       const preset = getPresetForScreenerTab(screenerType, activeTab);
       if (preset && preset.length > 0) {
-        const updated = ALL_COLUMNS.map((c) => ({
+        const updated = getColumnsForScreenerType(screenerType).map((c) => ({
           ...c,
           visible: preset.includes(c.id),
         }));

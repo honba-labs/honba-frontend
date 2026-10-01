@@ -119,6 +119,24 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   const ratingBtnRef = useRef<HTMLButtonElement>(null);
   const moreBtnRef = useRef<HTMLButtonElement>(null);
 
+  // ETF filter button refs
+  const etfFocusBtnRef = useRef<HTMLButtonElement>(null);
+  const etfExpenseBtnRef = useRef<HTMLButtonElement>(null);
+  const etfBrandBtnRef = useRef<HTMLButtonElement>(null);
+
+  // Bond filter button refs
+  const bondIssuerBtnRef = useRef<HTMLButtonElement>(null);
+  const bondRatingBtnRef = useRef<HTMLButtonElement>(null);
+  const bondYtwBtnRef = useRef<HTMLButtonElement>(null);
+
+  // Mutual Fund filter button refs
+  const mfTypeBtnRef = useRef<HTMLButtonElement>(null);
+  const mfCategoryBtnRef = useRef<HTMLButtonElement>(null);
+  const mfAmcBtnRef = useRef<HTMLButtonElement>(null);
+  const mfExpenseBtnRef = useRef<HTMLButtonElement>(null);
+  const mfSharpeBtnRef = useRef<HTMLButtonElement>(null);
+  const mfCagr3yBtnRef = useRef<HTMLButtonElement>(null);
+
   // Close dropdown on outside click
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
@@ -861,6 +879,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             {/* Focus Pill */}
             <div className="tv-filter-pill-wrapper">
               <button
+                ref={etfFocusBtnRef}
                 className={`tv-filter-pill ${advanced.focus && advanced.focus !== 'all' ? 'active' : ''}`}
                 onClick={() => toggleDropdown('etf_focus')}
               >
@@ -870,6 +889,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               <PillDropdown
                 isOpen={activeDropdown === 'etf_focus'}
                 onClose={() => setActiveDropdown(null)}
+                triggerRef={etfFocusBtnRef}
                 width={200}
               >
                 {['all', 'Broad Market', 'Large Cap', 'Technology', 'Gold & Metals', 'PSU & Div'].map((f) => (
@@ -891,6 +911,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             {/* Expense Ratio Pill */}
             <div className="tv-filter-pill-wrapper">
               <button
+                ref={etfExpenseBtnRef}
                 className={`tv-filter-pill ${advanced.maxExpenseRatio !== null && advanced.maxExpenseRatio !== undefined ? 'active' : ''}`}
                 onClick={() => toggleDropdown('etf_expense')}
               >
@@ -900,6 +921,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               <PillDropdown
                 isOpen={activeDropdown === 'etf_expense'}
                 onClose={() => setActiveDropdown(null)}
+                triggerRef={etfExpenseBtnRef}
                 width={190}
               >
                 {[
@@ -926,6 +948,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             {/* Brand / AMC Pill */}
             <div className="tv-filter-pill-wrapper">
               <button
+                ref={etfBrandBtnRef}
                 className={`tv-filter-pill ${advanced.brand && advanced.brand !== 'all' ? 'active' : ''}`}
                 onClick={() => toggleDropdown('etf_brand')}
               >
@@ -935,6 +958,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               <PillDropdown
                 isOpen={activeDropdown === 'etf_brand'}
                 onClose={() => setActiveDropdown(null)}
+                triggerRef={etfBrandBtnRef}
                 width={180}
               >
                 {['all', 'Nippon', 'HDFC', 'SBI', 'ICICI', 'Vanguard', 'iShares'].map((b) => (
@@ -961,6 +985,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             {/* Issuer Type Pill */}
             <div className="tv-filter-pill-wrapper">
               <button
+                ref={bondIssuerBtnRef}
                 className={`tv-filter-pill ${advanced.issuerType && advanced.issuerType !== 'all' ? 'active' : ''}`}
                 onClick={() => toggleDropdown('bond_issuer_type')}
               >
@@ -970,6 +995,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               <PillDropdown
                 isOpen={activeDropdown === 'bond_issuer_type'}
                 onClose={() => setActiveDropdown(null)}
+                triggerRef={bondIssuerBtnRef}
                 width={200}
               >
                 {['all', 'Sovereign', 'Corporate PSU', 'Corporate Private'].map((t) => (
@@ -991,6 +1017,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             {/* Credit Rating Pill */}
             <div className="tv-filter-pill-wrapper">
               <button
+                ref={bondRatingBtnRef}
                 className={`tv-filter-pill ${advanced.creditRating && advanced.creditRating !== 'all' ? 'active' : ''}`}
                 onClick={() => toggleDropdown('bond_rating')}
               >
@@ -1000,6 +1027,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               <PillDropdown
                 isOpen={activeDropdown === 'bond_rating'}
                 onClose={() => setActiveDropdown(null)}
+                triggerRef={bondRatingBtnRef}
                 width={180}
               >
                 {['all', 'SOV', 'AAA', 'AA+', 'AA'].map((r) => (
@@ -1021,6 +1049,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             {/* YTW % Pill */}
             <div className="tv-filter-pill-wrapper">
               <button
+                ref={bondYtwBtnRef}
                 className={`tv-filter-pill ${advanced.minYtw !== null && advanced.minYtw !== undefined ? 'active' : ''}`}
                 onClick={() => toggleDropdown('bond_ytw')}
               >
@@ -1030,6 +1059,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               <PillDropdown
                 isOpen={activeDropdown === 'bond_ytw'}
                 onClose={() => setActiveDropdown(null)}
+                triggerRef={bondYtwBtnRef}
                 width={190}
               >
                 {[
@@ -1061,6 +1091,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             {/* Scheme Type Pill */}
             <div className="tv-filter-pill-wrapper">
               <button
+                ref={mfTypeBtnRef}
                 className={`tv-filter-pill ${advanced.mfSchemeType && advanced.mfSchemeType !== 'all' ? 'active' : ''}`}
                 onClick={() => toggleDropdown('mf_type')}
               >
@@ -1070,6 +1101,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               <PillDropdown
                 isOpen={activeDropdown === 'mf_type'}
                 onClose={() => setActiveDropdown(null)}
+                triggerRef={mfTypeBtnRef}
                 width={190}
               >
                 {['all', 'Growth', 'Liquid', 'Debt', 'Hybrid', 'ELSS'].map((t) => (
@@ -1091,6 +1123,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             {/* Category Pill */}
             <div className="tv-filter-pill-wrapper">
               <button
+                ref={mfCategoryBtnRef}
                 className={`tv-filter-pill ${advanced.mfCategory && advanced.mfCategory !== 'all' ? 'active' : ''}`}
                 onClick={() => toggleDropdown('mf_category')}
               >
@@ -1100,6 +1133,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               <PillDropdown
                 isOpen={activeDropdown === 'mf_category'}
                 onClose={() => setActiveDropdown(null)}
+                triggerRef={mfCategoryBtnRef}
                 width={220}
               >
                 {['all', 'Equity: Large Cap', 'Equity: Mid Cap', 'Equity: Small Cap', 'Equity: Flexi Cap'].map((c) => (
@@ -1121,6 +1155,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             {/* AMC / Fund House Pill */}
             <div className="tv-filter-pill-wrapper">
               <button
+                ref={mfAmcBtnRef}
                 className={`tv-filter-pill ${advanced.brand && advanced.brand !== 'all' ? 'active' : ''}`}
                 onClick={() => toggleDropdown('mf_amc')}
               >
@@ -1130,6 +1165,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               <PillDropdown
                 isOpen={activeDropdown === 'mf_amc'}
                 onClose={() => setActiveDropdown(null)}
+                triggerRef={mfAmcBtnRef}
                 width={200}
               >
                 {['all', 'PPFAS', 'HDFC', 'Nippon', 'Mirae Asset', 'SBI', 'ICICI'].map((a) => (
@@ -1151,6 +1187,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             {/* Expense Ratio (Base + Total) Pill */}
             <div className="tv-filter-pill-wrapper">
               <button
+                ref={mfExpenseBtnRef}
                 className={`tv-filter-pill ${advanced.maxExpenseRatio !== null && advanced.maxExpenseRatio !== undefined ? 'active' : ''}`}
                 onClick={() => toggleDropdown('mf_expense')}
               >
@@ -1160,6 +1197,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               <PillDropdown
                 isOpen={activeDropdown === 'mf_expense'}
                 onClose={() => setActiveDropdown(null)}
+                triggerRef={mfExpenseBtnRef}
                 width={220}
               >
                 {[
@@ -1186,6 +1224,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             {/* Sharpe Ratio Pill */}
             <div className="tv-filter-pill-wrapper">
               <button
+                ref={mfSharpeBtnRef}
                 className={`tv-filter-pill ${advanced.minSharpeRatio !== null && advanced.minSharpeRatio !== undefined ? 'active' : ''}`}
                 onClick={() => toggleDropdown('mf_sharpe')}
               >
@@ -1195,6 +1234,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               <PillDropdown
                 isOpen={activeDropdown === 'mf_sharpe'}
                 onClose={() => setActiveDropdown(null)}
+                triggerRef={mfSharpeBtnRef}
                 width={200}
               >
                 {[
@@ -1221,6 +1261,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             {/* 3Y Return % Pill */}
             <div className="tv-filter-pill-wrapper">
               <button
+                ref={mfCagr3yBtnRef}
                 className={`tv-filter-pill ${advanced.minCagr3y !== null && advanced.minCagr3y !== undefined ? 'active' : ''}`}
                 onClick={() => toggleDropdown('mf_cagr3y')}
               >
@@ -1230,6 +1271,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               <PillDropdown
                 isOpen={activeDropdown === 'mf_cagr3y'}
                 onClose={() => setActiveDropdown(null)}
+                triggerRef={mfCagr3yBtnRef}
                 width={200}
               >
                 {[

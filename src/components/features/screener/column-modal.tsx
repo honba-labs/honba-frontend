@@ -1,25 +1,42 @@
 import React, { useState } from 'react';
 import { useScreenerStore } from '../../../core/store/use-screener-store';
-import { ALL_COLUMNS, ColumnDef } from '../../../core/columns';
+import {
+  ColumnDef,
+  getColumnsForScreenerType,
+  getCategoriesForScreenerType,
+  getPresetForScreenerTab,
+} from '../../../core/columns';
 import { X, RotateCcw, Check } from 'lucide-react';
 
 export const ColumnModal: React.FC = () => {
   const isOpen = useScreenerStore((state) => state.isColumnModalOpen);
   const setOpen = useScreenerStore((state) => state.setColumnModalOpen);
+  const screenerType = useScreenerStore((state) => state.screenerType || 'stocks');
+  const activeTab = useScreenerStore((state) => state.activeTab || 'overview');
   const columns = useScreenerStore((state) => state.columns);
   const setColumns = useScreenerStore((state) => state.setColumns);
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [localColumns, setLocalColumns] = useState<ColumnDef[]>(columns);
+  const [localColumns, setLocalColumns] = useState<ColumnDef[]>([]);
 
-  // Sync with store when opened
+  // Sync with store and screener instrument type when opened
   React.useEffect(() => {
     if (isOpen) {
-      setLocalColumns([...columns]);
+      setSelectedCategory('all');
+      const allowedCols = getColumnsForScreenerType(screenerType);
+      const visibleSet = new Set(columns.filter((c) => c.visible).map((c) => c.id));
+      
+      const merged = allowedCols.map((c) => ({
+        ...c,
+        visible: visibleSet.has(c.id),
+      }));
+      setLocalColumns(merged);
     }
-  }, [isOpen, columns]);
+  }, [isOpen, screenerType, columns]);
 
   if (!isOpen) return null;
+
+  const categories = getCategoriesForScreenerType(screenerType);
 
   const filteredCols =
     selectedCategory === 'all'
@@ -34,7 +51,14 @@ export const ColumnModal: React.FC = () => {
   };
 
   const handleResetDefaults = () => {
-    setLocalColumns([...ALL_COLUMNS]);
+    const preset = getPresetForScreenerTab(screenerType, activeTab);
+    const allowedCols = getColumnsForScreenerType(screenerType);
+    setLocalColumns(
+      allowedCols.map((c) => ({
+        ...c,
+        visible: preset.includes(c.id),
+      }))
+    );
   };
 
   const handleApply = () => {
@@ -42,15 +66,40 @@ export const ColumnModal: React.FC = () => {
     setOpen(false);
   };
 
+  const instrumentTypeName =
+    screenerType === 'stocks'
+      ? 'Stocks'
+      : screenerType === 'etf'
+      ? 'ETFs'
+      : screenerType === 'bonds'
+      ? 'Bonds'
+      : 'Mutual Funds';
+
   return (
     <div className="modal-overlay open" onClick={() => setOpen(false)}>
       <div
         className="modal-dialog"
-        style={{ width: 580 }}
+        style={{ width: 600 }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-header">
-          <div className="modal-title">Customize Screener Columns</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="modal-title">Customize Columns</div>
+            <span
+              style={{
+                fontSize: 11,
+                padding: '2px 8px',
+                borderRadius: 12,
+                backgroundColor: 'var(--accent-subtle, rgba(41, 98, 255, 0.12))',
+                color: 'var(--accent-primary, #2962ff)',
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+              }}
+            >
+              {instrumentTypeName}
+            </span>
+          </div>
           <button
             className="nav-icon-btn modal-close-btn"
             style={{ border: 'none' }}
@@ -69,13 +118,13 @@ export const ColumnModal: React.FC = () => {
             borderBottom: '1px solid var(--border-subtle)',
           }}
         >
-          {['all', 'overview', 'performance', 'valuation', 'technicals', 'fundamentals', 'funds', 'bonds'].map((cat) => (
+          {categories.map((cat) => (
             <button
-              key={cat}
-              className={`view-tab-btn ${selectedCategory === cat ? 'active' : ''}`}
-              onClick={() => setSelectedCategory(cat)}
+              key={cat.id}
+              className={`view-tab-btn ${selectedCategory === cat.id ? 'active' : ''}`}
+              onClick={() => setSelectedCategory(cat.id)}
             >
-              {cat === 'mf' || cat === 'funds' ? 'Funds & ETFs' : cat.charAt(0).toUpperCase() + cat.slice(1)} {cat === 'all' ? `(${localColumns.length})` : ''}
+              {cat.label} {cat.id === 'all' ? `(${localColumns.length})` : ''}
             </button>
           ))}
         </div>
