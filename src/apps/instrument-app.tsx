@@ -35,8 +35,7 @@ import {
   Code2,
 } from 'lucide-react';
 import {
-  ChartControls,
-  InteractiveChart,
+  InstrumentChartCard,
   SuiteActionGroup,
   SymbolBreadcrumbs,
   ValuationStatsGrid,
@@ -59,7 +58,6 @@ export const InstrumentApp: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [chartType, setChartType] = useState<'candles' | 'area'>('candles');
   const [timeframe, setTimeframe] = useState<string>('1M');
-  const [hoverCandle, setHoverCandle] = useState<CandleData | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [priceFlash, setPriceFlash] = useState<'bullish' | 'bearish' | null>(null);
@@ -206,7 +204,6 @@ export const InstrumentApp: React.FC = () => {
     }
   }, [tabs, activeTab]);
 
-  const candles = detailData?.candles || inst?.history || [];
 
   return (
     <div className="inst-page-container">
@@ -491,36 +488,21 @@ export const InstrumentApp: React.FC = () => {
       {/* Main Content Area */}
       <main className="inst-content-body">
         {/* Top Interactive Candlestick / Area Chart */}
-        <section className="inst-chart-wrapper">
-          <ChartControls
+        {inst && (
+          <InstrumentChartCard
+            instrument={inst}
             chartMode={chartType}
             onChartModeChange={setChartType}
             selectedRange={timeframe}
             onRangeChange={setTimeframe}
-            className="inst-chart-controls"
+            ranges={['1D', '5D', '1M', '6M', '1Y', '5Y']}
+            height={340}
+            showVolume={true}
+            showHeaderMeta={false}
+            showModeLabels={true}
+            currencySymbol={market?.currencySymbol || '₹'}
           />
-
-          {/* Chart Display Area: Native Honba SVG Candles / Area */}
-          <div
-            style={{
-              position: 'relative',
-              width: '100%',
-              height: 340,
-              background: 'var(--bg-app)',
-              borderRadius: 'var(--radius-sm)',
-              overflow: 'hidden',
-            }}
-          >
-            <InteractiveChart
-              candles={candles}
-              chartMode={chartType}
-              hoverCandle={hoverCandle}
-              onHoverCandle={setHoverCandle}
-              height={340}
-              currencySymbol="₹"
-            />
-          </div>
-        </section>
+        )}
 
         {/* Asset-Specific Deep-Dive Content */}
         {inst && (
