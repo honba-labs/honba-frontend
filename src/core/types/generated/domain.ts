@@ -95,6 +95,62 @@ export type Close1 = number;
 export type Volume1 = number;
 export type TsEvent10 = number;
 export type TsInit7 = number;
+export type Key = string;
+export type MetricPeriod = "SNAPSHOT" | "TTM" | "FY" | "FQ" | "H1" | "CURRENT";
+export type Timeframe = "1" | "5" | "15" | "30" | "60" | "120" | "240" | "1D" | "1W" | "1M";
+export type Key1 = string;
+export type Label = string;
+export type Group = string;
+export type ValueType = "NUMBER" | "STRING" | "ENUM" | "BOOL" | "DATE" | "MONEY";
+export type UnitType = "PCT" | "PRICE" | "RATIO" | "SHARES" | "CURRENCY";
+export type Description = string | null;
+export type Hasperiod = boolean;
+export type Hastimeframe = boolean;
+export type Defaultperiod = string | null;
+export type Defaulttimeframe = string | null;
+export type Filterable = boolean;
+export type Sortable = boolean;
+export type Source = string | null;
+export type Key2 = string;
+export type FilterOp =
+  | "eq"
+  | "neq"
+  | "gt"
+  | "gte"
+  | "lt"
+  | "lte"
+  | "between"
+  | "in"
+  | "not_in"
+  | "like"
+  | "has"
+  | "crosses_above"
+  | "crosses_below";
+export type Operator = "AND" | "OR";
+export type Items = unknown[];
+export type Key3 = string;
+export type Dir = "asc" | "desc";
+export type Market = string;
+export type Types = string[];
+export type Primaryonly = boolean;
+export type Columnset = string | null;
+export type Columns = MetricKeySpec[];
+/**
+ * @minItems 2
+ * @maxItems 2
+ */
+export type Range = [unknown, unknown];
+export type Fullsymbol = string;
+export type Instrumentid = string;
+export type Name = string;
+export type Total = number;
+/**
+ * @minItems 2
+ * @maxItems 2
+ */
+export type Range1 = [unknown, unknown];
+export type Columns1 = string[];
+export type Rows = ScreenerRow[];
 
 /**
  * Honba canonical wire models generated from Rust single source of truth contracts
@@ -108,6 +164,14 @@ export interface HonbaDomainEnvelope {
   position?: Position;
   bar?: Bar;
   instrument_id?: InstrumentId;
+  metric_key_spec?: MetricKeySpec;
+  metric_definition?: MetricDefinition;
+  screener_filter_predicate?: ScreenerFilterPredicate;
+  screener_filter_group?: ScreenerFilterGroup;
+  screener_sort_spec?: ScreenerSortSpec;
+  screener_scan_request?: ScreenerScanRequest;
+  screener_row?: ScreenerRow;
+  screener_scan_response?: ScreenerScanResponse;
   [k: string]: unknown;
 }
 /**
@@ -260,4 +324,93 @@ export interface Bar {
   volume: Volume1;
   ts_event: TsEvent10;
   ts_init: TsInit7;
+}
+/**
+ * Specification of a metric with optional period and timeframe dimensions.
+ */
+export interface MetricKeySpec {
+  key: Key;
+  period?: MetricPeriod | null;
+  timeframe?: Timeframe | null;
+}
+/**
+ * Catalog definition of a metric.
+ */
+export interface MetricDefinition {
+  key: Key1;
+  label: Label;
+  group: Group;
+  valueType: ValueType;
+  unit?: UnitType | null;
+  description?: Description;
+  hasPeriod?: Hasperiod;
+  hasTimeframe?: Hastimeframe;
+  defaultPeriod?: Defaultperiod;
+  defaultTimeframe?: Defaulttimeframe;
+  filterable?: Filterable;
+  sortable?: Sortable;
+  source?: Source;
+}
+/**
+ * Filter predicate for screening instruments.
+ */
+export interface ScreenerFilterPredicate {
+  key: Key2;
+  op: FilterOp;
+  value: Value;
+  period?: MetricPeriod | null;
+  timeframe?: Timeframe | null;
+}
+export interface Value {
+  [k: string]: unknown;
+}
+/**
+ * Logical group of filter predicates.
+ */
+export interface ScreenerFilterGroup {
+  operator?: Operator;
+  items: Items;
+}
+/**
+ * Sorting specification for screener results.
+ */
+export interface ScreenerSortSpec {
+  key: Key3;
+  dir?: Dir;
+  period?: MetricPeriod | null;
+  timeframe?: Timeframe | null;
+}
+/**
+ * Request payload for POST /api/v1/screener/scan.
+ */
+export interface ScreenerScanRequest {
+  market: Market;
+  types?: Types;
+  primaryOnly?: Primaryonly;
+  columnSet?: Columnset;
+  columns?: Columns;
+  filters?: ScreenerFilterGroup | null;
+  sort?: ScreenerSortSpec | null;
+  range?: Range;
+}
+/**
+ * A row of screened instrument results.
+ */
+export interface ScreenerRow {
+  fullSymbol: Fullsymbol;
+  instrumentId: Instrumentid;
+  name: Name;
+  values: Values;
+}
+export interface Values {
+  [k: string]: unknown;
+}
+/**
+ * Response payload for POST /api/v1/screener/scan.
+ */
+export interface ScreenerScanResponse {
+  total: Total;
+  range: Range1;
+  columns: Columns1;
+  rows: Rows;
 }
