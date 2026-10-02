@@ -99,6 +99,8 @@ export type Key = string;
 export type MetricPeriod = "SNAPSHOT" | "TTM" | "FY" | "FQ" | "H1" | "CURRENT";
 export type Timeframe = "1" | "5" | "15" | "30" | "60" | "120" | "240" | "1D" | "1W" | "1M";
 export type Key1 = string;
+export type Key2 = string;
+export type Uiid = string | null;
 export type Label = string;
 export type Group = string;
 export type ValueType = "NUMBER" | "STRING" | "ENUM" | "BOOL" | "DATE" | "MONEY";
@@ -111,7 +113,8 @@ export type Defaulttimeframe = string | null;
 export type Filterable = boolean;
 export type Sortable = boolean;
 export type Source = string | null;
-export type Key2 = string;
+export type Aliases = string[];
+export type Key3 = string;
 export type FilterOp =
   | "eq"
   | "neq"
@@ -126,9 +129,19 @@ export type FilterOp =
   | "has"
   | "crosses_above"
   | "crosses_below";
+export type Value =
+  | number
+  | string
+  | boolean
+  | MetricRef
+  | unknown[]
+  | {
+      [k: string]: unknown;
+    }
+  | null;
 export type Operator = "AND" | "OR";
 export type Items = unknown[];
-export type Key3 = string;
+export type Key4 = string;
 export type Dir = "asc" | "desc";
 export type Market = string;
 export type Types = string[];
@@ -165,6 +178,7 @@ export interface HonbaDomainEnvelope {
   bar?: Bar;
   instrument_id?: InstrumentId;
   metric_key_spec?: MetricKeySpec;
+  metric_ref?: MetricRef;
   metric_definition?: MetricDefinition;
   screener_filter_predicate?: ScreenerFilterPredicate;
   screener_filter_group?: ScreenerFilterGroup;
@@ -334,10 +348,26 @@ export interface MetricKeySpec {
   timeframe?: Timeframe | null;
 }
 /**
+ * A metric used as the right-hand operand of a predicate.
+ *
+ * Makes metric-to-metric comparisons expressible on the wire, e.g.
+ * ``SMA50 crosses_above {"key": "SMA200"}``. ``key`` is the wire key, never a UI id.
+ */
+export interface MetricRef {
+  key: Key1;
+  period?: MetricPeriod | null;
+  timeframe?: Timeframe | null;
+}
+/**
  * Catalog definition of a metric.
+ *
+ * ``key`` is the wire key sent to the backend. ``ui_id`` (``uiId``) is the frontend
+ * column id and must never be emitted on the wire. ``aliases`` are natural-language
+ * phrases the NL layer (``honba.screener.MetricCatalog.resolve``) maps to ``key``.
  */
 export interface MetricDefinition {
-  key: Key1;
+  key: Key2;
+  uiId?: Uiid;
   label: Label;
   group: Group;
   valueType: ValueType;
@@ -350,19 +380,22 @@ export interface MetricDefinition {
   filterable?: Filterable;
   sortable?: Sortable;
   source?: Source;
+  aliases?: Aliases;
 }
 /**
  * Filter predicate for screening instruments.
+ *
+ * ``value`` must fit ``op``: ``crosses_above`` / ``crosses_below`` take a finite number
+ * or a ``MetricRef``; ``gt`` / ``gte`` / ``lt`` / ``lte`` a finite number, a string or a
+ * ``MetricRef``; ``between`` a list of two finite numbers; ``in`` / ``not_in`` a list;
+ * other operators any value. A ``MetricRef`` operand is parsed into a ``MetricRef``.
  */
 export interface ScreenerFilterPredicate {
-  key: Key2;
+  key: Key3;
   op: FilterOp;
   value: Value;
   period?: MetricPeriod | null;
   timeframe?: Timeframe | null;
-}
-export interface Value {
-  [k: string]: unknown;
 }
 /**
  * Logical group of filter predicates.
@@ -375,7 +408,7 @@ export interface ScreenerFilterGroup {
  * Sorting specification for screener results.
  */
 export interface ScreenerSortSpec {
-  key: Key3;
+  key: Key4;
   dir?: Dir;
   period?: MetricPeriod | null;
   timeframe?: Timeframe | null;
