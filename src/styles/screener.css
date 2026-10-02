@@ -967,13 +967,44 @@
   white-space: nowrap;
 }
 
-.tv-symbol-ticker {
+.tv-symbol-ticker,
+.tv-symbol-ticker-btn {
   font-family: var(--font-family-mono);
   font-weight: 700;
   font-size: 13px;
+  line-height: 18px;
   color: var(--text-primary);
   letter-spacing: -0.01em;
   flex-shrink: 0;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 7px;
+  margin: -2px -2px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color 0.12s cubic-bezier(0.2, 0, 0, 1),
+              color 0.12s cubic-bezier(0.2, 0, 0, 1),
+              border-color 0.12s cubic-bezier(0.2, 0, 0, 1),
+              box-shadow 0.12s cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* TradingView style: when row is hovered, symbol ticker becomes a clean blue badge button */
+.tv-screener-table tbody tr:hover .tv-symbol-ticker-btn {
+  background: var(--accent-primary, #2962ff);
+  color: #ffffff !important;
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* When the cursor is directly over the symbol button */
+.tv-symbol-ticker-btn:hover {
+  background: #1e53e5 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(41, 98, 255, 0.4) !important;
+  text-decoration: none;
 }
 
 .tv-symbol-name {
@@ -1478,6 +1509,16 @@
   flex-direction: column;
   overflow: hidden;
   position: relative;
+  font-family: var(--font-family-sans);
+  color: var(--text-primary);
+}
+
+/* Ensure all sub-divs, headings, buttons, and inputs inside detail drawer inherit active theme typography */
+.detail-drawer button,
+.detail-drawer input,
+.detail-drawer select,
+.detail-drawer textarea {
+  font-family: inherit;
 }
 
 .detail-drawer.collapsed {
@@ -1543,6 +1584,12 @@
   font-family: var(--font-family-mono);
   letter-spacing: -0.01em;
   color: var(--text-primary);
+  text-decoration: none;
+}
+
+.drawer-ticker-link:hover {
+  color: var(--accent-primary);
+  text-decoration: underline;
 }
 
 .drawer-exchange-tag {
@@ -1564,6 +1611,12 @@
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 180px;
+  text-decoration: none;
+}
+
+.drawer-name-link:hover {
+  color: var(--text-primary);
+  text-decoration: underline;
 }
 
 .drawer-header-actions {
@@ -1591,32 +1644,71 @@
 
 /* Quote Banner */
 .drawer-quote-banner {
-  padding: 12px 14px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--border-subtle);
   background: var(--bg-app);
 }
 
+.drawer-quote-primary-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  flex-wrap: nowrap;
+  width: 100%;
+}
+
 .drawer-quote-price {
-  font-size: 26px;
-  font-weight: 600;
-  font-family: var(--font-family-serif);
-  letter-spacing: -0.02em;
+  font-size: 34px;
+  font-weight: 700;
+  font-family: var(--font-family-sans);
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -0.025em;
   line-height: 1.1;
   color: var(--text-primary);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 [data-typography='arbkit-ledger'] .drawer-quote-price {
   font-family: var(--font-family-serif);
-  font-weight: 500;
+  font-weight: 600;
   font-style: normal;
 }
 
 .drawer-quote-change {
+  display: inline-flex;
+  align-items: center;
   font-size: 13px;
   font-weight: 600;
   font-family: var(--font-family-mono);
   letter-spacing: 0.01em;
-  margin-top: 3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.drawer-quote-change .badge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--radius-xs, 4px);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.drawer-quote-change .badge-pill.pill-bullish {
+  background: var(--bullish-subtle, rgba(8, 153, 129, 0.14));
+  color: var(--bullish, #089981);
+  border: 1px solid rgba(8, 153, 129, 0.25);
+}
+
+.drawer-quote-change .badge-pill.pill-bearish {
+  background: var(--bearish-subtle, rgba(242, 54, 69, 0.14));
+  color: var(--bearish, #f23645);
+  border: 1px solid rgba(242, 54, 69, 0.25);
 }
 
 .drawer-quote-sub {
@@ -1626,7 +1718,7 @@
   font-size: 11px;
   font-family: var(--font-family-mono);
   color: var(--text-muted);
-  margin-top: 6px;
+  margin-top: 8px;
 }
 
 /* Scrollable Drawer Body */

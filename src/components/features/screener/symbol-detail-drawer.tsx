@@ -11,8 +11,8 @@ import {
   BookmarkCheck,
   TrendingUp,
   TrendingDown,
-  Play,
 } from 'lucide-react';
+import { ChartControls, SuiteActionGroup } from '../../domain';
 
 interface CandleData {
   time: string;
@@ -360,11 +360,23 @@ export const SymbolDetailDrawer: React.FC = () => {
           </div>
           <div className="drawer-title-box">
             <div className="drawer-ticker-row">
-              <span className="drawer-ticker">{inst.symbol}</span>
+              <a
+                href={`/instrument.html?symbol=${encodeURIComponent(inst.symbol)}`}
+                className="drawer-ticker drawer-ticker-link"
+                title={`Open ${inst.symbol} instrument page`}
+              >
+                {inst.symbol}
+              </a>
               <span className="drawer-exchange-tag">{inst.exchange}</span>
               <span className="drawer-country-flag">{market.flag}</span>
             </div>
-            <div className="drawer-company-name" title={inst.name}>{inst.name}</div>
+            <a
+              href={`/instrument.html?symbol=${encodeURIComponent(inst.symbol)}`}
+              className="drawer-company-name drawer-name-link"
+              title={`Open ${inst.name} instrument page`}
+            >
+              {inst.name}
+            </a>
           </div>
         </div>
 
@@ -396,14 +408,16 @@ export const SymbolDetailDrawer: React.FC = () => {
       <div className="drawer-scroll-body">
         {/* Real-Time Quote Banner */}
         <div className="drawer-quote-banner">
-          <div className="drawer-quote-price">
-            {market.currencySymbol}{formatNumber(inst.price)}
-          </div>
-          <div className={`drawer-quote-change ${isUp ? 'val-up' : 'val-down'}`}>
-            <span className={`badge-pill ${isUp ? 'pill-bullish' : 'pill-bearish'}`} style={{ display: 'inline-flex', alignItems: 'center' }}>
-              {isUp ? <TrendingUp size={11} style={{ marginRight: 3 }} /> : <TrendingDown size={11} style={{ marginRight: 3 }} />}
-              {isUp ? '+' : ''}{formatNumber(inst.change)} ({isUp ? '+' : ''}{inst.changePercent.toFixed(2)}%)
+          <div className="drawer-quote-primary-row">
+            <span className="drawer-quote-price">
+              {market.currencySymbol}{formatNumber(inst.price)}
             </span>
+            <div className={`drawer-quote-change ${isUp ? 'val-up' : 'val-down'}`}>
+              <span className={`badge-pill ${isUp ? 'pill-bullish' : 'pill-bearish'}`} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                {isUp ? <TrendingUp size={12} style={{ marginRight: 3 }} /> : <TrendingDown size={12} style={{ marginRight: 3 }} />}
+                {isUp ? '+' : ''}{formatNumber(inst.change)} ({isUp ? '+' : ''}{inst.changePercent.toFixed(2)}%)
+              </span>
+            </div>
           </div>
           <div className="drawer-quote-sub">
             <span>Vol: {formatCompact(inst.volume)}</span>
@@ -413,72 +427,24 @@ export const SymbolDetailDrawer: React.FC = () => {
         </div>
 
         {/* Primary Action Buttons (Top) */}
-        <div className="drawer-action-top-group">
-          <a
-            href={`/instrument.html?symbol=${encodeURIComponent(inst.symbol)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="shortlist-btn shortlist-btn-primary"
-            style={{ width: '100%', justifyContent: 'center', padding: '8px 12px', fontSize: 12, textDecoration: 'none', background: 'var(--accent-primary)', color: '#fff', fontWeight: 600 }}
-          >
-            <span>Open Dedicated Instrument Page</span>
-            <ExternalLink size={12} style={{ marginLeft: 4 }} />
-          </a>
-          <div style={{ display: 'flex', gap: 8, width: '100%' }}>
-            <a
-              href={`/workbench.html?symbol=${encodeURIComponent(inst.symbol)}`}
-              className="shortlist-btn shortlist-btn-secondary"
-              style={{ flex: 1, justifyContent: 'center', padding: '6px 8px', textDecoration: 'none', fontSize: 11 }}
-            >
-              WorkBench
-            </a>
-            <a
-              href={`/simulator.html?symbol=${encodeURIComponent(inst.symbol)}`}
-              className="shortlist-btn shortlist-btn-secondary"
-              style={{ flex: 1, justifyContent: 'center', padding: '6px 8px', textDecoration: 'none', fontSize: 11 }}
-            >
-              <Play size={11} style={{ marginRight: 4 }} />
-              Simulate
-            </a>
-          </div>
-        </div>
+        {/* Suite Action Buttons */}
+        <SuiteActionGroup symbol={inst.symbol} variant="stacked" />
 
         {/* Interactive Chart Preview Section */}
         <div className="drawer-section">
           <div className="drawer-section-header">
             <div className="drawer-section-title">Chart Preview</div>
-            <div className="drawer-chart-controls">
-              <div className="drawer-chart-type-toggle">
-                <button
-                  className={`chart-toggle-btn ${chartMode === 'area' ? 'active' : ''}`}
-                  onClick={() => setChartMode('area')}
-                  title="Area Chart"
-                >
-                  📈
-                </button>
-                <button
-                  className={`chart-toggle-btn ${chartMode === 'candles' ? 'active' : ''}`}
-                  onClick={() => setChartMode('candles')}
-                  title="Candlestick Chart"
-                >
-                  🕯️
-                </button>
-              </div>
-              <div className="drawer-range-pills">
-                {(['1D', '5D', '1M', '1Y'] as const).map((r) => (
-                  <button
-                    key={r}
-                    className={`range-pill ${chartRange === r ? 'active' : ''}`}
-                    onClick={() => {
-                      setChartRange(r);
-                      setHoverIndex(null);
-                    }}
-                  >
-                    {r}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <ChartControls
+              chartMode={chartMode}
+              onChartModeChange={(m) => setChartMode(m)}
+              selectedRange={chartRange}
+              onRangeChange={(r) => {
+                setChartRange(r as any);
+                setHoverIndex(null);
+              }}
+              ranges={['1D', '5D', '1M', '1Y']}
+              showLabels={false}
+            />
           </div>
 
           {/* Chart Meta Row */}

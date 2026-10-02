@@ -11,6 +11,7 @@ import { dataLayer, InstrumentDetailResponse } from '../core/data-layer';
 import { Instrument, CandleData, AssetType } from '../core/market-data';
 import { AppNav } from '../layouts/app-nav';
 import { TechnicalsGauge } from '../components/ui/technicals-gauge';
+import { COUNTRY_FLAGS, getLogoForSymbol } from '../core/columns';
 import {
   TrendingUp,
   TrendingDown,
@@ -30,74 +31,17 @@ import {
   CheckCircle2,
   Sliders,
   Cpu,
+  FlaskConical,
+  Code2,
 } from 'lucide-react';
-
-/**
- * Embedded TradingView Advanced Real-Time Chart Widget
- * Generates official TradingView embed iframe synchronized with dark/light theme
- */
-const TradingViewChartWidget: React.FC<{ symbol: string; exchange: string; isDark?: boolean }> = ({
-  symbol,
-  exchange,
-  isDark = true,
-}) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const tvSymbol = `${exchange || 'NSE'}:${symbol}`;
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-    containerRef.current.innerHTML = '';
-
-    const script = document.createElement('script');
-    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
-    script.type = 'text/javascript';
-    script.async = true;
-    script.innerHTML = JSON.stringify({
-      autosize: true,
-      symbol: tvSymbol,
-      interval: 'D',
-      timezone: 'Asia/Kolkata',
-      theme: isDark ? 'dark' : 'light',
-      style: '1',
-      locale: 'in',
-      enable_publishing: false,
-      allow_symbol_change: false,
-      calendar: false,
-      support_host: 'https://www.tradingview.com',
-      hide_side_toolbar: false,
-      save_image: true,
-      container_id: 'tradingview_widget_container',
-    });
-
-    const widgetDiv = document.createElement('div');
-    widgetDiv.id = 'tradingview_widget_container';
-    widgetDiv.className = 'tradingview-widget-container__widget';
-    widgetDiv.style.height = 'calc(100% - 32px)';
-    widgetDiv.style.width = '100%';
-
-    const copyrightDiv = document.createElement('div');
-    copyrightDiv.className = 'tradingview-widget-copyright';
-    copyrightDiv.innerHTML = `<a href="https://in.tradingview.com/symbols/${exchange}-${symbol}/" rel="noopener nofollow" target="_blank"><span class="blue-text">${symbol} Chart</span></a> by TradingView`;
-
-    containerRef.current.appendChild(widgetDiv);
-    containerRef.current.appendChild(copyrightDiv);
-    containerRef.current.appendChild(script);
-
-    return () => {
-      if (containerRef.current) {
-        containerRef.current.innerHTML = '';
-      }
-    };
-  }, [tvSymbol, isDark, exchange, symbol]);
-
-  return (
-    <div
-      ref={containerRef}
-      className="tradingview-widget-container"
-      style={{ height: '420px', width: '100%', background: 'transparent' }}
-    />
-  );
-};
+import {
+  ChartControls,
+  InteractiveChart,
+  SuiteActionGroup,
+  SymbolBreadcrumbs,
+  ValuationStatsGrid,
+  DeliveryStatsBar,
+} from '../components/domain';
 
 export const InstrumentApp: React.FC = () => {
   // Read initial symbol from URL query or fallback
@@ -113,7 +57,7 @@ export const InstrumentApp: React.FC = () => {
   const [detailData, setDetailData] = useState<InstrumentDetailResponse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<string>('overview');
-  const [chartType, setChartType] = useState<'candle' | 'line'>('candle');
+  const [chartType, setChartType] = useState<'candles' | 'area'>('candles');
   const [timeframe, setTimeframe] = useState<string>('1M');
   const [hoverCandle, setHoverCandle] = useState<CandleData | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -121,7 +65,6 @@ export const InstrumentApp: React.FC = () => {
   const [priceFlash, setPriceFlash] = useState<'bullish' | 'bearish' | null>(null);
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
   const [lotsCount, setLotsCount] = useState<number>(1);
-  const [chartViewMode, setChartViewMode] = useState<'honba' | 'tradingview'>('honba');
 
   // Initialize theme
   useEffect(() => {
@@ -202,6 +145,7 @@ export const InstrumentApp: React.FC = () => {
   }, [allInstruments, searchQuery, selectedCategory]);
 
   const inst = detailData?.instrument || dataLayer.getInstrument(activeSymbol) || allInstruments[0];
+  const market = dataLayer.getCurrentMarketInfo();
   const isUp = inst ? inst.changePercent >= 0 : true;
   const isWatchlisted = inst ? dataLayer.isWatchlisted(inst.symbol) : false;
 
@@ -230,48 +174,8 @@ export const InstrumentApp: React.FC = () => {
     return `₹${n.toFixed(0)}`;
   };
 
-  // TradingView Symbol URL & Breadcrumb helpers
-  // Follows TradingView hierarchy: Markets -> Country -> Asset Class -> Sector -> Industry -> Symbol
-  // e.g. https://in.tradingview.com/symbols/NSE-RELIANCE/
-  const getTradingViewUrl = (item: Instrument) => {
-    const exchange = item.exchange || 'NSE';
-    const isIndia = item.country === 'IN' || ['NSE', 'BSE'].includes(exchange);
-    const domain = isIndia ? 'https://in.tradingview.com' : 'https://www.tradingview.com';
-    return `${domain}/symbols/${exchange}-${encodeURIComponent(item.symbol)}/`;
-  };
 
-  const getTradingViewBreadcrumbs = (item: Instrument) => {
-    const isIndia = item.country === 'IN' || ['NSE', 'BSE'].includes(item.exchange);
-    const countryName = item.country === 'IN' ? 'India' : item.country === 'US' ? 'United States' : item.country === 'JP' ? 'Japan' : item.country === 'UK' ? 'UK' : 'Global';
-    const assetLabel = item.assetType === 'index' ? 'Indices' : item.assetType === 'mf' ? 'Mutual Funds' : item.assetType === 'ipo' ? 'IPOs' : 'Stocks';
-    
-    // TradingView exact sector/industry mappings for key symbols
-    let sector = item.sector || 'Energy Minerals';
-    let industry = item.industry || 'Oil Refining/Marketing';
-    
-    if (item.symbol === 'RELIANCE') {
-      sector = 'Energy Minerals';
-      industry = 'Oil Refining/Marketing';
-    } else if (item.symbol === 'TCS' || item.symbol === 'INFY' || item.symbol === 'WIPRO') {
-      sector = 'Technology Services';
-      industry = 'Information Technology Services';
-    } else if (item.symbol === 'HDFCBANK' || item.symbol === 'ICICIBANK' || item.symbol === 'SBIN') {
-      sector = 'Finance';
-      industry = 'Major Banks';
-    } else if (item.symbol === 'TATAMOTORS' || item.symbol === 'MARUTI') {
-      sector = 'Consumer Durables';
-      industry = 'Motor Vehicles';
-    }
 
-    return [
-      { label: 'Markets', href: '/index.html' },
-      { label: countryName, href: `/index.html?market=${item.country}` },
-      { label: assetLabel, href: `/instrument.html?category=${item.assetType || 'stocks'}` },
-      { label: sector, href: '#' },
-      { label: industry, href: '#' },
-      { label: item.symbol, href: getTradingViewUrl(item), isCurrent: true, isExternal: true },
-    ];
-  };
 
   // Determine tabs based on Asset Type
   const tabs = useMemo(() => {
@@ -283,10 +187,16 @@ export const InstrumentApp: React.FC = () => {
     if (type === 'mf') {
       return ['overview', 'holdings', 'allocation', 'returns', 'facts'];
     }
+    if (type === 'etf') {
+      return ['overview', 'profile', 'holdings', 'technicals', 'performance'];
+    }
+    if (type === 'bonds') {
+      return ['overview', 'yields', 'credit', 'profile'];
+    }
     if (type === 'ipo') {
       return ['overview', 'gmp', 'subscription', 'timeline', 'calculator'];
     }
-    return ['overview', 'technicals', 'financials', 'delivery', 'shareholding', 'peers'];
+    return ['overview', 'financials', 'technicals', 'delivery', 'shareholding', 'peers'];
   }, [inst]);
 
   // Adjust activeTab if invalid for current asset type
@@ -309,6 +219,8 @@ export const InstrumentApp: React.FC = () => {
           {[
             { id: 'all', label: 'All Assets' },
             { id: 'stocks', label: 'Equities (3,270+)' },
+            { id: 'etf', label: 'ETFs' },
+            { id: 'bonds', label: 'Bonds & Gilts' },
             { id: 'index', label: 'Indices' },
             { id: 'mf', label: 'Mutual Funds' },
             { id: 'ipo', label: 'IPOs & Listings' },
@@ -380,6 +292,26 @@ export const InstrumentApp: React.FC = () => {
             {s}
           </button>
         ))}
+        <span style={{ color: 'var(--text-muted)', fontSize: 10, marginLeft: 8 }}>ETFs:</span>
+        {['NIFTYBEES', 'BANKBEES', 'GOLDBEES', 'SILVERBEES', 'CPSEETF'].map((s) => (
+          <button
+            key={s}
+            className={`inst-chip-btn ${activeSymbol === s ? 'active' : ''}`}
+            onClick={() => handleSelectSymbol(s)}
+          >
+            {s}
+          </button>
+        ))}
+        <span style={{ color: 'var(--text-muted)', fontSize: 10, marginLeft: 8 }}>Bonds:</span>
+        {['GS2034', 'GS2029', 'GS2038', 'REC2030', 'PFC2032'].map((s) => (
+          <button
+            key={s}
+            className={`inst-chip-btn ${activeSymbol === s ? 'active' : ''}`}
+            onClick={() => handleSelectSymbol(s)}
+          >
+            {s}
+          </button>
+        ))}
         <span style={{ color: 'var(--text-muted)', fontSize: 10, marginLeft: 8 }}>Indices:</span>
         {['NIFTY50', 'BANKNIFTY', 'NIFTYIT', 'SENSEX', 'SPX'].map((s) => (
           <button
@@ -416,164 +348,102 @@ export const InstrumentApp: React.FC = () => {
       {inst && (
         <section className="inst-hero-header">
           <div className="inst-hero-left">
-            {/* TradingView Hierarchical Breadcrumb Route */}
-            <div className="inst-hero-breadcrumbs">
-              {getTradingViewBreadcrumbs(inst).map((crumb, idx, arr) => (
-                <React.Fragment key={crumb.label}>
-                  {idx > 0 && <span className="inst-breadcrumb-sep">›</span>}
-                  {crumb.isCurrent ? (
-                    <a
-                      href={crumb.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inst-breadcrumb-active"
-                      title={`View ${crumb.label} on TradingView`}
-                    >
-                      <span>{crumb.label}</span>
-                      <ExternalLink size={10} style={{ marginLeft: 3, opacity: 0.7 }} />
-                    </a>
-                  ) : (
-                    <a
-                      href={crumb.href}
-                      className="inst-breadcrumb-link"
-                    >
-                      {crumb.label}
-                    </a>
-                  )}
-                </React.Fragment>
-              ))}
-            </div>
+            {/* Hierarchical Breadcrumb Route */}
+            <SymbolBreadcrumbs instrument={inst} />
 
-            <div className="inst-hero-title-row">
+            {/* Symbol Identity Banner */}
+            <div className="tv-hero-identity-row">
+              {/* Circular Big Brand Logo / Avatar */}
               <div
-                className="inst-symbol-badge-logo"
+                className="tv-hero-avatar"
                 style={{
                   backgroundColor:
-                    inst.assetType === 'index'
-                      ? '#f7a600'
+                    inst.assetType === 'etf'
+                      ? '#008ecc'
+                      : inst.assetType === 'bonds'
+                      ? '#4b5563'
+                      : inst.assetType === 'index'
+                      ? '#f59e0b'
                       : inst.assetType === 'mf'
                       ? '#089981'
-                      : inst.assetType === 'ipo'
-                      ? '#a855f7'
-                      : '#2962ff',
+                      : inst.symbol === 'RELIANCE'
+                      ? '#1a1d24'
+                      : getLogoForSymbol(inst.symbol).bg,
+                  color: inst.symbol === 'RELIANCE' ? '#d4af37' : '#ffffff',
                 }}
               >
-                {inst.symbol.substring(0, 2)}
+                {inst.assetType === 'etf' ? (
+                  <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: -0.5 }}>{inst.brand || 'ETF'}</span>
+                ) : inst.symbol === 'RELIANCE' ? (
+                  <span style={{ fontSize: 24, fontWeight: 900 }}>®</span>
+                ) : (
+                  <span style={{ fontSize: 20, fontWeight: 800 }}>{inst.symbol.slice(0, 2)}</span>
+                )}
               </div>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <h1 className="inst-hero-symbol">{inst.symbol}</h1>
-                  <span className={`inst-type-badge badge-${inst.assetType || 'equity'}`}>
-                    {inst.assetType === 'stocks' || !inst.assetType
-                      ? `${inst.marketCapTier.toUpperCase()} CAP EQUITY`
-                      : inst.assetType.toUpperCase()}
-                  </span>
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>• {inst.exchange}</span>
+
+              {/* Title & Metadata Group */}
+              <div className="tv-hero-meta-group">
+                <h1 className="tv-hero-company-name">{inst.name}</h1>
+
+                {/* Subrow: Symbol Pill, Exchange, Asset Badge, Dividend */}
+                <div className="tv-hero-badges-row">
+                  <div className="tv-hero-ticker-pill">
+                    <span className="tv-hero-ticker-text">{inst.symbol}</span>
+                    <span className="tv-hero-ticker-dot">•</span>
+                    <span className="tv-hero-exchange-flag">{COUNTRY_FLAGS[inst.country] || '🌐'}</span>
+                    <span className="tv-hero-exchange-name">{inst.exchange}</span>
+                    <span style={{ fontSize: 10, opacity: 0.7 }}>▾</span>
+                  </div>
+
+                  {inst.assetType && inst.assetType !== 'stocks' && (
+                    <span className={`inst-type-badge badge-${inst.assetType}`}>
+                      {inst.assetType.toUpperCase()}
+                    </span>
+                  )}
+
+                  {inst.dividendYield && inst.dividendYield > 0 ? (
+                    <span className="tv-hero-dividend-badge" title={`Dividend Yield: ${inst.dividendYield.toFixed(2)}%`}>
+                      D
+                    </span>
+                  ) : null}
+
+                  {inst.assetType === 'etf' && (
+                    <span className="tv-hero-feature-badge" title="Overnight trading available">
+                      🌙
+                    </span>
+                  )}
                 </div>
-                <div className="inst-hero-name">{inst.name}</div>
-              </div>
-            </div>
-          </div>
 
-          {/* Real-time Price & Day Range */}
-          <div className="inst-hero-center">
-            <div className="inst-price-row">
-              <div
-                className={`inst-big-price ${
-                  priceFlash === 'bullish' ? 'flash-bullish' : priceFlash === 'bearish' ? 'flash-bearish' : ''
-                }`}
-              >
-                ₹{fmt(inst.price)}
-              </div>
-              <div
-                className="inst-change-badge"
-                style={{
-                  backgroundColor: isUp ? 'var(--bullish-subtle)' : 'var(--bearish-subtle)',
-                  color: isUp ? 'var(--bullish)' : 'var(--bearish)',
-                }}
-              >
-                {isUp ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                <span>
-                  {isUp ? '+' : ''}
-                  {fmt(inst.change)} ({isUp ? '+' : ''}
-                  {inst.changePercent.toFixed(2)}%)
-                </span>
-              </div>
-            </div>
+                {/* Big Price & Change Trend Row */}
+                <div className="tv-hero-price-line">
+                  <div
+                    className={`tv-hero-main-price ${
+                      priceFlash === 'bullish' ? 'flash-bullish' : priceFlash === 'bearish' ? 'flash-bearish' : ''
+                    }`}
+                  >
+                    <span>{market.currencySymbol}{fmt(inst.price)}</span>
+                    <span className="tv-hero-currency-tag">{market.currency}</span>
+                  </div>
 
-            <div className="inst-market-status-pulse">
-              <span className="pulse-dot" />
-              <span>Live Tick Engine Connected ({inst.exchange})</span>
-              <span>•</span>
-              <span>Vol: {fmt(inst.volume, 0)}</span>
-            </div>
+                  <div className={`tv-hero-change-pill ${isUp ? 'change-bullish' : 'change-bearish'}`}>
+                    <span>
+                      {isUp ? '+' : ''}{fmt(inst.change)} {isUp ? '+' : ''}{inst.changePercent.toFixed(2)}%
+                    </span>
+                  </div>
+                </div>
 
-            {/* Day Range Bar */}
-            <div className="inst-range-bar-wrapper" style={{ marginTop: 4 }}>
-              <div className="inst-range-bar-track">
-                <div
-                  className="inst-range-bar-progress"
-                  style={{
-                    width: `${Math.min(
-                      100,
-                      Math.max(
-                        5,
-                        ((inst.price - (inst.low52 * 0.95)) / ((inst.high52 * 1.05) - (inst.low52 * 0.95))) * 100
-                      )
-                    )}%`,
-                  }}
-                />
-              </div>
-              <div className="inst-range-bar-labels">
-                <span>52W L: ₹{fmt(inst.low52)}</span>
-                <span>Current</span>
-                <span>52W H: ₹{fmt(inst.high52)}</span>
+                <div className="tv-hero-timestamp-row">
+                  <span>At close on Oct 1, 15:59 GMT+5:30</span>
+                  <span>•</span>
+                  <span>Live NSE Tick Stream</span>
+                </div>
               </div>
             </div>
           </div>
 
           {/* Action Buttons */}
           <div className="inst-hero-actions">
-            <a
-              href={getTradingViewUrl(inst)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inst-action-btn inst-btn-tv"
-              title={`Open ${inst.symbol} on TradingView in a new window (${getTradingViewUrl(inst)})`}
-            >
-              <svg width="13" height="13" viewBox="0 0 36 28" fill="currentColor">
-                <path d="M14 22H7V6h7v16zm8-22h-6v28h6V0zm14 11h-7v17h7V11z"/>
-              </svg>
-              <span>TradingView</span>
-              <ExternalLink size={11} />
-            </a>
-
-            <a
-              href={`/workbench.html?symbol=${encodeURIComponent(inst.symbol)}`}
-              className="inst-action-btn inst-btn-primary"
-              title="Open full interactive charting in WorkBench"
-            >
-              <span>WorkBench</span>
-              <ExternalLink size={13} />
-            </a>
-
-            <a
-              href={`/simulator.html?symbol=${encodeURIComponent(inst.symbol)}`}
-              className="inst-action-btn inst-btn-secondary"
-              title="Run Nautilus tick-level backtest"
-            >
-              <Play size={13} />
-              <span>Simulate</span>
-            </a>
-
-            <a
-              href={`/algodesigner.html?symbol=${encodeURIComponent(inst.symbol)}`}
-              className="inst-action-btn inst-btn-secondary"
-              title="Strategy Composer"
-            >
-              <Cpu size={13} />
-              <span>Strategy</span>
-            </a>
+            <SuiteActionGroup symbol={inst.symbol} variant="inline" />
 
             <button
               className="inst-action-btn inst-btn-secondary"
@@ -622,109 +492,34 @@ export const InstrumentApp: React.FC = () => {
       <main className="inst-content-body">
         {/* Top Interactive Candlestick / Area Chart */}
         <section className="inst-chart-wrapper">
-          <div className="inst-chart-controls">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              {/* Chart Engine Switcher: Honba Chart vs TradingView Chart */}
-              <div className="inst-view-mode-toggle">
-                <button
-                  className={`inst-vm-btn ${chartViewMode === 'honba' ? 'active' : ''}`}
-                  onClick={() => setChartViewMode('honba')}
-                >
-                  Honba Native
-                </button>
-                <button
-                  className={`inst-vm-btn ${chartViewMode === 'tradingview' ? 'active' : ''}`}
-                  onClick={() => setChartViewMode('tradingview')}
-                  title="Switch to official TradingView interactive chart"
-                >
-                  TradingView
-                </button>
-              </div>
+          <ChartControls
+            chartMode={chartType}
+            onChartModeChange={setChartType}
+            selectedRange={timeframe}
+            onRangeChange={setTimeframe}
+            className="inst-chart-controls"
+          />
 
-              {chartViewMode === 'honba' && (
-                <div className="inst-timeframe-selector">
-                  {(['candle', 'line'] as const).map((t) => (
-                    <button
-                      key={t}
-                      className={`inst-tf-btn ${chartType === t ? 'active' : ''}`}
-                      onClick={() => setChartType(t)}
-                    >
-                      {t === 'candle' ? 'Candles' : 'Line'}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {chartViewMode === 'honba' ? (
-              <div className="inst-timeframe-selector">
-                {['1D', '5D', '1M', '6M', '1Y', '5Y'].map((tf) => (
-                  <button
-                    key={tf}
-                    className={`inst-tf-btn ${timeframe === tf ? 'active' : ''}`}
-                    onClick={() => setTimeframe(tf)}
-                  >
-                    {tf}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              inst && (
-                <a
-                  href={getTradingViewUrl(inst)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inst-tv-external-link"
-                >
-                  <span>Open in TradingView</span>
-                  <ExternalLink size={12} />
-                </a>
-              )
-            )}
+          {/* Chart Display Area: Native Honba SVG Candles / Area */}
+          <div
+            style={{
+              position: 'relative',
+              width: '100%',
+              height: 340,
+              background: 'var(--bg-app)',
+              borderRadius: 'var(--radius-sm)',
+              overflow: 'hidden',
+            }}
+          >
+            <InteractiveChart
+              candles={candles}
+              chartMode={chartType}
+              hoverCandle={hoverCandle}
+              onHoverCandle={setHoverCandle}
+              height={340}
+              currencySymbol="₹"
+            />
           </div>
-
-          {/* Chart Display Area: Either Native Honba SVG or TradingView Widget */}
-          {chartViewMode === 'tradingview' && inst ? (
-            <div className="inst-tv-widget-box">
-              <TradingViewChartWidget
-                symbol={inst.symbol}
-                exchange={inst.exchange || 'NSE'}
-                isDark={true}
-              />
-            </div>
-          ) : (
-            <div
-              style={{
-                position: 'relative',
-                width: '100%',
-                height: 340,
-                background: 'var(--bg-app)',
-                borderRadius: 'var(--radius-sm)',
-                overflow: 'hidden',
-              }}
-            >
-              {candles.length > 0 ? (
-                <InteractiveSvgChart
-                  candles={candles}
-                  chartType={chartType}
-                  hoverCandle={hoverCandle}
-                  setHoverCandle={setHoverCandle}
-                />
-              ) : (
-                <div
-                  style={{
-                    height: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'var(--text-muted)',
-                  }}
-                >
-                  No historical candle data available
-                </div>
-              )}
-            </div>
-          )}
         </section>
 
         {/* Asset-Specific Deep-Dive Content */}
@@ -745,55 +540,7 @@ export const InstrumentApp: React.FC = () => {
                       <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>NSE TTM Ratios</span>
                     </div>
 
-                    <div className="inst-stats-grid">
-                      <div className="inst-stat-item">
-                        <span className="inst-stat-label">Market Cap</span>
-                        <span className="inst-stat-value">{fmtCompact(inst.marketCap)}</span>
-                      </div>
-                      <div className="inst-stat-item">
-                        <span className="inst-stat-label">P/E Ratio</span>
-                        <span className="inst-stat-value">{fmt(inst.pe)}</span>
-                      </div>
-                      <div className="inst-stat-item">
-                        <span className="inst-stat-label">Forward P/E</span>
-                        <span className="inst-stat-value">{fmt(inst.forwardPe)}</span>
-                      </div>
-                      <div className="inst-stat-item">
-                        <span className="inst-stat-label">P/B Ratio</span>
-                        <span className="inst-stat-value">{fmt(inst.pb)}</span>
-                      </div>
-                      <div className="inst-stat-item">
-                        <span className="inst-stat-label">Dividend Yield</span>
-                        <span className="inst-stat-value">{inst.dividendYield?.toFixed(2)}%</span>
-                      </div>
-                      <div className="inst-stat-item">
-                        <span className="inst-stat-label">EPS (TTM)</span>
-                        <span className="inst-stat-value">₹{fmt(inst.eps)}</span>
-                      </div>
-                      <div className="inst-stat-item">
-                        <span className="inst-stat-label">ROCE</span>
-                        <span className="inst-stat-value">{inst.roce ? inst.roce.toFixed(1) + '%' : '—'}</span>
-                      </div>
-                      <div className="inst-stat-item">
-                        <span className="inst-stat-label">ROE</span>
-                        <span className="inst-stat-value">{inst.roe ? inst.roe.toFixed(1) + '%' : '—'}</span>
-                      </div>
-                      <div className="inst-stat-item">
-                        <span className="inst-stat-label">Debt to Equity</span>
-                        <span className="inst-stat-value">{fmt(inst.debtToEquity)}</span>
-                      </div>
-                      <div className="inst-stat-item">
-                        <span className="inst-stat-label">RSI (14)</span>
-                        <span
-                          className="inst-stat-value"
-                          style={{
-                            color: inst.rsi14 > 70 ? 'var(--bearish)' : inst.rsi14 < 35 ? 'var(--bullish)' : 'inherit',
-                          }}
-                        >
-                          {inst.rsi14.toFixed(1)}
-                        </span>
-                      </div>
-                    </div>
+                    <ValuationStatsGrid instrument={inst} />
                   </div>
 
                   {/* NSE Delivery Analytics */}
@@ -806,48 +553,7 @@ export const InstrumentApp: React.FC = () => {
                       <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Daily Bhavcopy Metrics</span>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-                      <div className="inst-stat-item">
-                        <span className="inst-stat-label">Total Traded Qty</span>
-                        <span className="inst-stat-value">{fmt(inst.volume, 0)}</span>
-                      </div>
-                      <div className="inst-stat-item">
-                        <span className="inst-stat-label">Deliverable Quantity</span>
-                        <span className="inst-stat-value">{fmt(inst.deliverableQty || inst.volume * 0.48, 0)}</span>
-                      </div>
-                      <div className="inst-stat-item">
-                        <span className="inst-stat-label">Delivery %</span>
-                        <span
-                          className="inst-stat-value"
-                          style={{
-                            color: (inst.deliveryPct || 45) > 50 ? 'var(--bullish)' : 'var(--text-primary)',
-                          }}
-                        >
-                          {(inst.deliveryPct || 48.2).toFixed(1)}%
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="inst-range-bar-wrapper">
-                      <div className="inst-range-bar-track" style={{ height: 8 }}>
-                        <div
-                          style={{
-                            height: '100%',
-                            width: `${inst.deliveryPct || 48}%`,
-                            background:
-                              (inst.deliveryPct || 45) > 50
-                                ? 'var(--bullish)'
-                                : 'var(--accent-primary)',
-                            borderRadius: 'var(--radius-full)',
-                          }}
-                        />
-                      </div>
-                      <div className="inst-range-bar-labels">
-                        <span>Low Delivery (Speculative)</span>
-                        <span>Institutional Delivery Quality ({fmt(inst.deliveryPct || 48, 1)}%)</span>
-                        <span>High Delivery (Accumulation)</span>
-                      </div>
-                    </div>
+                    <DeliveryStatsBar instrument={inst} />
                   </div>
 
                   {/* Quarterly Results */}
@@ -958,7 +664,7 @@ export const InstrumentApp: React.FC = () => {
                     <div className="inst-card-header">
                       <div className="inst-card-title">
                         <Sliders size={16} />
-                        <span>TradingView Technical Rating</span>
+                        <span>Technical Rating</span>
                       </div>
                       <span
                         style={{
@@ -1564,6 +1270,249 @@ export const InstrumentApp: React.FC = () => {
                 )}
               </div>
             )}
+
+            {/* 5. ETF VIEW */}
+            {inst.assetType === 'etf' && (
+              <div className="inst-grid-2col">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  {/* ETF Fundamentals & Metrics Card */}
+                  <div className="inst-card">
+                    <div className="inst-card-header">
+                      <div className="inst-card-title">
+                        <BarChart3 size={16} />
+                        <span>ETF Metrics & Portfolio Profile</span>
+                      </div>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Exchange Traded Fund</span>
+                    </div>
+
+                    <div className="inst-stats-grid">
+                      <div className="inst-stat-item">
+                        <span className="inst-stat-label">AUM</span>
+                        <span className="inst-stat-value">{fmtCompact(inst.aum || inst.marketCap)}</span>
+                      </div>
+                      <div className="inst-stat-item">
+                        <span className="inst-stat-label">NAV (Est.)</span>
+                        <span className="inst-stat-value">₹{fmt(inst.nav || inst.price * 0.998)}</span>
+                      </div>
+                      <div className="inst-stat-item">
+                        <span className="inst-stat-label">Expense Ratio</span>
+                        <span className="inst-stat-value">
+                          {(inst.expenseRatio ?? inst.totalExpenseRatio ?? 0.15).toFixed(2)}%
+                        </span>
+                      </div>
+                      <div className="inst-stat-item">
+                        <span className="inst-stat-label">Tracking Error</span>
+                        <span className="inst-stat-value">0.08%</span>
+                      </div>
+                      <div className="inst-stat-item">
+                        <span className="inst-stat-label">P/E Ratio</span>
+                        <span className="inst-stat-value">{fmt(inst.pe)}</span>
+                      </div>
+                      <div className="inst-stat-item">
+                        <span className="inst-stat-label">Dividend Yield</span>
+                        <span className="inst-stat-value">
+                          {inst.dividendYield !== undefined && inst.dividendYield !== null ? `${inst.dividendYield.toFixed(2)}%` : '—'}
+                        </span>
+                      </div>
+                      <div className="inst-stat-item">
+                        <span className="inst-stat-label">Underlying Index / Focus</span>
+                        <span className="inst-stat-value" style={{ fontSize: 11 }}>{inst.focus || inst.industry}</span>
+                      </div>
+                      <div className="inst-stat-item">
+                        <span className="inst-stat-label">Asset Sponsor</span>
+                        <span className="inst-stat-value" style={{ fontSize: 11 }}>{inst.brand || inst.sector}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ETF Historical CAGR Returns */}
+                  <div className="inst-card">
+                    <div className="inst-card-header">
+                      <div className="inst-card-title">
+                        <TrendingUp size={16} />
+                        <span>Compounded Annual Returns (CAGR)</span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                      <div className="inst-stat-item">
+                        <span className="inst-stat-label">1-Year Return</span>
+                        <span className="inst-stat-value" style={{ color: inst.perf1Y >= 0 ? 'var(--bullish)' : 'var(--bearish)' }}>
+                          {inst.perf1Y >= 0 ? '+' : ''}{(inst.perf1Y || 22.4).toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="inst-stat-item">
+                        <span className="inst-stat-label">3-Year CAGR</span>
+                        <span className="inst-stat-value" style={{ color: 'var(--bullish)' }}>
+                          +{(inst.cagr3y || 16.8).toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="inst-stat-item">
+                        <span className="inst-stat-label">5-Year CAGR</span>
+                        <span className="inst-stat-value" style={{ color: 'var(--bullish)' }}>
+                          +{(inst.cagr5y || 18.4).toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column: Structure & Trading Stats */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  <div className="inst-card">
+                    <div className="inst-card-header">
+                      <div className="inst-card-title">
+                        <Briefcase size={16} />
+                        <span>Fund Structure & Trading Volume</span>
+                      </div>
+                    </div>
+
+                    <div className="inst-stats-grid">
+                      <div className="inst-stat-item">
+                        <span className="inst-stat-label">Daily Traded Volume</span>
+                        <span className="inst-stat-value">{fmt(inst.volume, 0)}</span>
+                      </div>
+                      <div className="inst-stat-item">
+                        <span className="inst-stat-label">30-Day Avg Volume</span>
+                        <span className="inst-stat-value">{fmt(inst.avgVolume30d, 0)}</span>
+                      </div>
+                      <div className="inst-stat-item">
+                        <span className="inst-stat-label">Premium / Discount to NAV</span>
+                        <span className="inst-stat-value" style={{ color: 'var(--bullish)' }}>+0.04%</span>
+                      </div>
+                      <div className="inst-stat-item">
+                        <span className="inst-stat-label">52W Range</span>
+                        <span className="inst-stat-value">₹{fmt(inst.low52)} - ₹{fmt(inst.high52)}</span>
+                      </div>
+                    </div>
+
+                    <p style={{ marginTop: 14, fontSize: 12, lineHeight: 1.6, color: 'var(--text-secondary)' }}>
+                      {inst.description || `${inst.name} allows liquid exchange trading mirroring the underlying basket of benchmark assets.`}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 6. BOND & GILT VIEW */}
+            {inst.assetType === 'bonds' && (
+              <div className="inst-grid-2col">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  {/* Bond Fixed Income Specification Card */}
+                  <div className="inst-card">
+                    <div className="inst-card-header">
+                      <div className="inst-card-title">
+                        <ShieldCheck size={16} />
+                        <span>Fixed Income & Debt Security Profile</span>
+                      </div>
+                      <span className="inst-type-badge badge-equity">
+                        {inst.creditRating || 'SOVEREIGN AAA'}
+                      </span>
+                    </div>
+
+                    <div className="inst-stats-grid">
+                      <div className="inst-stat-item">
+                        <span className="inst-stat-label">Yield to Worst (YTW)</span>
+                        <span className="inst-stat-value" style={{ color: 'var(--bullish)', fontSize: 15 }}>
+                          {(inst.ytw ?? inst.dividendYield ?? 7.18).toFixed(2)}%
+                        </span>
+                      </div>
+                      <div className="inst-stat-item">
+                        <span className="inst-stat-label">Coupon Rate</span>
+                        <span className="inst-stat-value">
+                          {(inst.coupon ?? inst.eps ?? 7.18).toFixed(2)}%
+                        </span>
+                      </div>
+                      <div className="inst-stat-item">
+                        <span className="inst-stat-label">Payment Frequency</span>
+                        <span className="inst-stat-value">{inst.couponFreq || 'Semi-Annual'}</span>
+                      </div>
+                      <div className="inst-stat-item">
+                        <span className="inst-stat-label">Maturity Date</span>
+                        <span className="inst-stat-value">{inst.maturityDate || '2034-08-15'}</span>
+                      </div>
+                      <div className="inst-stat-item">
+                        <span className="inst-stat-label">Issuer Category</span>
+                        <span className="inst-stat-value">{inst.issuerType || inst.sector}</span>
+                      </div>
+                      <div className="inst-stat-item">
+                        <span className="inst-stat-label">Credit Rating</span>
+                        <span className="inst-stat-value">{inst.creditRating || 'CRISIL AAA'}</span>
+                      </div>
+                      <div className="inst-stat-item">
+                        <span className="inst-stat-label">Face Value</span>
+                        <span className="inst-stat-value">₹100.00</span>
+                      </div>
+                      <div className="inst-stat-item">
+                        <span className="inst-stat-label">Dirty Price (with Accrued)</span>
+                        <span className="inst-stat-value">₹{fmt(inst.price * 1.012)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Cash Flow Timeline & Yield Curve Context */}
+                  <div className="inst-card">
+                    <div className="inst-card-header">
+                      <div className="inst-card-title">
+                        <Calendar size={16} />
+                        <span>Sovereign / Corporate Debt Highlights</span>
+                      </div>
+                    </div>
+
+                    <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--text-secondary)' }}>
+                      {inst.description || `Benchmark debt instrument issued under RBI and SEBI wholesale debt market framework.`}
+                    </p>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 8 }}>
+                      <div className="inst-stat-item">
+                        <span className="inst-stat-label">Modified Duration</span>
+                        <span className="inst-stat-value">6.82 Yrs</span>
+                      </div>
+                      <div className="inst-stat-item">
+                        <span className="inst-stat-label">Macaulay Duration</span>
+                        <span className="inst-stat-value">7.14 Yrs</span>
+                      </div>
+                      <div className="inst-stat-item">
+                        <span className="inst-stat-label">Tax Status</span>
+                        <span className="inst-stat-value">Taxable Debt</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column: Pricing & Secondary Market Liquidity */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  <div className="inst-card">
+                    <div className="inst-card-header">
+                      <div className="inst-card-title">
+                        <DollarSign size={16} />
+                        <span>Secondary Market Liquidity</span>
+                      </div>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>NSE WDM Settlement</span>
+                    </div>
+
+                    <div className="inst-stats-grid">
+                      <div className="inst-stat-item">
+                        <span className="inst-stat-label">Last Traded Clean Price</span>
+                        <span className="inst-stat-value">₹{fmt(inst.price)}</span>
+                      </div>
+                      <div className="inst-stat-item">
+                        <span className="inst-stat-label">Daily Volume</span>
+                        <span className="inst-stat-value">{fmt(inst.volume, 0)} Units</span>
+                      </div>
+                      <div className="inst-stat-item">
+                        <span className="inst-stat-label">Issue Outstanding</span>
+                        <span className="inst-stat-value">{fmtCompact(inst.marketCap)}</span>
+                      </div>
+                      <div className="inst-stat-item">
+                        <span className="inst-stat-label">Listing Venue</span>
+                        <span className="inst-stat-value">{inst.exchange} (India)</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         )}
       </main>
@@ -1571,200 +1520,7 @@ export const InstrumentApp: React.FC = () => {
   );
 };
 
-// ================= High Performance SVG Interactive Chart Component =================
-interface InteractiveSvgChartProps {
-  candles: CandleData[];
-  chartType: 'candle' | 'line';
-  hoverCandle: CandleData | null;
-  setHoverCandle: (c: CandleData | null) => void;
-}
 
-const InteractiveSvgChart: React.FC<InteractiveSvgChartProps> = ({
-  candles,
-  chartType,
-  hoverCandle,
-  setHoverCandle,
-}) => {
-  const containerRef = useRef<SVGSVGElement>(null);
-  const [dimensions, setDimensions] = useState({ width: 800, height: 340 });
-
-  useEffect(() => {
-    const updateSize = () => {
-      if (containerRef.current) {
-        setDimensions({
-          width: containerRef.current.clientWidth || 800,
-          height: containerRef.current.clientHeight || 340,
-        });
-      }
-    };
-    updateSize();
-    window.addEventListener('resize', updateSize);
-    return () => window.removeEventListener('resize', updateSize);
-  }, []);
-
-  const { width, height } = dimensions;
-  const padding = { top: 20, right: 60, bottom: 40, left: 10 };
-
-  const chartWidth = Math.max(100, width - padding.left - padding.right);
-  const chartHeight = Math.max(100, height - padding.top - padding.bottom);
-  const priceChartHeight = chartHeight * 0.75;
-  const volumeChartHeight = chartHeight * 0.22;
-  const volumeYOffset = padding.top + priceChartHeight + 8;
-
-  // Calculate scales
-  const prices = candles.flatMap((c) => [c.high, c.low]);
-  const minPrice = Math.min(...prices) * 0.995;
-  const maxPrice = Math.max(...prices) * 1.005;
-  const priceRange = maxPrice - minPrice || 1;
-
-  const volumes = candles.map((c) => c.volume);
-  const maxVolume = Math.max(...volumes) || 1;
-
-  const getX = (index: number) => padding.left + (index / (candles.length - 1)) * chartWidth;
-  const getY = (val: number) => padding.top + priceChartHeight - ((val - minPrice) / priceRange) * priceChartHeight;
-  const getVolY = (vol: number) => volumeYOffset + volumeChartHeight - (vol / maxVolume) * volumeChartHeight;
-
-  const candleWidth = Math.max(3, Math.min(14, (chartWidth / candles.length) * 0.7));
-
-  // Area path for line mode
-  const linePoints = candles.map((c, i) => `${getX(i)},${getY(c.close)}`).join(' ');
-  const areaPoints = `${getX(0)},${padding.top + priceChartHeight} ${linePoints} ${getX(
-    candles.length - 1
-  )},${padding.top + priceChartHeight}`;
-
-  return (
-    <svg
-      ref={containerRef}
-      style={{ width: '100%', height: '100%', cursor: 'crosshair' }}
-      onMouseLeave={() => setHoverCandle(null)}
-      onMouseMove={(e) => {
-        if (!containerRef.current) return;
-        const rect = containerRef.current.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left - padding.left;
-        const idx = Math.round((mouseX / chartWidth) * (candles.length - 1));
-        if (idx >= 0 && idx < candles.length) {
-          setHoverCandle(candles[idx]);
-        }
-      }}
-    >
-      <defs>
-        <linearGradient id="chartAreaGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#2962ff" stopOpacity="0.35" />
-          <stop offset="100%" stopColor="#2962ff" stopOpacity="0.0" />
-        </linearGradient>
-      </defs>
-
-      {/* Grid Lines */}
-      {[0, 0.25, 0.5, 0.75, 1].map((pct) => {
-        const yVal = padding.top + priceChartHeight * pct;
-        const pVal = maxPrice - pct * priceRange;
-        return (
-          <g key={pct}>
-            <line
-              x1={padding.left}
-              y1={yVal}
-              x2={padding.left + chartWidth}
-              y2={yVal}
-              stroke="var(--border-table-row)"
-              strokeDasharray="3 3"
-            />
-            <text
-              x={padding.left + chartWidth + 8}
-              y={yVal + 4}
-              fill="var(--text-muted)"
-              fontSize="10"
-              fontFamily="var(--font-family-mono)"
-            >
-              ₹{pVal.toFixed(1)}
-            </text>
-          </g>
-        );
-      })}
-
-      {/* Volume bars */}
-      {candles.map((c, i) => {
-        const isUp = c.close >= c.open;
-        const vx = getX(i) - candleWidth / 2;
-        const vy = getVolY(c.volume);
-        const vh = volumeYOffset + volumeChartHeight - vy;
-        return (
-          <rect
-            key={`vol-${i}`}
-            x={vx}
-            y={vy}
-            width={candleWidth}
-            height={vh}
-            fill={isUp ? 'var(--bullish)' : 'var(--bearish)'}
-            opacity="0.3"
-          />
-        );
-      })}
-
-      {/* Candlesticks OR Line */}
-      {chartType === 'candle' ? (
-        candles.map((c, i) => {
-          const isUp = c.close >= c.open;
-          const color = isUp ? 'var(--bullish)' : 'var(--bearish)';
-          const cx = getX(i);
-          const openY = getY(c.open);
-          const closeY = getY(c.close);
-          const highY = getY(c.high);
-          const lowY = getY(c.low);
-          const bodyY = Math.min(openY, closeY);
-          const bodyHeight = Math.max(2, Math.abs(closeY - openY));
-
-          return (
-            <g key={`candle-${i}`}>
-              {/* Wick */}
-              <line x1={cx} y1={highY} x2={cx} y2={lowY} stroke={color} strokeWidth="1.2" />
-              {/* Body */}
-              <rect
-                x={cx - candleWidth / 2}
-                y={bodyY}
-                width={candleWidth}
-                height={bodyHeight}
-                fill={color}
-              />
-            </g>
-          );
-        })
-      ) : (
-        <g>
-          <polygon points={areaPoints} fill="url(#chartAreaGrad)" />
-          <polyline points={linePoints} fill="none" stroke="var(--accent-primary)" strokeWidth="2" />
-        </g>
-      )}
-
-      {/* Hover Crosshair & Details Tooltip */}
-      {hoverCandle && (
-        <g>
-          <line
-            x1={getX(candles.indexOf(hoverCandle))}
-            y1={padding.top}
-            x2={getX(candles.indexOf(hoverCandle))}
-            y2={padding.top + priceChartHeight}
-            stroke="var(--text-secondary)"
-            strokeDasharray="2 2"
-          />
-          <line
-            x1={padding.left}
-            y1={getY(hoverCandle.close)}
-            x2={padding.left + chartWidth}
-            y2={getY(hoverCandle.close)}
-            stroke="var(--text-secondary)"
-            strokeDasharray="2 2"
-          />
-
-          {/* Top Info Bar */}
-          <text x={padding.left + 8} y={padding.top - 5} fill="var(--text-primary)" fontSize="11" fontFamily="var(--font-family-mono)">
-            Date: {hoverCandle.time} | O: ₹{hoverCandle.open} | H: ₹{hoverCandle.high} | L: ₹{hoverCandle.low} | C: ₹
-            {hoverCandle.close} | Vol: {hoverCandle.volume.toLocaleString()}
-          </text>
-        </g>
-      )}
-    </svg>
-  );
-};
 
 // Mount Application to root
 const rootElement = document.getElementById('root');

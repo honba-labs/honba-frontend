@@ -157,7 +157,18 @@ export const ALL_COLUMNS: ColumnDef[] = [
           </div>
           <div className="tv-symbol-details">
             <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <span className="tv-symbol-ticker">{inst.symbol}</span>
+              <a
+                href={`/instrument.html?symbol=${encodeURIComponent(inst.symbol)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="tv-symbol-ticker-btn"
+                title={`Open ${inst.symbol} instrument page in new tab`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                }}
+              >
+                {inst.symbol}
+              </a>
               <span
                 style={{
                   fontSize: 9.5,
@@ -177,7 +188,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
                 target="_blank"
                 rel="noopener noreferrer"
                 className="tv-symbol-open-icon"
-                title={`Open Dedicated Chart & Analytics for ${inst.symbol}`}
+                title={`Open Dedicated Chart & Analytics for ${inst.symbol} in new tab`}
                 onClick={(e) => e.stopPropagation()}
                 style={{
                   display: 'inline-flex',
@@ -196,12 +207,12 @@ export const ALL_COLUMNS: ColumnDef[] = [
               <span className="tv-symbol-name" title={inst.name}>
                 {inst.name}
               </span>
+              {Boolean(hasDividend) && (
+                <span className="tv-dividend-tag" title={`Dividend Yield: ${inst.dividendYield?.toFixed(2)}%`}>
+                  D
+                </span>
+              )}
             </div>
-            {hasDividend && (
-              <span className="tv-dividend-tag" title={`Dividend Yield: ${inst.dividendYield?.toFixed(2)}%`}>
-                D
-              </span>
-            )}
           </div>
         </div>
       );

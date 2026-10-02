@@ -212,27 +212,27 @@ body.instrument-page #root {
 
 /* Hero Sticky Symbol Header */
 .inst-hero-header {
-  padding: 16px 20px;
+  padding: 16px 24px 20px;
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 20px;
 }
 
 .inst-hero-left {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 12px;
 }
 
 .inst-hero-breadcrumbs {
   display: flex;
   align-items: center;
-  gap: 5px;
-  font-size: 11px;
+  gap: 6px;
+  font-size: 12px;
   color: var(--text-muted);
   flex-wrap: wrap;
 }
@@ -250,54 +250,175 @@ body.instrument-page #root {
 
 .inst-breadcrumb-sep {
   color: var(--text-muted);
-  font-size: 12px;
-  opacity: 0.6;
+  font-size: 11px;
+  opacity: 0.5;
 }
 
 .inst-breadcrumb-active {
-  color: var(--accent-primary);
-  font-weight: 600;
+  color: var(--text-muted);
+  font-weight: 500;
   display: inline-flex;
   align-items: center;
   text-decoration: none;
 }
 
-.inst-breadcrumb-active:hover {
-  text-decoration: underline;
-}
-
-.inst-hero-title-row {
+/* TradingView Identity Row: Big Avatar + Company Name + Badges + Giant Price */
+.tv-hero-identity-row {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 20px;
 }
 
-.inst-symbol-badge-logo {
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius-sm);
+.tv-hero-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tv-hero-meta-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tv-hero-company-name {
+  font-size: 32px;
   font-weight: 800;
-  font-size: 13px;
-  background: #2962ff;
-  color: #ffffff;
-  box-shadow: var(--shadow-sm);
-}
-
-.inst-hero-symbol {
-  font-size: 24px;
-  font-weight: 700;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.6px;
   color: var(--text-primary);
+  line-height: 1.15;
+  margin: 0;
 }
 
-.inst-hero-name {
-  font-size: 16px;
-  font-weight: 500;
+.tv-hero-badges-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.tv-hero-ticker-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--radius-xs, 4px);
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.tv-hero-ticker-pill:hover {
+  background: var(--bg-surface-hover);
+  border-color: var(--border-medium);
+}
+
+.tv-hero-ticker-text {
+  font-family: var(--font-family-mono);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.tv-hero-ticker-dot {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.tv-hero-exchange-flag {
+  font-size: 11px;
+}
+
+.tv-hero-exchange-name {
+  font-family: var(--font-family-sans);
   color: var(--text-secondary);
+}
+
+.tv-hero-dividend-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.tv-hero-feature-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 20px;
+  border-radius: 4px;
+  background: rgba(168, 85, 247, 0.15);
+  font-size: 11px;
+}
+
+/* Big Price & Change Trend Line */
+.tv-hero-price-line {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.tv-hero-main-price {
+  font-size: 38px;
+  font-weight: 800;
+  font-family: var(--font-family-sans);
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.tv-hero-currency-tag {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-left: 2px;
+}
+
+.tv-hero-change-pill {
+  font-size: 18px;
+  font-weight: 700;
+  font-family: var(--font-family-mono);
+  letter-spacing: -0.02em;
+}
+
+.tv-hero-change-pill.change-bullish {
+  color: var(--bullish, #089981);
+}
+
+.tv-hero-change-pill.change-bearish {
+  color: var(--bearish, #f23645);
+}
+
+.tv-hero-timestamp-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-top: 2px;
 }
 
 .inst-type-badge {
@@ -315,6 +436,18 @@ body.instrument-page #root {
   background: rgba(41, 98, 255, 0.16);
   color: #5d8aff;
   border: 1px solid rgba(41, 98, 255, 0.3);
+}
+
+.badge-etf {
+  background: rgba(0, 142, 204, 0.16);
+  color: #008ecc;
+  border: 1px solid rgba(0, 142, 204, 0.3);
+}
+
+.badge-bonds {
+  background: rgba(100, 116, 139, 0.16);
+  color: #94a3b8;
+  border: 1px solid rgba(100, 116, 139, 0.3);
 }
 
 .badge-index {
@@ -443,98 +576,29 @@ body.instrument-page #root {
   border-color: var(--border-strong);
 }
 
-.inst-btn-tv {
-  background-color: rgba(41, 98, 255, 0.12);
-  color: #5d8aff;
-  border: 1px solid rgba(41, 98, 255, 0.35);
-  font-weight: 600;
-}
 
-.inst-btn-tv:hover {
-  background-color: rgba(41, 98, 255, 0.22);
-  color: #82a8ff;
-  border-color: rgba(41, 98, 255, 0.55);
-}
 
-/* View Mode Switcher: Native vs TradingView */
-.inst-view-mode-toggle {
-  display: flex;
-  align-items: center;
-  background: var(--bg-app);
-  border-radius: var(--radius-xs);
-  padding: 2px;
-  border: 1px solid var(--border-subtle);
-}
 
-.inst-vm-btn {
-  padding: 4px 10px;
-  font-size: 11px;
-  font-weight: 600;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  border-radius: var(--radius-xs);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.inst-vm-btn:hover {
-  color: var(--text-primary);
-}
-
-.inst-vm-btn.active {
-  background: var(--accent-primary);
-  color: #ffffff;
-}
-
-.inst-tv-external-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  font-weight: 500;
-  color: #5d8aff;
-  text-decoration: none;
-  padding: 3px 8px;
-  border-radius: var(--radius-xs);
-  background: rgba(41, 98, 255, 0.08);
-  border: 1px solid rgba(41, 98, 255, 0.25);
-  transition: all var(--transition-fast);
-}
-
-.inst-tv-external-link:hover {
-  background: rgba(41, 98, 255, 0.16);
-  color: #82a8ff;
-}
-
-.inst-tv-widget-box {
-  width: 100%;
-  height: 420px;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-app);
-}
 
 /* Tab Navigation Bar */
 .inst-nav-tabs {
   display: flex;
   align-items: center;
-  gap: 20px;
-  padding: 0 20px;
+  gap: 24px;
+  padding: 0 24px;
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border-subtle);
   overflow-x: auto;
 }
 
 .inst-tab-item {
-  padding: 12px 2px;
-  font-size: 13px;
-  font-weight: 500;
+  padding: 14px 2px 12px;
+  font-size: 13.5px;
+  font-weight: 600;
   color: var(--text-secondary);
   background: transparent;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-bottom: 2.5px solid transparent;
   cursor: pointer;
   transition: all var(--transition-fast);
   white-space: nowrap;
@@ -545,9 +609,9 @@ body.instrument-page #root {
 }
 
 .inst-tab-item.active {
-  color: var(--accent-primary);
-  border-bottom-color: var(--accent-primary);
-  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom-color: var(--text-primary);
+  font-weight: 700;
 }
 
 /* Main Content Layout Grid */
@@ -617,7 +681,70 @@ body.instrument-page #root {
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 12px;
+}
+
+.drawer-chart-type-toggle {
+  display: flex;
+  align-items: center;
+  background: var(--bg-surface-elevated, var(--bg-app));
+  border-radius: var(--radius-xs, 4px);
+  border: 1px solid var(--border-subtle);
+  padding: 2px;
+  gap: 2px;
+}
+
+.chart-toggle-btn {
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: var(--radius-xs, 4px);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.chart-toggle-btn:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+.chart-toggle-btn.active {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.drawer-range-pills {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.range-pill {
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  font-family: var(--font-family-mono);
+  color: var(--text-muted);
+  border-radius: var(--radius-xs, 4px);
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid transparent;
+  transition: all var(--transition-fast);
+}
+
+.range-pill:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface-hover);
+}
+
+.range-pill.active {
+  background: var(--accent-subtle, rgba(41, 98, 255, 0.12));
+  color: var(--accent-primary, #2962ff);
+  border-color: rgba(41, 98, 255, 0.25);
 }
 
 .inst-timeframe-selector {
