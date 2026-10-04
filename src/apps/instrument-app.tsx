@@ -1487,7 +1487,7 @@ export const InstrumentApp: React.FC = () => {
                         <span className="inst-stat-value">{fmtCompact(inst.marketCap)}</span>
                       </div>
                       <div className="inst-stat-item">
-                        <span className="inst-stat-label">Listing Venue</span>
+                        <span className="inst-stat-label">Listing Exchange</span>
                         <span className="inst-stat-value">{inst.exchange} (India)</span>
                       </div>
                     </div>

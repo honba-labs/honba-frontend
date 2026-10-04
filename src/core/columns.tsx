@@ -135,7 +135,7 @@ export function renderRatingBadge(rating: string) {
  */
 export const ALL_COLUMNS: ColumnDef[] = [
   // ==========================================
-  // 1. INSTRUMENT IDENTITY & VENUE HIERARCHY
+  // 1. INSTRUMENT IDENTITY & EXCHANGE HIERARCHY
   // Country -> Exchange -> Asset -> Symbol
   // ==========================================
   {
@@ -144,7 +144,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
     category: 'overview',
     visible: true,
     align: 'left',
-    tooltip: 'Instrument Symbol and Listing Venue',
+    tooltip: 'Instrument Symbol and Listing Exchange',
     render: (inst) => {
       const logo = getLogoForSymbol(inst.symbol);
       const flag = COUNTRY_FLAGS[inst.country] || '🌐';
@@ -179,7 +179,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
                   fontWeight: 600,
                   letterSpacing: '0.04em',
                 }}
-                title={`Listing Venue: ${inst.exchange} (${inst.country})`}
+                title={`Listing Exchange: ${inst.exchange} (${inst.country})`}
               >
                 {inst.exchange}
               </span>
@@ -224,7 +224,7 @@ export const ALL_COLUMNS: ColumnDef[] = [
     category: 'overview',
     visible: false,
     align: 'center',
-    tooltip: 'Primary Trading Venue / Listing Exchange',
+    tooltip: 'Primary Trading Exchange / Listing Exchange',
     render: (inst) => (
       <span className="tv-sector-text" style={{ fontWeight: 600 }}>
         {inst.exchange}

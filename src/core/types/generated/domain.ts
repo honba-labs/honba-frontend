@@ -9,7 +9,7 @@ export type SchemaVersion = number;
 export type Event =
   QuoteEvent | TradeEvent | BarEvent | OrderEvent | OrderAccepted | OrderRejected | OrderFilled | OrderCancelled;
 export type Symbol = string;
-export type Venue = string;
+export type Exchange = string;
 export type BidPrice = number;
 export type AskPrice = number;
 export type BidSize = number;
@@ -208,7 +208,7 @@ export interface QuoteEvent {
 }
 export interface InstrumentId {
   symbol: Symbol;
-  venue: Venue;
+  exchange: Exchange;
 }
 export interface TradeEvent {
   instrument_id: InstrumentId;
