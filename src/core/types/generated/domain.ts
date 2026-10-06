@@ -292,9 +292,9 @@ export interface QuotesResponse {
   quotes: QuoteTick[];
 }
 
-export interface ResponseEnvelope {
+export interface ResponseEnvelope<T = unknown> {
   api_version: string;
-  data?: null;
+  data?: T | null;
   error?: ErrorDetail | null;
   schema_version: number;
 }
