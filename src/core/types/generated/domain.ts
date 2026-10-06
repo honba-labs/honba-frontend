@@ -115,7 +115,7 @@ export interface DepthResponse {
 
 export type ErrorCategory = "validation" | "not_found" | "auth" | "rate_limit" | "risk" | "order" | "market_data" | "transport" | "internal" | "unsupported";
 
-export type ErrorCode = "validation_invalid_request" | "not_found" | "unauthorized" | "forbidden" | "rate_limited" | "risk_max_notional_exceeded" | "risk_max_position_exceeded" | "risk_max_drawdown_exceeded" | "order_rejected" | "order_not_found" | "instrument_not_found" | "market_data_unavailable" | "timeout" | "transport_error" | "internal_error" | "unsupported";
+export type ErrorCode = "validation_invalid_request" | "not_found" | "unauthorized" | "forbidden" | "rate_limited" | "risk_max_notional_exceeded" | "risk_max_position_exceeded" | "risk_max_drawdown_exceeded" | "order_rejected" | "order_not_found" | "instrument_not_found" | "market_data_unavailable" | "timeout" | "transport_error" | "internal_error" | "unsupported" | "not_implemented";
 
 export interface ErrorDetail {
   code: ErrorCode;
@@ -284,6 +284,7 @@ export interface QuoteTick {
 }
 
 export interface QuotesQuery {
+  as_of?: string | null;
   symbols?: string | null;
   venue?: string | null;
 }
