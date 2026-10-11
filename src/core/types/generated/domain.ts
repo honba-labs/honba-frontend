@@ -15,6 +15,10 @@ export type AggressorSide = "buyer" | "seller" | "no_aggressor";
 
 export type ApiVersion = string;
 
+export interface BacktestEventsQuery {
+  resume_from_seq?: number | null;
+}
+
 export interface BacktestMetrics {
   max_drawdown: number;
   net_pnl: number;
@@ -123,7 +127,7 @@ export interface DepthResponse {
 
 export type ErrorCategory = "validation" | "not_found" | "auth" | "rate_limit" | "risk" | "order" | "market_data" | "transport" | "internal" | "unsupported";
 
-export type ErrorCode = "validation_invalid_request" | "not_found" | "unauthorized" | "forbidden" | "rate_limited" | "risk_max_notional_exceeded" | "risk_max_position_exceeded" | "risk_max_drawdown_exceeded" | "risk_trading_halted" | "risk_order_rate_exceeded" | "risk_quantity_below_min" | "risk_quantity_over_freeze" | "risk_lot_multiple_violation" | "risk_tick_size_violation" | "risk_price_band_exceeded" | "risk_reduce_only_violation" | "risk_instrument_unknown" | "risk_max_participation_exceeded" | "order_rejected" | "order_execution_unavailable" | "order_not_found" | "instrument_not_found" | "market_data_unavailable" | "timeout" | "transport_error" | "internal_error" | "unsupported" | "not_implemented";
+export type ErrorCode = "validation_invalid_request" | "not_found" | "unauthorized" | "forbidden" | "rate_limited" | "risk_max_notional_exceeded" | "risk_max_position_exceeded" | "risk_max_drawdown_exceeded" | "risk_trading_halted" | "risk_order_rate_exceeded" | "risk_quantity_below_min" | "risk_quantity_over_freeze" | "risk_lot_multiple_violation" | "risk_tick_size_violation" | "risk_price_band_exceeded" | "risk_reduce_only_violation" | "risk_instrument_unknown" | "risk_max_participation_exceeded" | "risk_feed_stale" | "order_rejected" | "order_execution_unavailable" | "order_not_found" | "instrument_not_found" | "market_data_unavailable" | "timeout" | "transport_error" | "internal_error" | "unsupported" | "not_implemented";
 
 export interface ErrorDetail {
   code: ErrorCode;
@@ -274,6 +278,15 @@ export interface OrdersResponse {
 
 export type ParamLocation = "path" | "query" | "body";
 
+export interface ParameterSpec {
+  default: unknown;
+  description?: string | null;
+  max?: number | null;
+  min?: number | null;
+  range?: string | null;
+  step?: number | null;
+}
+
 export interface Position {
   avg_price: number;
   currency: Currency;
@@ -322,6 +335,7 @@ export interface RiskLimits {
   max_notional?: number | null;
   max_participation?: number | null;
   order_rate?: OrderRateLimit | null;
+  stale_after_ms?: number | null;
 }
 
 export type RunStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
@@ -410,12 +424,15 @@ export interface StrategyManifest {
   api_version: string;
   driving_timeframe: TimeframeSpec;
   name: string;
+  parameters?: Record<string, ParameterSpec>;
   schedules?: Record<string, string>;
   source_hash: string;
   subscriptions: Subscriptions;
   universe: Universe;
   warmup_bars: number;
 }
+
+export type StreamFrame = { error?: ErrorDetail | null; kind: "status"; seq: number; status: RunStatus } | { kind: "record"; message: Message; seq: number };
 
 export interface Subscriptions {
   instruments: InstrumentId[];
@@ -429,10 +446,15 @@ export interface SweepReportResponse {
 }
 
 export interface SweepRequest {
+  bar_spec?: string | null;
+  end?: string | null;
+  initial_capital?: number | null;
   params?: unknown;
   seed?: number | null;
+  start?: string | null;
   strategy?: string | null;
   trials?: number | null;
+  universe?: string | null;
 }
 
 export interface SweepResponse {
