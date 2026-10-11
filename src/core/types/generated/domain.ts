@@ -43,6 +43,7 @@ export interface BacktestResponse {
   metrics?: BacktestMetrics | null;
   run_id: string;
   status: RunStatus;
+  validation?: ValidationBlock | null;
 }
 
 export interface BacktestRunConfig {
@@ -107,6 +108,14 @@ export interface CompiledStrategy {
   ir: StrategyIr;
 }
 
+export interface CostStressResult {
+  baseline_sharpe: number;
+  passed: boolean;
+  retention_2x: number;
+  stress_2x_sharpe: number;
+  stress_3x_sharpe: number;
+}
+
 export type Currency = "INR" | "USD" | "EUR" | "GBP";
 
 export type DataSourceConfig = { local: { root: string } } | { adapter: { name: string } };
@@ -123,6 +132,15 @@ export interface DepthQuery {
 export interface DepthResponse {
   asks: DepthLevel[];
   bids: DepthLevel[];
+}
+
+export interface DsrResult {
+  dsr: number;
+  expected_max_sharpe: number;
+  observed_sharpe: number;
+  passed: boolean;
+  standard_error: number;
+  z_stat: number;
 }
 
 export type ErrorCategory = "validation" | "not_found" | "auth" | "rate_limit" | "risk" | "order" | "market_data" | "transport" | "internal" | "unsupported";
@@ -150,6 +168,13 @@ export interface ExecutionConfig {
 export type FillModel = "bar_fill" | "bar_fill_through" | "none";
 
 export type FilterOp = "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "between" | "in" | "not_in" | "like" | "has" | "crosses_above" | "crosses_below";
+
+export interface HoldoutResult {
+  holdout_sharpe: number;
+  passed: boolean;
+  retention_ratio: number;
+  train_sharpe: number;
+}
 
 export type HttpMethod = "GET" | "POST" | "DELETE";
 
@@ -221,6 +246,17 @@ export interface Money {
   currency: string;
 }
 
+export interface MonteCarloResult {
+  block_size: number;
+  drawdown_95: number;
+  drawdown_99: number;
+  median_max_drawdown: number;
+  passed: boolean;
+  prob_loss: number;
+  prob_ruin: number;
+  simulations_run: number;
+}
+
 export interface Order {
   cancel_requested?: boolean;
   instrument_id: InstrumentId;
@@ -285,6 +321,13 @@ export interface ParameterSpec {
   min?: number | null;
   range?: string | null;
   step?: number | null;
+}
+
+export interface PboResult {
+  combinations_evaluated: number;
+  median_oos_percentile: number;
+  passed: boolean;
+  pbo: number;
 }
 
 export interface Position {
@@ -443,6 +486,7 @@ export interface Subscriptions {
 export interface SweepReportResponse {
   best?: unknown;
   ranked: unknown[];
+  validation?: ValidationBlock | null;
 }
 
 export interface SweepRequest {
@@ -499,6 +543,26 @@ export interface UnixNanos {
   unix_nanos: string;
 }
 
+export interface ValidationBlock {
+  cost_stress?: CostStressResult | null;
+  dsr?: DsrResult | null;
+  holdout?: HoldoutResult | null;
+  monte_carlo?: MonteCarloResult | null;
+  passed: boolean;
+  pbo?: PboResult | null;
+  walk_forward?: WalkForwardResult | null;
+  warnings?: string[];
+}
+
 export type ValueType = "NUMBER" | "STRING" | "ENUM" | "BOOL" | "DATE" | "MONEY";
 
 export type VenueOrderId = string;
+
+export interface WalkForwardResult {
+  is_annual_return: number;
+  is_sharpe: number;
+  oos_annual_return: number;
+  oos_sharpe: number;
+  passed: boolean;
+  wfe: number;
+}
