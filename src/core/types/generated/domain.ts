@@ -154,7 +154,7 @@ export interface ErrorDetail {
   retryable: boolean;
 }
 
-export type Event = { ask_price: number; ask_size: number; bid_price: number; bid_size: number; instrument_id: InstrumentId; ts_event: UnixNanos; ts_init: UnixNanos; type: "quote" } | { aggressor_side: AggressorSide; instrument_id: InstrumentId; price: number; size: number; trade_id: TradeId; ts_event: UnixNanos; ts_init: UnixNanos; type: "trade" } | { bar_type: BarType; close: number; high: number; low: number; open: number; ts_event: UnixNanos; ts_init: UnixNanos; type: "bar"; volume: number } | { cancel_requested?: boolean; instrument_id: InstrumentId; order_id: OrderId; order_type: OrderType; price?: number | null; quantity: number; side: OrderSide; status: OrderStatus; time_in_force: TimeInForce; trail_amount?: number | null; trail_percent?: number | null; trigger_price?: number | null; ts_event: UnixNanos; ts_init: UnixNanos; type: "order" } | { order_id: OrderId; ts_event: UnixNanos; type: "order_accepted"; venue_order_id?: VenueOrderId | null } | { order_id: OrderId; reason: string; ts_event: UnixNanos; type: "order_rejected" } | { cum_qty: number; last_px: number; last_qty: number; order_id: OrderId; ts_event: UnixNanos; type: "order_partially_filled" } | { last_px: number; last_qty: number; order_id: OrderId; ts_event: UnixNanos; type: "order_filled" } | { order_id: OrderId; ts_event: UnixNanos; type: "order_cancel_requested" } | { order_id: OrderId; ts_event: UnixNanos; type: "order_cancelled" } | { order_id: OrderId; ts_event: UnixNanos; type: "order_expired" };
+export type Event = { ask_price: number; ask_size: number; bid_price: number; bid_size: number; instrument_id: InstrumentId; ts_event: UnixNanos; ts_init: UnixNanos; type: "quote" } | { aggressor_side: AggressorSide; instrument_id: InstrumentId; price: number; size: number; trade_id: TradeId; ts_event: UnixNanos; ts_init: UnixNanos; type: "trade" } | { bar_type: BarType; close: number; high: number; low: number; open: number; ts_event: UnixNanos; ts_init: UnixNanos; type: "bar"; volume: number } | { cancel_requested?: boolean; instrument_id: InstrumentId; order_id: OrderId; order_type: OrderType; price?: number | null; product?: Product | null; quantity: number; side: OrderSide; status: OrderStatus; time_in_force: TimeInForce; trail_amount?: number | null; trail_percent?: number | null; trigger_price?: number | null; ts_event: UnixNanos; ts_init: UnixNanos; type: "order" } | { order_id: OrderId; ts_event: UnixNanos; type: "order_accepted"; venue_order_id?: VenueOrderId | null } | { order_id: OrderId; reason: string; ts_event: UnixNanos; type: "order_rejected" } | { cum_qty: number; last_px: number; last_qty: number; order_id: OrderId; ts_event: UnixNanos; type: "order_partially_filled" } | { last_px: number; last_qty: number; order_id: OrderId; ts_event: UnixNanos; type: "order_filled" } | { order_id: OrderId; ts_event: UnixNanos; type: "order_cancel_requested" } | { order_id: OrderId; ts_event: UnixNanos; type: "order_cancelled" } | { order_id: OrderId; ts_event: UnixNanos; type: "order_expired" };
 
 export type Exchange = string;
 
@@ -263,6 +263,7 @@ export interface Order {
   order_id: OrderId;
   order_type: OrderType;
   price?: number | null;
+  product?: Product | null;
   quantity: number;
   side: OrderSide;
   status: OrderStatus;
@@ -299,7 +300,13 @@ export type OrderStatus = "initialized" | "submitted" | "accepted" | "partially_
 
 export type OrderType = "market" | "limit" | "stop_market" | "stop_limit" | "trailing_stop";
 
+export interface OrdersQuery {
+  exchange?: string | null;
+  symbol?: string | null;
+}
+
 export interface OrdersRequest {
+  client_order_id?: string | null;
   instrument_id?: InstrumentId | null;
   order_type?: string | null;
   price?: number | null;
@@ -346,6 +353,8 @@ export interface PositionsResponse {
 }
 
 export type PriceType = "bid" | "ask" | "mid" | "last";
+
+export type Product = "delivery" | "intraday" | "carry";
 
 export interface QuoteTick {
   ask_price: number;
