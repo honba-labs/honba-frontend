@@ -79,6 +79,14 @@ export interface BarType {
   spec: BarSpecification;
 }
 
+export interface BarsIngestRequest {
+  bars: Bar[];
+}
+
+export interface BarsIngestResponse {
+  accepted: number;
+}
+
 export interface BarsQuery {
   from?: string | null;
   tf?: string | null;

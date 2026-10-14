@@ -5,6 +5,8 @@ import type {
   BacktestEventsQuery,
   BacktestRequest,
   BacktestResponse,
+  BarsIngestRequest,
+  BarsIngestResponse,
   BarsQuery,
   BarsResponse,
   Capabilities,
@@ -157,6 +159,10 @@ export class HonbaClient {
 
   async getBacktestsByIdJournal(id: string, signal?: AbortSignal): Promise<ResponseEnvelope<TradesResponse>> {
     return request<TradesResponse>(this.fetchImpl, 'GET', apiUrl(this.baseUrl, `/backtests/${encodeURIComponent(id)}/journal`), { signal });
+  }
+
+  async postBars(body: BarsIngestRequest, signal?: AbortSignal): Promise<ResponseEnvelope<BarsIngestResponse>> {
+    return request<BarsIngestResponse>(this.fetchImpl, 'POST', apiUrl(this.baseUrl, '/bars'), { body, signal });
   }
 
   async getBarsById(id: string, query?: BarsQuery, signal?: AbortSignal): Promise<ResponseEnvelope<BarsResponse>> {
