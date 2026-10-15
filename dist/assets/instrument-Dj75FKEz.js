@@ -1,4 +1,4 @@
-import{c as N,j as s,R as ls,k as ns,r as d,t as rs,d as u,A as cs,l as ds,m as hs,n as S,E as z}from"./app-nav-xE_IFZJ7.js";import{S as os,b as ms,B as xs,a as js,I as ps,D as C,L as w,c as vs,T as L}from"./suite-action-group-CFA3vbO-.js";/**
+import{b as N,j as s,R as ls,a as ns,r as d,t as rs,e as u,A as cs,m as ds,n as hs,o as S,E as z}from"./app-nav-kENr-YtO.js";import{S as os,b as ms,B as xs,a as js,I as ps,D as C,L as w,c as vs,T as L}from"./suite-action-group-Bbl72yN0.js";import"./candle-generator-D0p6F26n.js";/**
  * @license lucide-react v1.48.0 - ISC
  *
  * This source code is licensed under the ISC license.
