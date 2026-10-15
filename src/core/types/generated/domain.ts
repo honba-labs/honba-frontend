@@ -173,7 +173,7 @@ export interface ExecutionConfig {
   slippage_multiplier?: number;
 }
 
-export type FillModel = "bar_fill" | "bar_fill_through" | "none";
+export type FillModel = "bar_fill" | "bar_fill_through" | "l2" | "none";
 
 export type FilterOp = "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "between" | "in" | "not_in" | "like" | "has" | "crosses_above" | "crosses_below";
 
