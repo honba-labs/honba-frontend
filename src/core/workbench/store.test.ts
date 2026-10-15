@@ -4,7 +4,7 @@ import { useWorkbenchStore } from './store';
 describe('useWorkbenchStore', () => {
   beforeEach(() => {
     useWorkbenchStore.setState({
-      layout: '1x2',
+      layout: 'cols2',
       activePaneIndex: 0,
       tradingState: 'active',
       orders: [],
@@ -17,12 +17,18 @@ describe('useWorkbenchStore', () => {
 
   it('updates layout and active pane', () => {
     const store = useWorkbenchStore.getState();
-    store.setLayout('2x2');
-    expect(useWorkbenchStore.getState().layout).toBe('2x2');
+    store.setLayout('grid4');
+    expect(useWorkbenchStore.getState().layout).toBe('grid4');
 
     store.setActivePane(1);
     expect(useWorkbenchStore.getState().activePaneIndex).toBe(1);
     expect(useWorkbenchStore.getState().orderTicket.symbol).toBe('INFY');
+  });
+
+  it('supports OpenAlgo 1+2 master layout preset', () => {
+    const store = useWorkbenchStore.getState();
+    store.setLayout('oneTwo');
+    expect(useWorkbenchStore.getState().layout).toBe('oneTwo');
   });
 
   it('updates pane configuration', () => {

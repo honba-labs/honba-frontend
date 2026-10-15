@@ -1,17 +1,13 @@
 import React from 'react';
 import {
-  Square,
-  Columns2,
-  Rows2,
-  Grid2x2,
   ShieldAlert,
   Power,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
 import { useWorkbenchStore } from '../../../core/workbench/store';
-import type { WorkbenchLayout } from '../../../core/workbench/types';
 import type { HonbaClient } from '../../../core/api/generated/client';
+import { OPENALGO_LAYOUTS, LayoutIcon } from '../../../lib/chart/layouts';
 
 interface WorkbenchToolbarProps {
   client?: HonbaClient;
@@ -30,12 +26,16 @@ export const WorkbenchToolbar: React.FC<WorkbenchToolbarProps> = ({ client }) =>
     dismissStatus,
   } = useWorkbenchStore();
 
-  const layouts: Array<{ id: WorkbenchLayout; label: string; icon: React.ReactNode }> = [
-    { id: '1x1', label: 'Single', icon: <Square size={13} /> },
-    { id: '1x2', label: '2-Split (V)', icon: <Columns2 size={13} /> },
-    { id: '2x1', label: '2-Split (H)', icon: <Rows2 size={13} /> },
-    { id: '2x2', label: 'Quad (4)', icon: <Grid2x2 size={13} /> },
-  ];
+  const activeLayoutId =
+    layout === '1x1'
+      ? 'single'
+      : layout === '1x2'
+      ? 'cols2'
+      : layout === '2x1'
+      ? 'rows2'
+      : layout === '2x2'
+      ? 'grid4'
+      : layout;
 
   const handleKillSwitch = () => {
     const nextState = tradingState === 'halted' ? 'active' : 'halted';
@@ -48,41 +48,45 @@ export const WorkbenchToolbar: React.FC<WorkbenchToolbarProps> = ({ client }) =>
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '8px 16px',
+        padding: '6px 14px',
         background: 'var(--bg-surface)',
         borderBottom: '1px solid var(--border-subtle)',
         gap: 12,
         flexWrap: 'wrap',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>
-          Layout:
+          Workspace Grid:
         </span>
         <div style={{ display: 'inline-flex', background: 'var(--bg-app)', padding: 2, borderRadius: 6, gap: 2 }}>
-          {layouts.map((l) => (
-            <button
-              key={l.id}
-              onClick={() => setLayout(l.id)}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                padding: '4px 8px',
-                fontSize: 11,
-                border: 'none',
-                borderRadius: 4,
-                cursor: 'pointer',
-                background: layout === l.id ? 'var(--bg-surface-elevated)' : 'transparent',
-                color: layout === l.id ? 'var(--text-primary)' : 'var(--text-secondary)',
-                fontWeight: layout === l.id ? 600 : 400,
-                transition: 'all 0.15s ease',
-              }}
-            >
-              {l.icon}
-              {l.label}
-            </button>
-          ))}
+          {OPENALGO_LAYOUTS.map((preset) => {
+            const isSelected = activeLayoutId === preset.id;
+            return (
+              <button
+                key={preset.id}
+                onClick={() => setLayout(preset.id as any)}
+                title={preset.label}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '3px 8px',
+                  fontSize: 11,
+                  border: isSelected ? '1px solid var(--accent-subtle)' : '1px solid transparent',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                  background: isSelected ? 'var(--bg-surface-elevated)' : 'transparent',
+                  color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  fontWeight: isSelected ? 600 : 400,
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <LayoutIcon preset={preset} />
+                <span>{preset.label}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 

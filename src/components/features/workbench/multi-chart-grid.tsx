@@ -1,27 +1,24 @@
 import React from 'react';
 import { useWorkbenchStore } from '../../../core/workbench/store';
 import { ChartPaneCard } from './chart-pane-card';
+import { layoutById } from '../../../lib/chart/layouts';
 
 export const MultiChartGrid: React.FC = () => {
   const { layout, panes, activePaneIndex } = useWorkbenchStore();
 
-  const getGridStyle = (): React.CSSProperties => {
-    switch (layout) {
-      case '1x1':
-        return { gridTemplateColumns: '1fr', gridTemplateRows: '1fr' };
-      case '1x2':
-        return { gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr' };
-      case '2x1':
-        return { gridTemplateColumns: '1fr', gridTemplateRows: '1fr 1fr' };
-      case '2x2':
-        return { gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr' };
-      default:
-        return { gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr' };
-    }
-  };
+  // Normalize legacy layout ids if present
+  const normLayoutId =
+    layout === '1x1'
+      ? 'single'
+      : layout === '1x2'
+      ? 'cols2'
+      : layout === '2x1'
+      ? 'rows2'
+      : layout === '2x2'
+      ? 'grid4'
+      : layout;
 
-  const visibleCount = layout === '1x1' ? 1 : layout === '2x2' ? 4 : 2;
-  const visiblePanes = panes.slice(0, visibleCount);
+  const preset = layoutById(normLayoutId);
 
   return (
     <div
@@ -29,21 +26,36 @@ export const MultiChartGrid: React.FC = () => {
         flex: 1,
         minHeight: 0,
         display: 'grid',
-        gap: 8,
-        padding: 8,
+        gap: 6,
+        padding: 6,
         boxSizing: 'border-box',
         overflow: 'hidden',
-        ...getGridStyle(),
+        gridTemplateColumns: preset.cols,
+        gridTemplateRows: preset.rows,
+        gridTemplateAreas: preset.areas,
       }}
     >
-      {visiblePanes.map((pane, idx) => (
-        <ChartPaneCard
-          key={pane.id}
-          pane={pane}
-          index={idx}
-          isActive={activePaneIndex === idx}
-        />
-      ))}
+      {preset.cells.map((cell, idx) => {
+        const pane = panes[idx] ?? panes[0];
+        return (
+          <div
+            key={`${preset.id}-${cell}-${pane.id}`}
+            style={{
+              gridArea: cell,
+              display: 'flex',
+              minHeight: 0,
+              minWidth: 0,
+              overflow: 'hidden',
+            }}
+          >
+            <ChartPaneCard
+              pane={pane}
+              index={idx}
+              isActive={activePaneIndex === idx}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 };

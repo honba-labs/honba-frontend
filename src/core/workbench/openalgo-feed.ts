@@ -1,4 +1,4 @@
-import type { Bar, BarsRequest, DataFeed } from 'openalgo-charts';
+import type { Bar, BarsRequest, DataFeed, SymbolMatch, SymbolSearchRequest } from 'openalgo-charts';
 import { INSTRUMENTS_DATABASE } from '../market-data';
 
 function createRng(seed: number): () => number {
@@ -24,7 +24,7 @@ function hashString(str: string): number {
 export function generateOpenAlgoBars(
   symbol: string,
   interval: string = '1d',
-  barCount: number = 180
+  barCount: number = 300
 ): Bar[] {
   const normSym = symbol.toUpperCase();
   const inst = INSTRUMENTS_DATABASE.find((i) => i.symbol.toUpperCase() === normSym) ?? INSTRUMENTS_DATABASE[0];
@@ -34,13 +34,20 @@ export function generateOpenAlgoBars(
 
   const nowSec = Math.floor(Date.now() / 1000);
   const isIntraday = interval.endsWith('m') || interval.endsWith('h');
-  const stepSeconds = interval === '1m' ? 60 : interval === '5m' ? 300 : interval === '15m' ? 900 : interval === '1h' ? 3600 : 86400;
+  let stepSeconds = 86400;
+
+  if (interval === '1m') stepSeconds = 60;
+  else if (interval === '5m') stepSeconds = 300;
+  else if (interval === '15m') stepSeconds = 900;
+  else if (interval === '30m') stepSeconds = 1800;
+  else if (interval === '1h') stepSeconds = 3600;
+  else if (interval.toUpperCase() === 'W' || interval === '1w') stepSeconds = 604800;
 
   const startSec = nowSec - barCount * stepSeconds;
   let prevClose = Number((currentPrice * (0.85 + rng() * 0.15)).toFixed(2));
 
   for (let i = 0; i < barCount; i++) {
-    const time = (startSec + i * stepSeconds);
+    const time = startSec + i * stepSeconds;
     const progress = i / Math.max(1, barCount - 1);
     const targetPrice = currentPrice;
     const base = prevClose + (targetPrice - prevClose) * (progress * 0.15);
@@ -70,7 +77,7 @@ export function generateOpenAlgoBars(
 
 export class HonbaOpenAlgoDataFeed implements DataFeed {
   async getBars(req: BarsRequest): Promise<Bar[]> {
-    return generateOpenAlgoBars(req.symbol, req.interval, 200);
+    return generateOpenAlgoBars(req.symbol, req.interval, 350);
   }
 
   subscribeBars(req: BarsRequest, onBar: (bar: Bar) => void): () => void {
@@ -79,9 +86,23 @@ export class HonbaOpenAlgoDataFeed implements DataFeed {
       if (bars.length > 0) {
         onBar(bars[0]);
       }
-    }, 3000);
+    }, 2500);
 
     return () => clearInterval(timer);
+  }
+
+  async searchSymbols(req: SymbolSearchRequest): Promise<SymbolMatch[]> {
+    const q = req.query.trim().toLowerCase();
+    const matches = INSTRUMENTS_DATABASE.filter(
+      (inst) => inst.symbol.toLowerCase().includes(q) || inst.name.toLowerCase().includes(q)
+    ).slice(0, 20);
+
+    return matches.map((m) => ({
+      symbol: m.symbol,
+      description: m.name,
+      exchange: 'NSE',
+      type: m.assetType || 'stock',
+    }));
   }
 }
 

@@ -1,6 +1,15 @@
 import type { Order, Position, Trade, TradingState } from '../types/generated/domain';
 
-export type WorkbenchLayout = '1x1' | '1x2' | '2x1' | '2x2';
+export type WorkbenchLayout =
+  | 'single'
+  | 'cols2'
+  | 'rows2'
+  | 'oneTwo'
+  | 'grid4'
+  | '1x1'
+  | '1x2'
+  | '2x1'
+  | '2x2';
 
 export interface ChartPaneConfig {
   id: string;
