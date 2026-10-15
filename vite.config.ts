@@ -17,6 +17,8 @@ export default defineConfig({
       '/api': {
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
+        // honba serve mounts routes at the root; the browser uses /api[/v1] prefixes
+        rewrite: (path) => path.replace(/^\/api(\/v1)?/, ''),
       },
       '/ws': {
         target: 'ws://127.0.0.1:8000',
