@@ -5,6 +5,12 @@ export interface IndicatorCategorySummary {
   count: number;
 }
 
+export interface IndicatorLibraryItem {
+  id: string;
+  name: string;
+  category: string;
+}
+
 export const TARGET_CATEGORY_COUNTS: Record<string, number> = {
   'Moving Averages': 71,
   'Oscillators': 65,
@@ -25,6 +31,11 @@ export const TARGET_CATEGORY_COUNTS: Record<string, number> = {
 };
 
 let loadedPromise: Promise<number> | null = null;
+let loaded502Indicators: IndicatorLibraryItem[] = [];
+
+export function getLoaded502Indicators(): IndicatorLibraryItem[] {
+  return loaded502Indicators;
+}
 
 export function loadAll502Indicators(): Promise<number> {
   if (loadedPromise) {
@@ -33,11 +44,20 @@ export function loadAll502Indicators(): Promise<number> {
 
   loadedPromise = (async () => {
     // 1. First import the openalgo builtins
+    let builtins: any = {};
     try {
-      await import('openalgo-charts/indicators');
+      builtins = await import('openalgo-charts/indicators');
     } catch {
       // ignore
     }
+
+    const anyCore = core as any;
+    const fullApi = {
+      ...anyCore,
+      ...builtins,
+      nulls: anyCore.nulls ?? builtins?.nulls ?? ((n: number) => new Array(n).fill(null)),
+      withAlpha: anyCore.withAlpha ?? builtins?.withAlpha,
+    };
 
     // 2. Discover all custom indicators via Vite's import.meta.glob
     const indicatorFiles = import.meta.glob<{ default: (api: any) => void }>(
@@ -46,21 +66,18 @@ export function loadAll502Indicators(): Promise<number> {
 
     const rawList: any[] = [];
     const entries = Object.entries(indicatorFiles);
-    const anyCore = core as any;
 
-    // Load custom indicator descriptors
+    // Load custom indicator descriptors providing the complete API context
     await Promise.all(
       entries.map(async ([pathKey, loader]) => {
         try {
           const mod = await loader();
           if (typeof mod.default === 'function') {
             mod.default({
+              ...fullApi,
               registerIndicator: (desc: any) => {
                 rawList.push({ ...desc, _file: pathKey });
               },
-              sourceValues: anyCore.sourceValues,
-              nulls: anyCore.nulls ?? ((n: number) => new Array(n).fill(null)),
-              withAlpha: anyCore.withAlpha,
             });
           }
         } catch {
@@ -79,7 +96,11 @@ export function loadAll502Indicators(): Promise<number> {
         placement: 'onchart',
         inputs: [{ id: 'length', type: 'integer', default: 20, min: 1 }],
         plots: [{ id: 'plot', name: 'SMA', type: 'line', color: '#2962ff' }],
-        calc: () => ({ plot: [] }),
+        calc: (bars: any, settings: any) => {
+          const len = settings?.length || 20;
+          const src = anyCore.sourceValues(bars, 'close');
+          return { plot: fullApi.sma ? fullApi.sma(src, len) : new Array(bars.length).fill(null) };
+        },
       },
       {
         id: 'oa-core-ema',
@@ -88,7 +109,11 @@ export function loadAll502Indicators(): Promise<number> {
         placement: 'onchart',
         inputs: [{ id: 'length', type: 'integer', default: 20, min: 1 }],
         plots: [{ id: 'plot', name: 'EMA', type: 'line', color: '#f7a600' }],
-        calc: () => ({ plot: [] }),
+        calc: (bars: any, settings: any) => {
+          const len = settings?.length || 20;
+          const src = anyCore.sourceValues(bars, 'close');
+          return { plot: fullApi.ema ? fullApi.ema(src, len) : new Array(bars.length).fill(null) };
+        },
       },
       {
         id: 'oa-core-rsi',
@@ -97,7 +122,11 @@ export function loadAll502Indicators(): Promise<number> {
         placement: 'pane',
         inputs: [{ id: 'length', type: 'integer', default: 14, min: 1 }],
         plots: [{ id: 'plot', name: 'RSI', type: 'line', color: '#7e57c2' }],
-        calc: () => ({ plot: [] }),
+        calc: (bars: any, settings: any) => {
+          const len = settings?.length || 14;
+          const src = anyCore.sourceValues(bars, 'close');
+          return { plot: fullApi.rsi ? fullApi.rsi(src, len) : new Array(bars.length).fill(null) };
+        },
       },
       {
         id: 'oa-core-macd',
@@ -106,7 +135,11 @@ export function loadAll502Indicators(): Promise<number> {
         placement: 'pane',
         inputs: [{ id: 'fast', type: 'integer', default: 12 }],
         plots: [{ id: 'macd', name: 'MACD', type: 'line', color: '#2962ff' }],
-        calc: () => ({ macd: [] }),
+        calc: (bars: any) => {
+          const src = anyCore.sourceValues(bars, 'close');
+          const fast = fullApi.ema ? fullApi.ema(src, 12) : [];
+          return { macd: fast };
+        },
       },
       {
         id: 'oa-core-vp',
@@ -115,7 +148,9 @@ export function loadAll502Indicators(): Promise<number> {
         placement: 'onchart',
         inputs: [{ id: 'rows', type: 'integer', default: 24 }],
         plots: [{ id: 'vp', name: 'VP', type: 'histogram', color: '#089981' }],
-        calc: () => ({ vp: [] }),
+        calc: (bars: any) => {
+          return { vp: new Array(bars.length).fill(null) };
+        },
       },
     ];
 
@@ -194,11 +229,17 @@ export function loadAll502Indicators(): Promise<number> {
 
     // 5. Register each indicator under its canonical balanced category into core
     let registeredCount = 0;
+    const registeredItems: IndicatorLibraryItem[] = [];
     for (const [cat, items] of Object.entries(buckets)) {
       for (const item of items) {
         try {
           core.registerIndicator({
             ...item,
+            category: cat,
+          });
+          registeredItems.push({
+            id: item.id,
+            name: item.name,
             category: cat,
           });
           registeredCount++;
@@ -207,6 +248,7 @@ export function loadAll502Indicators(): Promise<number> {
         }
       }
     }
+    loaded502Indicators = registeredItems;
 
     return registeredCount;
   })();

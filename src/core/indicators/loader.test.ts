@@ -29,6 +29,28 @@ describe('Indicator Library Category Targets', () => {
     const count = await loadAll502Indicators();
     expect(count).toBeGreaterThanOrEqual(497);
     const registered = core.registeredIndicators();
+    
     expect(registered.length).toBeGreaterThanOrEqual(497);
   });
+
+  it('correctly provides rsi and math functions to indicators and computes without error', async () => {
+    await loadAll502Indicators();
+    const ind = core.getIndicator('oa-adaptive-rsi-moving-average');
+    expect(ind).toBeDefined();
+
+    const fakeBars = Array.from({ length: 30 }, (_, i) => ({
+      time: 1000 + i * 60,
+      open: 100 + i,
+      high: 105 + i,
+      low: 95 + i,
+      close: 102 + i,
+      volume: 1000,
+    }));
+
+    const result = (ind as any).calc(fakeBars, { length: 14, source: 'close' }, {} as any);
+    expect(result).toBeDefined();
+    expect(result.arsima).toBeDefined();
+    expect(Array.isArray(result.arsima)).toBe(true);
+  });
 });
+

@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import * as core from 'openalgo-charts';
 import type { WidgetContext } from 'openalgo-charts/widget';
 import { Search, X, Star, Trash2, Check, Layers } from 'lucide-react';
-import { TARGET_CATEGORY_COUNTS } from '../../../core/indicators/loader';
+import { TARGET_CATEGORY_COUNTS, getLoaded502Indicators } from '../../../core/indicators/loader';
 
 export interface IndicatorItem {
   id: string;
@@ -60,8 +60,12 @@ export const IndicatorPickerDialog: React.FC<IndicatorPickerDialogProps> = ({ ct
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
-  // Read all registered indicators from core registry
+  // Read all registered indicators from loaded 502 library (fallback to core registry)
   const allIndicators = useMemo<IndicatorItem[]>(() => {
+    const list = getLoaded502Indicators();
+    if (list && list.length > 0) {
+      return list;
+    }
     const registered = core.registeredIndicators();
     return registered.map((item) => ({
       id: item.id,
