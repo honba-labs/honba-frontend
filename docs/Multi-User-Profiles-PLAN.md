@@ -82,8 +82,28 @@ Confirmed: all four trigger families, **frontend-only evaluation**, and delivery
 - Alerts fire only while a browser tab is open (frontend-only evaluation). An alert on a closed tab is not evaluated.
 - Several open tabs would fire the same alert twice. Use a `BroadcastChannel` leader (the app already uses `honba_data_sync`) so only one tab evaluates.
 
-### Alert chunks (after the profile chunks, or in parallel on the frontend)
-A1. Alert bus and store plus tests. A2. Delivery sinks (toast, log, notification, sound). A3. Workbench: per-pane `AlertController` wiring. A4. Engine, feed and risk publishers. A5. Algodesigner node and trigger. A6. Webhook and action sinks. A7. Profile persistence.
+### Alerts development plan
+
+Frontend-only except A7. Each chunk is one small commit (touching only its own files, no Co-Authored-By trailer) with tests (`vitest`), `npm run typecheck` and `npm test` passing, run by one subagent at a time. A1 to A6 do not depend on the Rust profile chunks and can run in parallel with them. Put new code under `src/core/alerts/` and `src/components/features/alerts/`.
+
+| Chunk | Scope | Main files | Tests |
+|---|---|---|---|
+| A1 | Core types and the alert bus: `AlertEvent`, `AlertRule` (source family, condition, repeat, delivery list, enabled), `publish` / `subscribe`, dedupe and rate-limit per rule. Zustand store for rules and a capped history log. Pure logic, no UI. | `src/core/alerts/{types,bus,store}.ts` | publish/subscribe, rate limit, history cap, store CRUD, `AlertsDocument` round trip through `parseAlertsDocument` |
+| A2 | Tab leader election with `BroadcastChannel` so only one tab evaluates and delivers; fallback to evaluating when `BroadcastChannel` is missing. | `src/core/alerts/leader.ts` | leader handover on tab close, single delivery with two simulated tabs |
+| A3 | In-app sinks: toast host mounted in `AppNav` for all apps, an alerts log panel with history and a mute/ack control, plus browser `Notification` (permission requested on first enable) and a short sound (user setting, off by default until enabled). | `src/components/features/alerts/{toast-host,alert-log}.tsx`, `src/core/alerts/sinks/{notification,sound}.ts` | sinks receive bus events, permission-denied path, mute |
+| A4 | Workbench wiring: one headless-capable `AlertController` per pane via `AlertChartHost`, forwarding `alert:triggered` / `alert:error` to the bus; an alert button on `chart-pane-card.tsx` that opens a small create dialog (price, indicator, bar condition, drawing); chart alerts stored as the `AlertsDocument` in the alert store. | `src/components/features/workbench/{chart-pane-card,openalgo-chart}.tsx`, `src/core/alerts/chart-bridge.ts` | bridge forwards a triggered alert, restore of a saved document |
+| A5 | Publishers for the other families: trading-state and risk (poll or react to `GET /trading-state`, rejected orders), data/feed (`data-layer.ts` WebSocket and backend state, module offline), strategy signals (algodesigner `jobs.ts` / `ops.ts` completion and order events). Each publisher is a small adapter, not edits spread through the stores. | `src/core/alerts/publishers/*.ts` and minimal hook points in `data-layer.ts`, `designer/ops.ts`, `workbench/store.ts` | one test per publisher with a fake source |
+| A6 | Algodesigner integration: an "Alert" node type that publishes to the bus, and an alert trigger input that starts a flow. Study `src/apps/algodesigner/` and `src/core/graph/` first and match the existing node registry. | `src/apps/algodesigner/*`, `src/core/graph/*` | node serialization, node publishes on run, trigger starts a flow |
+| A7 | Action and webhook sinks: webhook POST (JSON body from the rule's message template; secrets never logged; timeout and bounded retry; CORS caveat note in the UI) and actions (start a flow or job, set trading state `halted` only without confirmation, set a pane or layout). Trading-state actions go through the existing workbench store and need a confirmation setting. | `src/core/alerts/sinks/{webhook,action}.ts`, settings UI | webhook retry and timeout, no secret in logs, halted-only guard |
+| A8 | Profile persistence, after backend chunks 2 and 3: save and restore rules and the chart `AlertsDocument` through the profile store (`profile.alerts`), debounced, with the localStorage fallback and revision-conflict handling. | `src/core/alerts/persist.ts` | save/restore, conflict retry, offline fallback |
+
+Order: A1, A2, A3 first (a usable toast and log), then A4 (the most visible payoff), A5, A6, A7, and A8 last. After A4 and again after A7, run an independent review subagent.
+
+Risks to watch:
+- Browser notification and sound permissions can be denied or blocked, so every sink must degrade silently.
+- A webhook from the browser exposes the URL to anyone with devtools. State this in the UI.
+- An action that halts trading must be reachable only through the `PUT /trading-state` path the app already uses, never a new side channel.
+- Polling for trading state must reuse the existing client and respect the Vite proxy prefix rewrite.
 
 ## Progress log
 - **Chunk 1 done** (`honba` commit `ad29007`, not pushed): `crates/honba-api-rest/src/profile_store.rs`.
