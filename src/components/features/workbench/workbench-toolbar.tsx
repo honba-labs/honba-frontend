@@ -69,9 +69,12 @@ export const WorkbenchToolbar: React.FC<WorkbenchToolbarProps> = ({ client }) =>
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>
-          Workspace Grid:
-        </span>
+        <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>
+            Workspace Grid
+          </span>
+          <span style={{ fontSize: 9, color: 'var(--text-muted)', opacity: 0.7 }}>{activePreset.label}</span>
+        </div>
         <div ref={gridMenuRef} style={{ position: 'relative' }}>
           <button
             onClick={() => setGridMenuOpen((o) => !o)}
