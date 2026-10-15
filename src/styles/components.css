@@ -1720,3 +1720,48 @@
 .oac-widget .oac-bottombar > * {
   flex-shrink: 0 !important;
 }
+
+/* ============================================================================
+   OpenAlgo Charts Stage & Drawing Toolbar Layout Fix
+   Ensures drawing toolbar (.oac-drawbar) floats absolutely over the canvas
+   and never flex-compresses or shrinks the chart sideways.
+   ============================================================================ */
+
+.oac-widget .oac-stage {
+  position: relative !important;
+  display: flex !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  min-width: 0 !important;
+  height: 100% !important;
+  width: 100% !important;
+  overflow: hidden !important;
+}
+
+.oac-widget .oac-stage .oac-chart {
+  position: relative !important;
+  flex: 1 1 0% !important;
+  min-width: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.oac-widget .oac-stage .oac-rail {
+  flex-shrink: 0 !important;
+  width: 42px !important;
+}
+
+.oac-widget .oac-drawbar {
+  position: absolute !important;
+  z-index: 40 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 2px !important;
+  padding: 3px !important;
+  background: var(--bg-surface-elevated, #1e222d) !important;
+  border: 1px solid var(--border-medium, #2a2e39) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45) !important;
+  pointer-events: auto !important;
+  flex-shrink: 0 !important;
+}
