@@ -19,6 +19,7 @@ interface OpenAlgoChartProps {
   onIntervalChange?: (interval: string) => void;
   showRail?: boolean;
   volume?: boolean;
+  bottombar?: boolean;
 }
 
 let stylesInjected = false;
@@ -87,6 +88,7 @@ export const OpenAlgoChart: React.FC<OpenAlgoChartProps> = ({
   onIntervalChange,
   showRail = true,
   volume = true,
+  bottombar = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetRef = useRef<Widget | null>(null);
@@ -113,6 +115,7 @@ export const OpenAlgoChart: React.FC<OpenAlgoChartProps> = ({
         topbar: true,
         statusline: true,
         panels: false,
+        bottombar,
         symbolSearch: async (query) => {
           const q = (query || '').trim().toLowerCase();
           return INSTRUMENTS_DATABASE.filter(

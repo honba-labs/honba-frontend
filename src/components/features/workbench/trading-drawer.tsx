@@ -95,26 +95,44 @@ export const TradingDrawer: React.FC<TradingDrawerProps> = ({ client }) => {
           ))}
         </div>
 
-        {positions.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {positions.length > 0 && (
+            <button
+              onClick={() => void closeAllPositions(client)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                fontSize: 10,
+                padding: '2px 8px',
+                border: 'none',
+                borderRadius: 3,
+                background: 'var(--bearish-subtle)',
+                color: 'var(--bearish)',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              <Ban size={11} /> Close All Positions
+            </button>
+          )}
           <button
-            onClick={() => void closeAllPositions(client)}
+            onClick={useWorkbenchStore.getState().toggleDrawer}
+            title="Close Drawer"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 4,
-              fontSize: 10,
-              padding: '2px 8px',
+              padding: 3,
               border: 'none',
-              borderRadius: 3,
-              background: 'var(--bearish-subtle)',
-              color: 'var(--bearish)',
-              fontWeight: 600,
+              background: 'transparent',
+              color: 'var(--text-muted)',
               cursor: 'pointer',
+              borderRadius: 3,
             }}
           >
-            <Ban size={11} /> Close All Positions
+            <X size={14} />
           </button>
-        )}
+        </div>
       </div>
 
       {/* Drawer Body */}

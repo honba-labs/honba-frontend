@@ -10,17 +10,18 @@ interface AppShellProps {
 }
 
 export const AppShell: React.FC<AppShellProps> = ({ currentAppId, children }) => {
+  const isScreener = currentAppId === 'screener';
+
   return (
     <div id="app" style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' }}>
       <AppNav currentAppId={currentAppId} />
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {children}
       </div>
-      <BottomBar />
-      <FloatingActionBar />
+      {isScreener && <BottomBar />}
+      {isScreener && <FloatingActionBar />}
     </div>
   );
 };
 
 export const HbAppShell = AppShell;
-

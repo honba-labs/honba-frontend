@@ -123,7 +123,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   trades: [],
   tradingState: 'active',
   drawerTab: 'positions',
-  isDrawerOpen: true,
+  isDrawerOpen: false,
   statusMessage: null,
   error: null,
 
