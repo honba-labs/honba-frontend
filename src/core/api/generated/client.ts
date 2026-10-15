@@ -244,11 +244,11 @@ export class HonbaClient {
     return request<SweepResponse>(this.fetchImpl, 'GET', apiUrl(this.baseUrl, `/sweeps/${encodeURIComponent(id)}`), { signal });
   }
 
-  async getTrading-state(signal?: AbortSignal): Promise<ResponseEnvelope<TradingStateResponse>> {
+  async getTradingState(signal?: AbortSignal): Promise<ResponseEnvelope<TradingStateResponse>> {
     return request<TradingStateResponse>(this.fetchImpl, 'GET', apiUrl(this.baseUrl, '/trading-state'), { signal });
   }
 
-  async putTrading-state(body: TradingStateRequest, signal?: AbortSignal): Promise<ResponseEnvelope<TradingStateChange>> {
+  async putTradingState(body: TradingStateRequest, signal?: AbortSignal): Promise<ResponseEnvelope<TradingStateChange>> {
     return request<TradingStateChange>(this.fetchImpl, 'PUT', apiUrl(this.baseUrl, '/trading-state'), { body, signal });
   }
 }
