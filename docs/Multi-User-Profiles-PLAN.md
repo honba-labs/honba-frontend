@@ -47,3 +47,40 @@ Each step is committed on its own, touching only the files for that step, with n
 ## Open questions
 - Which concrete source kinds should a module support first (broker adapter, symbol list, Parquet directory)?
 - Should layouts be shareable between users later? This design keeps them strictly private.
+
+## Alerts (added; hookable from algodesigner and workbench)
+
+Confirmed: all four trigger families, **frontend-only evaluation**, and delivery by in-app toast and log, browser notification and sound, webhook, and trigger-an-action. Borrow the design from `openalgo-charts` and from the algodesigner stores, as asked.
+
+### What to reuse from `openalgo-charts` 2.6.4
+- `AlertController` plus `AlertsDocument` (versioned, serializable, validated by `parseAlertsDocument`) for chart-attached alerts. It already provides:
+  - Sources `price`, `indicator`, `barCondition` and `drawing`.
+  - Conditions `crossing`, `crossingUp`, `crossingDown`, `greaterThan`, `lessThan`, `enteringRange`, `leavingRange` and `matches`.
+  - Policy `onBarClose` / `onTouch`, repeat `once` / `everyTime`, and states `armed`, `triggered`, `expired` and `disabled`.
+  - Chart events `alert:triggered`, `alert:created`, `alert:updated`, `alert:expired`, `alert:removed` and `alert:error`.
+  - Indicator-authored alerts (`IndicatorAlertSpec`), whose `message` can be a function that builds a webhook JSON body.
+- It is headless-capable (`AlertChartHost`, `visuals: false`), so the same controller can run without a mounted chart.
+
+### Design
+1. **Alert bus** (`src/core/alerts/bus.ts`): one small event bus, `AlertEvent { id, source, title, message, severity, time, payload }`. Every trigger family publishes to it.
+   - Price and indicator conditions: an `AlertController` per workbench pane, forwarding `alert:triggered` to the bus.
+   - Strategy signals: algodesigner flows and jobs (`src/core/designer/jobs.ts`, `ops.ts`) publish signal and order events.
+   - Engine and risk events: trading-state changes (the same state as `GET /trading-state`), rejected orders and drawdown limits.
+   - Data and feed events: the `data-layer.ts` WebSocket and backend state (the live/offline pill), and a module (source collection) going offline.
+2. **Alert store** (`src/core/alerts/store.ts`, zustand, like `src/core/workbench/store.ts`): rules and the history log. Chart alerts are persisted as the `AlertsDocument`; non-chart rules use a small own schema.
+3. **Delivery sinks**, each a plugin that subscribes to the bus and is toggled per rule:
+   - In-app toast and a log panel with history.
+   - Browser `Notification` (permission requested on first use) and a short sound.
+   - Webhook: a POST from the browser to a user URL. It needs CORS on the target, so a note in the UI will say that some targets only work through a relay. Never log the URL secrets.
+   - **Action**: a rule can run an action: start an algodesigner flow or job, halt trading (`PUT /trading-state`), or change a workbench pane or layout. Actions on trading state are guarded by a confirmation setting, and `halted` is the only state an alert may set without confirmation.
+4. **Hooks**:
+   - Workbench: an alert button on each pane card, plus the chart's own price-line alert UI.
+   - Algodesigner: an "Alert" node type that publishes to the bus, and a trigger input that starts a flow from an alert.
+5. **Multi-user**: alert rules belong in the user's profile. Chunk 1's `Profile` (commit `ad29007` in `honba`) has no `alerts` field, so add `alerts: serde_json::Value` (default empty) when doing chunk 2. Webhook URLs are stored per user, and are visible only to that token.
+
+### Limits to state in the UI
+- Alerts fire only while a browser tab is open (frontend-only evaluation). An alert on a closed tab is not evaluated.
+- Several open tabs would fire the same alert twice. Use a `BroadcastChannel` leader (the app already uses `honba_data_sync`) so only one tab evaluates.
+
+### Alert chunks (after the profile chunks, or in parallel on the frontend)
+A1. Alert bus and store plus tests. A2. Delivery sinks (toast, log, notification, sound). A3. Workbench: per-pane `AlertController` wiring. A4. Engine, feed and risk publishers. A5. Algodesigner node and trigger. A6. Webhook and action sinks. A7. Profile persistence.
