@@ -2,7 +2,8 @@
 # Override on the command line: make dev DATA_DIR=/path/to/parquet/bars
 DATA_DIR ?= ../honba-data/data
 JOURNALS_DIR ?= ../honba-data/data/journals
-API_ADDR ?= 127.0.0.1:8000   # must match the proxy in vite.config.ts
+# API_ADDR must match the proxy target in vite.config.ts
+API_ADDR ?= 127.0.0.1:8000
 
 .PHONY: api web dev
 
