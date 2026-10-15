@@ -184,7 +184,7 @@ export interface HoldoutResult {
   train_sharpe: number;
 }
 
-export type HttpMethod = "GET" | "POST" | "DELETE";
+export type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
 
 export interface InstrumentId {
   exchange: Exchange;
@@ -550,6 +550,22 @@ export type TradeId = string;
 
 export interface TradesResponse {
   trades: Trade[];
+}
+
+export type TradingState = "active" | "reducing" | "halted";
+
+export interface TradingStateChange {
+  previous: TradingState;
+  state: TradingState;
+}
+
+export interface TradingStateRequest {
+  reason?: string | null;
+  state: TradingState;
+}
+
+export interface TradingStateResponse {
+  state: TradingState;
 }
 
 export type UnitType = "PCT" | "PRICE" | "RATIO" | "SHARES" | "CURRENCY";

@@ -32,9 +32,12 @@ import type {
   SweepRequest,
   SweepResponse,
   TradesResponse,
+  TradingStateChange,
+  TradingStateRequest,
+  TradingStateResponse,
 } from '../../types/generated/domain';
 
-export type ClientMethod = 'GET' | 'POST' | 'DELETE';
+export type ClientMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
 
 export class HonbaApiError extends Error {
   readonly status: number;
@@ -239,5 +242,13 @@ export class HonbaClient {
 
   async getSweepsById(id: string, signal?: AbortSignal): Promise<ResponseEnvelope<SweepResponse>> {
     return request<SweepResponse>(this.fetchImpl, 'GET', apiUrl(this.baseUrl, `/sweeps/${encodeURIComponent(id)}`), { signal });
+  }
+
+  async getTrading-state(signal?: AbortSignal): Promise<ResponseEnvelope<TradingStateResponse>> {
+    return request<TradingStateResponse>(this.fetchImpl, 'GET', apiUrl(this.baseUrl, '/trading-state'), { signal });
+  }
+
+  async putTrading-state(body: TradingStateRequest, signal?: AbortSignal): Promise<ResponseEnvelope<TradingStateChange>> {
+    return request<TradingStateChange>(this.fetchImpl, 'PUT', apiUrl(this.baseUrl, '/trading-state'), { body, signal });
   }
 }
