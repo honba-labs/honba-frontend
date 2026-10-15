@@ -21,6 +21,18 @@ function hashString(str: string): number {
   return hash;
 }
 
+export function getStepSeconds(interval: string = '1d'): number {
+  const norm = (interval || '1d').toLowerCase();
+  if (norm === '1m') return 60;
+  if (norm === '5m') return 300;
+  if (norm === '15m') return 900;
+  if (norm === '30m') return 1800;
+  if (norm === '1h') return 3600;
+  if (norm === '1d' || norm === 'd') return 86400;
+  if (norm === '1w' || norm === 'w') return 604800;
+  return 86400;
+}
+
 export function generateOpenAlgoBars(
   symbol: string,
   interval: string = '1d',
@@ -32,19 +44,13 @@ export function generateOpenAlgoBars(
   const currentPrice = inst.price;
   const bars: Bar[] = [];
 
+  const stepSeconds = getStepSeconds(interval);
   const nowSec = Math.floor(Date.now() / 1000);
+  const currentBucket = Math.floor(nowSec / stepSeconds) * stepSeconds;
+  const startSec = currentBucket - (barCount - 1) * stepSeconds;
   const isIntraday = interval.endsWith('m') || interval.endsWith('h');
-  let stepSeconds = 86400;
 
-  if (interval === '1m') stepSeconds = 60;
-  else if (interval === '5m') stepSeconds = 300;
-  else if (interval === '15m') stepSeconds = 900;
-  else if (interval === '30m') stepSeconds = 1800;
-  else if (interval === '1h') stepSeconds = 3600;
-  else if (interval.toUpperCase() === 'W' || interval === '1w') stepSeconds = 604800;
-
-  const startSec = nowSec - barCount * stepSeconds;
-  let prevClose = Number((currentPrice * (0.85 + rng() * 0.15)).toFixed(2));
+  let prevClose = Number((currentPrice * (0.92 + rng() * 0.08)).toFixed(2));
 
   for (let i = 0; i < barCount; i++) {
     const time = startSec + i * stepSeconds;
@@ -76,17 +82,65 @@ export function generateOpenAlgoBars(
 }
 
 export class HonbaOpenAlgoDataFeed implements DataFeed {
+  private _lastBars: Map<string, Bar> = new Map();
+
   async getBars(req: BarsRequest): Promise<Bar[]> {
-    return generateOpenAlgoBars(req.symbol, req.interval, 350);
+    const bars = generateOpenAlgoBars(req.symbol, req.interval, 350);
+    if (bars.length > 0) {
+      const key = `${req.symbol.toUpperCase()}_${req.interval}`;
+      this._lastBars.set(key, { ...bars[bars.length - 1] });
+    }
+    return bars;
   }
 
   subscribeBars(req: BarsRequest, onBar: (bar: Bar) => void): () => void {
+    const normSym = req.symbol.toUpperCase();
+    const key = `${normSym}_${req.interval}`;
+    const stepSeconds = getStepSeconds(req.interval);
+
+    let activeBar = this._lastBars.get(key);
+    if (!activeBar) {
+      const initBars = generateOpenAlgoBars(req.symbol, req.interval, 10);
+      activeBar = { ...initBars[initBars.length - 1] };
+      this._lastBars.set(key, activeBar);
+    }
+
     const timer = setInterval(() => {
-      const bars = generateOpenAlgoBars(req.symbol, req.interval, 1);
-      if (bars.length > 0) {
-        onBar(bars[0]);
+      const nowSec = Math.floor(Date.now() / 1000);
+      const bucket = Math.floor(nowSec / stepSeconds) * stepSeconds;
+
+      if (!activeBar) return;
+
+      if (bucket > activeBar.time) {
+        // Interval rolled over: start a new bar with continuous price
+        const open = activeBar.close;
+        const delta = (Math.random() - 0.495) * (open * 0.0008);
+        const close = Number(Math.max(0.1, open + delta).toFixed(2));
+        const high = Number(Math.max(open, close, open + Math.random() * open * 0.0004).toFixed(2));
+        const low = Number(Math.min(open, close, open - Math.random() * open * 0.0004).toFixed(2));
+        const volume = Math.floor(100 + Math.random() * 500);
+
+        activeBar = {
+          time: bucket,
+          open,
+          high,
+          low,
+          close,
+          volume,
+        };
+      } else {
+        // Update the current in-flight candle in-place with realistic micro-ticks
+        const delta = (Math.random() - 0.495) * (activeBar.close * 0.0006);
+        const newClose = Number(Math.max(0.1, activeBar.close + delta).toFixed(2));
+        activeBar.close = newClose;
+        activeBar.high = Number(Math.max(activeBar.high, newClose).toFixed(2));
+        activeBar.low = Number(Math.min(activeBar.low, newClose).toFixed(2));
+        activeBar.volume = (activeBar.volume ?? 0) + Math.floor(10 + Math.random() * 50);
       }
-    }, 2500);
+
+      this._lastBars.set(key, { ...activeBar });
+      onBar({ ...activeBar });
+    }, 2000);
 
     return () => clearInterval(timer);
   }
