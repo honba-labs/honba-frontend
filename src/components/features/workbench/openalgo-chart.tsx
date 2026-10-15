@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import 'openalgo-charts/indicators';
 import type { SeriesApi } from 'openalgo-charts';
 import {
   createWidget,
@@ -10,6 +9,7 @@ import {
 } from 'openalgo-charts/widget';
 import { defaultHonbaFeed } from '../../../core/workbench/openalgo-feed';
 import { INSTRUMENTS_DATABASE } from '../../../core/market-data';
+import { loadAll502Indicators } from '../../../core/indicators/loader';
 
 interface OpenAlgoChartProps {
   symbol: string;
@@ -34,6 +34,7 @@ function ensureWidgetReady() {
       registerWidgetDialogs(WIDGET_DIALOGS);
       dialogsRegistered = true;
     }
+    void loadAll502Indicators();
   }
 }
 
