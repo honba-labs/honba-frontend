@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { SeriesApi } from 'openalgo-charts';
 import {
   createWidget,
+  registerWidgetDialog,
   registerWidgetDialogs,
   injectWidgetStyles,
   WIDGET_DIALOGS,
@@ -10,6 +11,7 @@ import {
 import { defaultHonbaFeed } from '../../../core/workbench/openalgo-feed';
 import { INSTRUMENTS_DATABASE } from '../../../core/market-data';
 import { loadAll502Indicators } from '../../../core/indicators/loader';
+import { mountCustomIndicatorPicker } from './indicator-picker-dialog';
 
 interface OpenAlgoChartProps {
   symbol: string;
@@ -33,9 +35,9 @@ function ensureWidgetReady() {
     }
     if (!dialogsRegistered) {
       registerWidgetDialogs(WIDGET_DIALOGS);
+      registerWidgetDialog('indicatorPicker', mountCustomIndicatorPicker as any);
       dialogsRegistered = true;
     }
-    void loadAll502Indicators();
   }
 }
 
@@ -103,64 +105,71 @@ export const OpenAlgoChart: React.FC<OpenAlgoChartProps> = ({
     const normInterval = timeframe.toLowerCase() === '1d' ? '1d' : timeframe.toLowerCase();
     const chartType = chartMode === 'area' ? 'area' : 'candlestick';
 
-    try {
-      const widget = createWidget(containerRef.current, {
-        feed: defaultHonbaFeed,
-        symbol: symbol.toUpperCase(),
-        exchange: 'NSE',
-        interval: normInterval,
-        theme: 'dark',
-        chartType,
-        rail: showRail,
-        topbar: true,
-        statusline: true,
-        panels: false,
-        bottombar,
-        symbolSearch: async (query) => {
-          const q = (query || '').trim().toLowerCase();
-          return INSTRUMENTS_DATABASE.filter(
-            (i) => i.symbol.toLowerCase().includes(q) || i.name.toLowerCase().includes(q)
-          ).slice(0, 15).map((m) => ({
-            symbol: m.symbol,
-            description: m.name,
-            exchange: 'NSE',
-            type: m.assetType || 'stock',
-          }));
-        },
-      });
+    const buildWidget = async () => {
+      await loadAll502Indicators();
+      if (destroyed || !containerRef.current) return;
 
-      if (destroyed) {
-        widget.destroy();
-        return;
-      }
+      try {
+        const widget = createWidget(containerRef.current, {
+          feed: defaultHonbaFeed,
+          symbol: symbol.toUpperCase(),
+          exchange: 'NSE',
+          interval: normInterval,
+          theme: 'dark',
+          chartType,
+          rail: showRail,
+          topbar: true,
+          statusline: true,
+          panels: false,
+          bottombar,
+          symbolSearch: async (query) => {
+            const q = (query || '').trim().toLowerCase();
+            return INSTRUMENTS_DATABASE.filter(
+              (i) => i.symbol.toLowerCase().includes(q) || i.name.toLowerCase().includes(q)
+            ).slice(0, 15).map((m) => ({
+              symbol: m.symbol,
+              description: m.name,
+              exchange: 'NSE',
+              type: m.assetType || 'stock',
+            }));
+          },
+        });
 
-      widgetRef.current = widget;
-
-      widget.on('symbol', (evt) => {
-        if (evt?.symbol && onSymbolChange) {
-          onSymbolChange(evt.symbol);
+        if (destroyed) {
+          widget.destroy();
+          return;
         }
-      });
 
-      widget.on('interval', (evt) => {
-        if (evt?.interval && onIntervalChange) {
-          onIntervalChange(evt.interval);
-        }
-      });
+        widgetRef.current = widget;
 
-      widget.on('data', (evt) => {
-        if (evt.bars > 0 && !widget.isDestroyed) {
-          anchorViewport(widget);
-          if (volumeSeriesRef.current) {
-            syncVolume(widget, volumeSeriesRef.current);
+        widget.on('symbol', (evt) => {
+          if (evt?.symbol && onSymbolChange) {
+            onSymbolChange(evt.symbol);
           }
-        }
-      });
+        });
 
-      setIsReady(true);
-    } catch (err) {
-      console.warn('Failed to initialize OpenAlgo widget:', err);
-    }
+        widget.on('interval', (evt) => {
+          if (evt?.interval && onIntervalChange) {
+            onIntervalChange(evt.interval);
+          }
+        });
+
+        widget.on('data', (evt) => {
+          if (evt.bars > 0 && !widget.isDestroyed) {
+            anchorViewport(widget);
+            if (volumeSeriesRef.current) {
+              syncVolume(widget, volumeSeriesRef.current);
+            }
+          }
+        });
+
+        setIsReady(true);
+      } catch (err) {
+        console.warn('Failed to initialize OpenAlgo widget:', err);
+      }
+    };
+
+    void buildWidget();
 
     return () => {
       destroyed = true;

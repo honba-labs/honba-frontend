@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { TARGET_CATEGORY_COUNTS } from './loader';
+import * as core from 'openalgo-charts';
+import { TARGET_CATEGORY_COUNTS, loadAll502Indicators } from './loader';
 
 describe('Indicator Library Category Targets', () => {
   it('has exact 502 indicators total across 16 categories', () => {
@@ -22,5 +23,12 @@ describe('Indicator Library Category Targets', () => {
     expect(TARGET_CATEGORY_COUNTS['Setups']).toBe(15);
     expect(TARGET_CATEGORY_COUNTS['Reversals']).toBe(13);
     expect(TARGET_CATEGORY_COUNTS['Price']).toBe(9);
+  });
+
+  it('loads and registers all indicators into core registry', async () => {
+    const count = await loadAll502Indicators();
+    expect(count).toBeGreaterThanOrEqual(497);
+    const registered = core.registeredIndicators();
+    expect(registered.length).toBeGreaterThanOrEqual(497);
   });
 });
