@@ -84,3 +84,11 @@ Confirmed: all four trigger families, **frontend-only evaluation**, and delivery
 
 ### Alert chunks (after the profile chunks, or in parallel on the frontend)
 A1. Alert bus and store plus tests. A2. Delivery sinks (toast, log, notification, sound). A3. Workbench: per-pane `AlertController` wiring. A4. Engine, feed and risk publishers. A5. Algodesigner node and trigger. A6. Webhook and action sinks. A7. Profile persistence.
+
+## Progress log
+- **Chunk 1 done** (`honba` commit `ad29007`, not pushed): `crates/honba-api-rest/src/profile_store.rs`.
+  - `ProfileStore::new(dir)`, `get(user_id)` (missing user gives the default profile at revision 0), `put(user_id, expected_revision, profile)` (stale revision gives `ProfileError::RevisionConflict`; success stores `expected_revision + 1`).
+  - User ids are limited to `[A-Za-z0-9_-]`, 1 to 64 bytes. The unauthenticated user is `DEFAULT_USER_ID = "default"`. Writes are atomic (temp file, sync, rename) behind a store-wide mutex.
+  - `Profile` currently has `revision`, `layouts`, `modules`, `watchlists`, `shortlist`, `preferences` and `workbench`. It has **no `alerts` field yet**.
+  - 6 new tests; `cargo fmt`, `clippy` and `cargo test -p honba-api-rest` pass.
+- **Chunk 2 in progress**: `GET/PUT /profile` plus the named layout and module routes, the `--profiles-dir` flag, an "any valid token" auth entry, an `alerts` field on `Profile`, and codegen endpoint-list entries (the client itself is regenerated in chunk 3).
