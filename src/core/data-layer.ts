@@ -121,6 +121,10 @@ const STORAGE_KEY = 'honba_shared_state_v1';
 type Listener = (state: DataLayerState) => void;
 type TickListener = (tick: { symbol: string; price: number; change: number; changePercent: number; volume?: number; timestamp?: number }) => void;
 
+const WS_BASE_DELAY_MS = 4000;
+const WS_MAX_DELAY_MS = 60000;
+const WS_MAX_FAILURES = 5;
+
 class CommonDataLayer {
   private instruments: Instrument[] = [...INSTRUMENTS_DATABASE];
   private currentMarket: CountryCode = 'IN';
@@ -137,6 +141,8 @@ class CommonDataLayer {
   private pollInterval: number | null = null;
   private ws: WebSocket | null = null;
   private wsReconnectTimer: number | null = null;
+  private wsFailures = 0;
+  private wsPaused = false;
   private broadcastChannel: BroadcastChannel | null = null;
 
   constructor() {
@@ -200,6 +206,7 @@ class CommonDataLayer {
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {
+        this.wsFailures = 0;
         this.isBackendConnected = true;
         this.notify();
       };
@@ -218,16 +225,40 @@ class CommonDataLayer {
       };
 
       this.ws.onclose = () => {
+        // Back off exponentially (4s..60s) and give up after repeated failures, so a
+        // backend without a /ws/market route (e.g. REST-only `honba serve`) isn't hammered.
+        if (this.wsPaused) return;
+        this.wsFailures += 1;
+        if (this.wsFailures > WS_MAX_FAILURES) return;
         if (!this.wsReconnectTimer) {
+          const delay = Math.min(WS_BASE_DELAY_MS * 2 ** (this.wsFailures - 1), WS_MAX_DELAY_MS);
           this.wsReconnectTimer = window.setTimeout(() => {
             this.wsReconnectTimer = null;
             this.initWebSocket();
-          }, 4000);
+          }, delay);
         }
       };
     } catch {
       // Fallback to HTTP polling
     }
+  }
+
+  /** "Offline" (paused) in the nav pill: drop the socket and cancel any pending retry. */
+  private pauseWebSocket() {
+    this.wsPaused = true;
+    if (this.wsReconnectTimer) {
+      clearTimeout(this.wsReconnectTimer);
+      this.wsReconnectTimer = null;
+    }
+    this.ws?.close();
+    this.ws = null;
+  }
+
+  /** "Live Feed" (resumed): a user click is a fresh start, so reset the give-up counter. */
+  private resumeWebSocket() {
+    this.wsPaused = false;
+    this.wsFailures = 0;
+    if (!this.ws || this.ws.readyState === WebSocket.CLOSED) this.initWebSocket();
   }
 
   public async fetchInstrumentDetail(symbol: string): Promise<InstrumentDetailResponse | null> {
@@ -449,6 +480,7 @@ class CommonDataLayer {
 
   // Live simulation ticks (started only when user enables live stream)
   public startLiveTickSimulation() {
+    this.resumeWebSocket();
     if (this.tickInterval) return;
     this.tickInterval = window.setInterval(() => {
       const marketInstruments = this.getInstruments();
@@ -481,6 +513,7 @@ class CommonDataLayer {
   }
 
   public stopLiveTickSimulation() {
+    this.pauseWebSocket();
     if (this.tickInterval) {
       clearInterval(this.tickInterval);
       this.tickInterval = null;
