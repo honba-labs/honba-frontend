@@ -58,15 +58,46 @@ const AlgoDesigner: React.FC = () => {
         ) : null}
         <section style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           {store.tab === 'canvas' ? (
-            <DesignerCanvas graph={store.graph} onNodeParams={(id, params) => { void store.updateNodeParams(id, params); }} onError={setNotice} />
+            <DesignerCanvas
+              graph={store.graph}
+              client={client}
+              onNodeParams={(id, params) => {
+                void store.updateNodeParams(id, params);
+              }}
+              onError={setNotice}
+            />
           ) : null}
           {store.tab === 'code' ? <CodePane code={store.code} onChange={store.setCode} /> : null}
-          {store.tab === 'verify' ? <VerifyPanel verify={store.verify} onVerify={() => { void store.verifyNow(client); }} /> : null}
+          {store.tab === 'verify' ? (
+            <VerifyPanel
+              verify={store.verify}
+              onVerify={() => {
+                void store.verifyNow(client);
+              }}
+              onSelectNode={(nodeId) => {
+                store.selectNode(nodeId);
+                store.setTab('canvas');
+              }}
+            />
+          ) : null}
           {store.tab === 'run' ? (
-            <RunPanel status={store.run.status} runId={store.run.runId} response={store.run.response} error={store.run.error} onRun={() => { void store.runNow(client, { seed: 42 }); }} />
+            <RunPanel
+              status={store.run.status}
+              runId={store.run.runId}
+              response={store.run.response}
+              error={store.run.error}
+              onRun={(seed) => {
+                void store.runNow(client, { seed: seed ?? 42 });
+              }}
+              onViewResults={() => store.setTab('results')}
+            />
           ) : null}
           {store.tab === 'assistant' ? (
-            <AssistantPanel messages={store.assistant} onPropose={(text) => store.assistantSay(text)} onClear={store.resetAssistant} />
+            <AssistantPanel
+              messages={store.assistant}
+              onPropose={(text) => store.assistantSay(text)}
+              onClear={store.resetAssistant}
+            />
           ) : null}
           {store.tab === 'ops' ? (
             <OpsPanel
@@ -74,8 +105,12 @@ const AlgoDesigner: React.FC = () => {
               mode={ops.mode}
               badge={ops.badge().label}
               orders={ops.orders.length}
-              onRefresh={() => { void ops.refresh(client); }}
-              onClose={() => { void ops.closePositions(client); }}
+              onRefresh={() => {
+                void ops.refresh(client);
+              }}
+              onClose={() => {
+                void ops.closePositions(client);
+              }}
             />
           ) : null}
           {store.tab === 'results' ? <ResultsPanel response={store.run.response} /> : null}

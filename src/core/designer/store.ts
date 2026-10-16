@@ -14,6 +14,7 @@ import type {
 import { generateCode } from '../graph/codegen';
 import { catalogue } from '../graph/catalogue';
 import {
+  canonicalJson,
   graphHash,
   graphHashSync,
   type GraphEdge,
@@ -39,6 +40,13 @@ export interface RunState {
   error: string | null;
 }
 
+export interface DesignerVersion {
+  hash: string;
+  name: string;
+  json: string;
+  timestamp: number;
+}
+
 export const DEFAULT_NODE_POSITIONS: Record<string, { x: number; y: number }> = {
   n1: { x: 40, y: 160 },
   f: { x: 300, y: 70 },
@@ -59,7 +67,7 @@ export interface DesignerState {
   verify: VerifyState;
   run: RunState;
   assistant: AssistantMessage[];
-  versions: Array<{ hash: string; name: string; json: string }>;
+  versions: DesignerVersion[];
 
   setTab: (tab: DesignerTab) => void;
   setName: (name: string) => Promise<void>;
@@ -100,6 +108,7 @@ export interface DesignerState {
   setCode: (code: string) => void;
   snapshotVersion: () => Promise<void>;
   restoreVersion: (hash: string) => Promise<void>;
+  exportStrategyJson: () => string;
   verifyNow: (client: HonbaClient) => Promise<void>;
   runNow: (client: HonbaClient, request: { seed: number }) => Promise<void>;
   assistantSay: (text: string, kind?: AssistantKind) => void;
@@ -112,7 +121,7 @@ async function buildCode(graph: StrategyGraphShape): Promise<string> {
 }
 
 function nodeLine(source: string, nodeId: string): number | null {
-  const lines = source.split('\n');
+  const lines = source.split('\\n');
   for (let i = 0; i < lines.length; i++) {
     if (lines[i].includes('.node(') && lines[i].includes(`id='${nodeId}'`)) return i + 1;
   }
@@ -502,7 +511,12 @@ export const useDesignerStore = create<DesignerState>((set, get) => {
       const { graph, versions } = get();
       const hash = await graphHash(graph);
       if (versions.some((v) => v.hash === hash)) return;
-      set({ versions: [...versions, { hash, name: graph.name, json: JSON.stringify(graph) }] });
+      set({
+        versions: [
+          ...versions,
+          { hash, name: graph.name, json: JSON.stringify(graph), timestamp: Date.now() },
+        ],
+      });
     },
 
     restoreVersion: async (hash) => {
@@ -511,6 +525,8 @@ export const useDesignerStore = create<DesignerState>((set, get) => {
       const parsed = JSON.parse(found.json) as StrategyGraphShape;
       await get().setGraph(parsed);
     },
+
+    exportStrategyJson: () => canonicalJson(get().graph),
 
     verifyNow: async (client) => {
       const { graph, code } = get();

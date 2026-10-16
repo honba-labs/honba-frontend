@@ -1,3 +1,5 @@
+import type { ValidationBlock } from '../types/generated/domain';
+
 export type RunMode = 'paper' | 'signal_only' | 'live';
 
 export const RUN_MODES: ReadonlyArray<RunMode> = ['paper', 'signal_only', 'live'] as const;
@@ -36,11 +38,12 @@ const TRUST_LABELS: Record<string, string> = {
   cost_stress: 'Cost stress',
 };
 
-export function trustBadges(validation: Record<string, unknown> | null | undefined): TrustBadge[] {
+export function trustBadges(validation: Record<string, unknown> | ValidationBlock | null | undefined): TrustBadge[] {
   if (!validation) return [];
+  const rec = validation as Record<string, unknown>;
   const badges: TrustBadge[] = [];
   for (const [key, label] of Object.entries(TRUST_LABELS)) {
-    const block = validation[key];
+    const block = rec[key];
     if (block !== null && typeof block === 'object') {
       badges.push({ key, label, passed: Boolean((block as Record<string, unknown>).passed) });
     }

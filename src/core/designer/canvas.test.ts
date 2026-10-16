@@ -1,10 +1,32 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { defaultGraph, useDesignerStore } from './store';
+import { HonbaClient } from '../api/generated/client';
+import { useOpsStore } from './ops-state';
+import { drawdownSeries, maxDrawdownPct, runModeBadge, trustBadges } from './ops';
+import { validateGraph } from '../graph/validation';
+import { canonicalJson } from '../graph/model';
+import type { ResponseEnvelope } from '../types/generated/domain';
+
+function jsonFetch(body: unknown): typeof fetch {
+  return (async () => ({ ok: true, status: 200, json: async () => body })) as unknown as typeof fetch;
+}
 
 beforeEach(async () => {
   const store = useDesignerStore.getState();
   await store.setGraph(defaultGraph());
+  useDesignerStore.setState({ versions: [] });
+  useOpsStore.setState({
+    mode: 'paper',
+    killSwitch: false,
+    approved: true,
+    positions: [],
+    orders: [],
+    executions: [],
+    decisions: [],
+    log: [],
+    error: null,
+  });
 });
 
 describe('AlgoDesigner Canvas Engine & State (Phase 1 & 2)', () => {
@@ -218,5 +240,200 @@ describe('AlgoDesigner Edge Splicing & Inspection (Phase 3 & 4)', () => {
     expect(updated.graph.warmup_bars).toBe(50);
     expect(updated.code).toContain('warmup_bars=50');
     expect(updated.code).toContain('"interval": 5');
+  });
+});
+
+describe('AlgoDesigner Diagnostics, Trust & Ops Controls (Phase 5)', () => {
+  it('detects structural defects and supports issue node selection', async () => {
+    const store = useDesignerStore.getState();
+    const client = new HonbaClient({ baseUrl: 'http://localhost/api/v1' });
+
+    // Introduce a defect: node with unknown indicator kind
+    await store.addNode({ id: 'bad_ind', type: 'indicator', indicator: 'nonexistent_ind' });
+
+    await store.verifyNow(client);
+    const verify = useDesignerStore.getState().verify;
+    expect(verify.ok).toBe(false);
+    expect(verify.issues.length).toBeGreaterThan(0);
+
+    const badIssue = verify.issues.find((i) => i.nodeId === 'bad_ind');
+    expect(badIssue).toBeDefined();
+    expect(badIssue?.code).toBe('unknown_indicator');
+
+    // Test clicking/selecting the issue node
+    store.selectNode(badIssue!.nodeId);
+    expect(useDesignerStore.getState().selectedNodeId).toBe('bad_ind');
+  });
+
+  it('triggers backtest execution and records response metrics and trust badges', async () => {
+    const runResponse: ResponseEnvelope<unknown> = {
+      api_version: '1.0.0',
+      schema_version: 4,
+      data: {
+        run_id: 'test-run-101',
+        status: 'completed',
+        metrics: {
+          sharpe: 1.85,
+          max_drawdown: 0.12,
+          total_return: 0.28,
+          net_pnl: 28000,
+          trades: 42,
+        },
+        validation: {
+          passed: true,
+          dsr: { passed: true, observed_sharpe: 1.85, expected_max_sharpe: 1.2, z_stat: 2.1 },
+          pbo: { passed: true, pbo: 0.08, combinations_evaluated: 16 },
+          holdout: { passed: true },
+          walk_forward: { passed: false, wfe: 0.42 },
+        },
+        assumptions: {
+          not_modelled: ['borrow_fee', 'spread_slippage'],
+        },
+      },
+    };
+
+    const client = new HonbaClient({
+      baseUrl: 'http://localhost/api/v1',
+      fetch: jsonFetch(runResponse),
+    });
+
+    const store = useDesignerStore.getState();
+    await store.runNow(client, { seed: 42 });
+
+    const run = useDesignerStore.getState().run;
+    expect(run.status).toBe('completed');
+    expect(run.runId).toBe('test-run-101');
+    expect(run.response?.metrics?.sharpe).toBe(1.85);
+
+    // Verify trust badges computation
+    const badges = trustBadges(run.response?.validation);
+    expect(badges.map((b) => b.key)).toContain('dsr');
+    expect(badges.map((b) => b.key)).toContain('pbo');
+    expect(badges.find((b) => b.key === 'dsr')?.passed).toBe(true);
+    expect(badges.find((b) => b.key === 'walk_forward')?.passed).toBe(false);
+  });
+
+  it('computes underwater drawdown series and max drawdown percentage accurately', () => {
+    const equity = [100000, 105000, 95000, 110000, 99000];
+    const dd = drawdownSeries(equity);
+    // Peak 1: 100k -> 0%
+    // Peak 2: 105k -> 0%
+    // Dip 1: 95k -> (105k - 95k) / 105k * 100 = 9.5238%
+    // Peak 3: 110k -> 0%
+    // Dip 2: 99k -> (110k - 99k) / 110k * 100 = 10%
+    expect(dd[0]).toBe(0);
+    expect(dd[1]).toBe(0);
+    expect(dd[2]).toBeCloseTo(9.524, 2);
+    expect(dd[3]).toBe(0);
+    expect(dd[4]).toBeCloseTo(10, 2);
+    expect(maxDrawdownPct(equity)).toBeCloseTo(10, 2);
+  });
+
+  it('manages ops console modes, safety latches, and order cancellations', async () => {
+    const ops = useOpsStore.getState();
+    expect(ops.mode).toBe('paper');
+    expect(ops.badge().blocked).toBe(false);
+
+    // Switch to live mode without approved status -> blocked
+    ops.setApproved(false);
+    ops.setMode('live');
+    expect(useOpsStore.getState().badge().blocked).toBe(true);
+
+    // Emergency kill switch blocks live execution unconditionally
+    ops.setApproved(true);
+    ops.setKillSwitch(true);
+    expect(useOpsStore.getState().badge().blocked).toBe(true);
+    expect(useOpsStore.getState().badge().killSwitch).toBe(true);
+
+    // Disengage kill switch -> active live mode
+    ops.setKillSwitch(false);
+    expect(useOpsStore.getState().badge().blocked).toBe(false);
+    expect(useOpsStore.getState().badge().level).toBe('live');
+  });
+});
+
+describe('AlgoDesigner Export/Import & Version History (Phase 6)', () => {
+  it('exports canonical JSON matching graphHashSync', () => {
+    const store = useDesignerStore.getState();
+    const exported = store.exportStrategyJson();
+    expect(typeof exported).toBe('string');
+
+    const parsed = JSON.parse(exported);
+    expect(parsed.schema_version).toBe(1);
+    expect(parsed.name).toBe('sma_cross');
+    expect(parsed.nodes).toHaveLength(5);
+    expect(parsed.edges).toHaveLength(5);
+
+    // Canonical JSON must equal canonicalJson helper
+    expect(exported).toBe(canonicalJson(store.graph));
+  });
+
+  it('imports and replaces strategy graph with layout recalculation and validation', async () => {
+    const store = useDesignerStore.getState();
+
+    const customGraph = {
+      schema_version: 1,
+      name: 'momentum_rsi_strategy',
+      universe: { explicit: [{ symbol: 'INFY', exchange: 'NSE' }] },
+      driving_timeframe: { interval: 5, aggregation: 'minute' },
+      warmup_bars: 14,
+      subscriptions: { quotes: false, trades: false },
+      nodes: [
+        { id: 'u1', type: 'universe' as const, label: 'Universe' },
+        { id: 'rsi', type: 'indicator' as const, indicator: 'rsi', label: 'RSI 14', params: { period: 14 } },
+        { id: 'cond', type: 'condition' as const, label: 'Oversold', params: { op: '<' } },
+        { id: 'ord', type: 'order' as const, label: 'Buy Dip', params: { side: 'buy', quantity: 10 } },
+      ],
+      edges: [
+        { id: 'e1', from_node: 'u1', from_port: 'bars', to_node: 'rsi', to_port: 'input' },
+        { id: 'e2', from_node: 'rsi', from_port: 'value', to_node: 'cond', to_port: 'left' },
+        { id: 'e3', from_node: 'cond', from_port: 'signal', to_node: 'ord', to_port: 'signal' },
+      ],
+    };
+
+    // Valid graph check
+    expect(() => validateGraph(customGraph)).not.toThrow();
+
+    await store.setGraph(customGraph);
+    const updated = useDesignerStore.getState();
+
+    expect(updated.graph.name).toBe('momentum_rsi_strategy');
+    expect(updated.graph.nodes).toHaveLength(4);
+    expect(updated.positions['u1']).toBeDefined();
+    expect(updated.positions['rsi']).toBeDefined();
+    expect(updated.code).toContain('momentum_rsi_strategy');
+    expect(updated.isModified).toBe(false);
+  });
+
+  it('records version snapshots and restores previous graphs losslessly', async () => {
+    const store = useDesignerStore.getState();
+    const originalName = store.graph.name;
+
+    // Take snapshot 1
+    await store.snapshotVersion();
+    let state = useDesignerStore.getState();
+    expect(state.versions).toHaveLength(1);
+    const version1Hash = state.versions[0].hash;
+    expect(state.versions[0].name).toBe(originalName);
+    expect(state.versions[0].timestamp).toBeGreaterThan(0);
+
+    // Modify strategy
+    await store.setName('altered_strategy');
+    await store.deleteNode('f');
+    state = useDesignerStore.getState();
+    expect(state.graph.name).toBe('altered_strategy');
+    expect(state.graph.nodes).toHaveLength(4);
+
+    // Take snapshot 2
+    await store.snapshotVersion();
+    state = useDesignerStore.getState();
+    expect(state.versions).toHaveLength(2);
+
+    // Restore snapshot 1
+    await store.restoreVersion(version1Hash);
+    state = useDesignerStore.getState();
+    expect(state.graph.name).toBe(originalName);
+    expect(state.graph.nodes).toHaveLength(5);
+    expect(state.graph.nodes.some((n) => n.id === 'f')).toBe(true);
   });
 });
