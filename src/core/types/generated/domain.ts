@@ -419,6 +419,19 @@ export interface QuotesResponse {
   quotes: QuoteTick[];
 }
 
+export interface Reason {
+  code: string;
+  detail: string;
+  group: ReasonGroup;
+  label: string;
+  polarity: ReasonPolarity;
+  weight: number;
+}
+
+export type ReasonGroup = "trend" | "momentum" | "price_action" | "volume" | "volatility" | "level" | "session" | "relative_strength";
+
+export type ReasonPolarity = "bullish" | "bearish";
+
 export interface RejectReason {
   code: ErrorCode;
   message: string;
@@ -492,6 +505,37 @@ export interface ScreenerScanResponse {
   columns: string[];
   range: unknown[];
   rows: ScreenerRow[];
+  total: number;
+}
+
+export interface Signal {
+  anchor_price: number;
+  direction: SignalDirection;
+  evidence?: Record<string, number>;
+  horizon: SignalHorizon;
+  instrument: InstrumentId;
+  reasons: Reason[];
+  ruleset: string;
+  strength: number;
+  t: UnixNanos;
+  tags: string[];
+  timeframe: string;
+}
+
+export type SignalDirection = "buy" | "sell";
+
+export type SignalHorizon = "intraday" | "swing";
+
+export interface SignalScanRequest {
+  detectors?: string[];
+  horizon: SignalHorizon;
+  minStrength?: number;
+  timeframe: Timeframe;
+  universe: string[];
+}
+
+export interface SignalScanResponse {
+  signals: Signal[];
   total: number;
 }
 
