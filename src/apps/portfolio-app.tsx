@@ -15,6 +15,8 @@ import { PortfolioHeader } from '../components/features/portfolio/portfolio-head
 import { HoldingsTable } from '../components/features/portfolio/holdings-table';
 import { PositionsTable } from '../components/features/portfolio/positions-table';
 import { AnalyticsView } from '../components/features/portfolio/analytics-view';
+import { AccountsView } from '../components/features/portfolio/accounts-view';
+import { TradesTable } from '../components/features/portfolio/trades-table';
 import { OrderModal } from '../components/features/workbench/order-modal';
 import {
   Briefcase,
@@ -29,6 +31,7 @@ import {
   TrendingDown,
   ShieldCheck,
   Cpu,
+  Users,
 } from 'lucide-react';
 import type { PortfolioTab } from '../core/portfolio/types';
 
@@ -41,6 +44,8 @@ export const PortfolioApp: React.FC = () => {
     getActiveAccount,
     loadPortfolio,
     isLoading,
+    error,
+    lastLoadedAt,
   } = usePortfolioStore();
 
   const { orders, trades, cancelOrder, openOrderModal, fetchState } = useWorkbenchStore();
@@ -74,6 +79,7 @@ export const PortfolioApp: React.FC = () => {
     icon: React.ReactNode;
     count?: number;
   }> = [
+    { id: 'accounts', label: 'Accounts', icon: <Users size={14} />, count: snapshot.accounts?.length },
     { id: 'holdings', label: 'Holdings', icon: <Briefcase size={14} />, count: holdingsCount },
     { id: 'positions', label: 'Open Positions', icon: <Layers size={14} />, count: positionsCount },
     { id: 'orders', label: 'Orders', icon: <FileText size={14} />, count: orders.length },
@@ -95,6 +101,21 @@ export const PortfolioApp: React.FC = () => {
       >
         {/* Top Control Bar with Account Switcher, Mode, and Search */}
         <PortfolioHeader />
+        {lastLoadedAt && (
+          <div style={{ padding: '4px 16px', fontSize: 10, color: 'var(--text-muted)', background: 'var(--bg-surface)', borderBottom: '1px solid var(--border-subtle)' }}>
+            As of: {new Date(lastLoadedAt).toLocaleString()}
+          </div>
+        )}
+        {error && (
+          <div style={{ padding: '6px 16px', fontSize: 11, color: 'var(--bearish)', background: 'var(--bearish-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
+            {error}
+          </div>
+        )}
+        {isLoading && (
+          <div style={{ padding: '4px 16px', fontSize: 10, color: 'var(--text-muted)', background: 'var(--bg-surface)', borderBottom: '1px solid var(--border-subtle)' }}>
+            Loading portfolio...
+          </div>
+        )}
 
         {/* Big KPI Summary Banner */}
         <div
@@ -305,6 +326,12 @@ export const PortfolioApp: React.FC = () => {
             padding: '16px',
           }}
         >
+          {activeTab === 'accounts' && (
+            <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '8px 12px' }}>
+              <AccountsView />
+            </div>
+          )}
+
           {activeTab === 'holdings' && (
             <div
               style={{
@@ -416,50 +443,7 @@ export const PortfolioApp: React.FC = () => {
                 padding: '12px',
               }}
             >
-              {trades.length === 0 ? (
-                <div style={{ color: 'var(--text-muted)', fontSize: 12, padding: 32, textAlign: 'center' }}>
-                  No trade executions in this session
-                </div>
-              ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, fontFamily: 'var(--font-family-mono)' }}>
-                  <thead>
-                    <tr style={{ color: 'var(--text-muted)', textAlign: 'left', borderBottom: '1px solid var(--border-subtle)', fontSize: 10, textTransform: 'uppercase' }}>
-                      <th style={{ padding: '6px 8px' }}>Order ID</th>
-                      <th style={{ padding: '6px 8px' }}>Symbol</th>
-                      <th style={{ padding: '6px 8px' }}>Side</th>
-                      <th style={{ padding: '6px 8px', textAlign: 'right' }}>Exec Price</th>
-                      <th style={{ padding: '6px 8px', textAlign: 'right' }}>Qty</th>
-                      <th style={{ padding: '6px 8px', textAlign: 'right' }}>Cost</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {trades.map((t, idx) => (
-                      <tr key={idx} style={{ borderBottom: '1px solid var(--border-table-row)' }}>
-                        <td style={{ padding: '6px 8px', color: 'var(--text-muted)' }}>{t.order_id}</td>
-                        <td style={{ padding: '6px 8px', fontWeight: 600, color: 'var(--text-primary)' }}>{t.instrument_id.symbol}</td>
-                        <td style={{ padding: '6px 8px' }}>
-                          <span
-                            style={{
-                              fontSize: 9.5,
-                              fontWeight: 700,
-                              padding: '1px 5px',
-                              borderRadius: 3,
-                              textTransform: 'uppercase',
-                              background: t.side === 'buy' ? 'var(--bullish-subtle)' : 'var(--bearish-subtle)',
-                              color: t.side === 'buy' ? 'var(--bullish)' : 'var(--bearish)',
-                            }}
-                          >
-                            {t.side}
-                          </span>
-                        </td>
-                        <td style={{ padding: '6px 8px', textAlign: 'right', color: 'var(--text-primary)' }}>₹{t.price.toFixed(2)}</td>
-                        <td style={{ padding: '6px 8px', textAlign: 'right', color: 'var(--text-primary)' }}>{t.quantity}</td>
-                        <td style={{ padding: '6px 8px', textAlign: 'right', color: 'var(--text-secondary)' }}>₹{t.costs.amount.toFixed(2)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+              <TradesTable trades={trades} />
             </div>
           )}
 

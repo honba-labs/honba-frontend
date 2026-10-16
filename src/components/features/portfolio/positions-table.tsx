@@ -5,19 +5,23 @@ import { formatMoney, moneyToMajor } from '../../../core/portfolio/money';
 import { Ban, ArrowUpRight, ArrowDownRight, XCircle } from 'lucide-react';
 import type { PortfolioPosition } from '../../../core/portfolio/types';
 import type { HonbaClient } from '../../../core/api/generated/client';
+import { SortableHeader, useSort } from './sortable-table';
 
 interface PositionsTableProps {
   client?: HonbaClient;
 }
 
+type SortKey = 'symbol' | 'side' | 'product' | 'quantity' | 'avg_price' | 'mark' | 'market_value' | 'unrealized' | 'realized';
+
 export const PositionsTable: React.FC<PositionsTableProps> = ({ client }) => {
   const { getActiveAccount, searchQuery, closePosition, closeAllPositions } = usePortfolioStore();
   const { closePosition: wbClosePosition, closeAllPositions: wbCloseAll } = useWorkbenchStore();
+  const { sort, handleSort } = useSort<SortKey>('symbol');
 
   const account = getActiveAccount();
   if (!account) return null;
 
-  const positions = account.positions.filter((p) => {
+  let positions = account.positions.filter((p) => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -25,6 +29,34 @@ export const PositionsTable: React.FC<PositionsTableProps> = ({ client }) => {
       p.instrument_id.exchange.toLowerCase().includes(q)
     );
   });
+
+  if (sort.key) {
+    positions = [...positions].sort((a, b) => {
+      let va: any, vb: any;
+      const getMetrics = (p: PortfolioPosition) => {
+        const sign = p.side === 'long' ? 1 : -1;
+        const marketVal = p.quantity * p.mark;
+        const unrealized = (p.mark - p.avg_price) * sign * p.quantity;
+        const realized = 0; // use stored; but easier compare numbers
+        return { marketVal, unrealized, realized: p.realized_pnl?.amount || 0 };
+      };
+      if (sort.key === 'symbol') { va = a.instrument_id.symbol; vb = b.instrument_id.symbol; }
+      else if (sort.key === 'side') { va = a.side; vb = b.side; }
+      else if (sort.key === 'product') { va = a.product; vb = b.product; }
+      else if (sort.key === 'quantity') { va = a.quantity; vb = b.quantity; }
+      else if (sort.key === 'avg_price') { va = a.avg_price; vb = b.avg_price; }
+      else if (sort.key === 'mark') { va = a.mark; vb = b.mark; }
+      else {
+        const ma = getMetrics(a), mb = getMetrics(b);
+        if (sort.key === 'market_value') { va = ma.marketVal; vb = mb.marketVal; }
+        else if (sort.key === 'unrealized') { va = ma.unrealized; vb = mb.unrealized; }
+        else { va = ma.realized; vb = mb.realized; }
+      }
+      if (va < vb) return sort.direction === 'asc' ? -1 : 1;
+      if (va > vb) return sort.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }
 
   const handleClosePosition = (symbol: string) => {
     closePosition(symbol);
@@ -123,15 +155,15 @@ export const PositionsTable: React.FC<PositionsTableProps> = ({ client }) => {
               letterSpacing: '0.04em',
             }}
           >
-            <th style={{ padding: '6px 8px' }}>Instrument</th>
-            <th style={{ padding: '6px 8px' }}>Side</th>
-            <th style={{ padding: '6px 8px' }}>Product</th>
-            <th style={{ padding: '6px 8px', textAlign: 'right' }}>Qty</th>
-            <th style={{ padding: '6px 8px', textAlign: 'right' }}>Avg Price</th>
-            <th style={{ padding: '6px 8px', textAlign: 'right' }}>LTP / Mark</th>
-            <th style={{ padding: '6px 8px', textAlign: 'right' }}>Market Value</th>
-            <th style={{ padding: '6px 8px', textAlign: 'right' }}>Unrealized P&L</th>
-            <th style={{ padding: '6px 8px', textAlign: 'right' }}>Realized P&L</th>
+            <SortableHeader label="Instrument" sortKey="symbol" sortState={sort} onSort={handleSort as any} align="left" />
+            <SortableHeader label="Side" sortKey="side" sortState={sort} onSort={handleSort as any} align="left" />
+            <SortableHeader label="Product" sortKey="product" sortState={sort} onSort={handleSort as any} align="left" />
+            <SortableHeader label="Qty" sortKey="quantity" sortState={sort} onSort={handleSort as any} align="right" />
+            <SortableHeader label="Avg Price" sortKey="avg_price" sortState={sort} onSort={handleSort as any} align="right" />
+            <SortableHeader label="LTP / Mark" sortKey="mark" sortState={sort} onSort={handleSort as any} align="right" />
+            <SortableHeader label="Market Value" sortKey="market_value" sortState={sort} onSort={handleSort as any} align="right" />
+            <SortableHeader label="Unrealized P&L" sortKey="unrealized" sortState={sort} onSort={handleSort as any} align="right" />
+            <SortableHeader label="Realized P&L" sortKey="realized" sortState={sort} onSort={handleSort as any} align="right" />
             <th style={{ padding: '6px 8px', textAlign: 'right' }}>Action</th>
           </tr>
         </thead>

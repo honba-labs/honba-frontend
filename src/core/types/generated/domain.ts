@@ -386,6 +386,10 @@ export interface PortfolioAccount {
   unrealized_pnl: Money;
 }
 
+export interface PortfolioAccountsResponse {
+  accounts: PortfolioAccount[];
+}
+
 export interface PortfolioHolding {
   avg_price: number;
   instrument_id: InstrumentId;
@@ -394,6 +398,10 @@ export interface PortfolioHolding {
   quantity: number;
   realized_pnl: Money;
   unrealized_pnl: Money;
+}
+
+export interface PortfolioHoldingsResponse {
+  holdings: PortfolioHolding[];
 }
 
 export type PortfolioMode = "live" | "sandbox";
@@ -408,6 +416,10 @@ export interface PortfolioPosition {
   realized_pnl: Money;
   side: PositionSide;
   unrealized_pnl: Money;
+}
+
+export interface PortfolioPositionsResponse {
+  positions: PortfolioPosition[];
 }
 
 export interface PortfolioSnapshot {

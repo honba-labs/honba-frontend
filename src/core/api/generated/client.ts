@@ -22,6 +22,10 @@ import type {
   OrdersQuery,
   OrdersRequest,
   OrdersResponse,
+  PortfolioAccountsResponse,
+  PortfolioHoldingsResponse,
+  PortfolioPositionsResponse,
+  PortfolioSnapshot,
   PositionsResponse,
   Profile,
   ProfileRevision,
@@ -212,6 +216,26 @@ export class HonbaClient {
 
   async deleteOrdersById(id: string, signal?: AbortSignal): Promise<ResponseEnvelope<OrdersResponse>> {
     return request<OrdersResponse>(this.fetchImpl, 'DELETE', apiUrl(this.baseUrl, `/orders/${encodeURIComponent(id)}`), { signal });
+  }
+
+  async getPortfolio(signal?: AbortSignal): Promise<ResponseEnvelope<PortfolioSnapshot>> {
+    return request<PortfolioSnapshot>(this.fetchImpl, 'GET', apiUrl(this.baseUrl, '/portfolio'), { signal });
+  }
+
+  async getPortfolioAccounts(signal?: AbortSignal): Promise<ResponseEnvelope<PortfolioAccountsResponse>> {
+    return request<PortfolioAccountsResponse>(this.fetchImpl, 'GET', apiUrl(this.baseUrl, '/portfolio/accounts'), { signal });
+  }
+
+  async getPortfolioHoldings(signal?: AbortSignal): Promise<ResponseEnvelope<PortfolioHoldingsResponse>> {
+    return request<PortfolioHoldingsResponse>(this.fetchImpl, 'GET', apiUrl(this.baseUrl, '/portfolio/holdings'), { signal });
+  }
+
+  async getPortfolioPositions(signal?: AbortSignal): Promise<ResponseEnvelope<PortfolioPositionsResponse>> {
+    return request<PortfolioPositionsResponse>(this.fetchImpl, 'GET', apiUrl(this.baseUrl, '/portfolio/positions'), { signal });
+  }
+
+  async getPortfolioTrades(signal?: AbortSignal): Promise<ResponseEnvelope<TradesResponse>> {
+    return request<TradesResponse>(this.fetchImpl, 'GET', apiUrl(this.baseUrl, '/portfolio/trades'), { signal });
   }
 
   async postPositionsClose(signal?: AbortSignal): Promise<ResponseEnvelope<PositionsResponse>> {

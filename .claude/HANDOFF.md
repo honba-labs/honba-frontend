@@ -1,1 +1,1 @@
-Plan: docs/Multi-User-Profiles-PLAN.md. Chunks 1-2 done (honba ad29007..699bc54, unpushed). Next: review chunks 1-2, chunk 3 codegen (npm run codegen), then frontend, alerts A1-A8.
+Plans in docs/: Multi-User-Profiles (chunks1-2+fixes done, 3 codegen held), Portfolio-Analytics-DESIGN (decisions made, P0 ADR next), alerts A1-A8. honba has another session on E13.

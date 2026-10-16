@@ -26,9 +26,14 @@ export interface PortfolioState {
   isLoading: boolean;
   isSyncing: boolean;
   error: string | null;
+  lastLoadedAt: string | null;
 
   // Actions
-  loadPortfolio: () => Promise<void>;
+  loadPortfolio: (client?: any) => Promise<void>;
+  loadPortfolioAccounts: (client?: any) => Promise<void>;
+  loadPortfolioHoldings: (client?: any) => Promise<void>;
+  loadPortfolioPositions: (client?: any) => Promise<void>;
+  loadPortfolioTrades: (client?: any) => Promise<void>;
   setActiveAccount: (accountId: string) => void;
   setSearchQuery: (query: string) => void;
   setModeFilter: (filter: 'all' | 'sandbox' | 'live') => void;
@@ -51,6 +56,7 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => {
     isLoading: false,
     isSyncing: false,
     error: null,
+    lastLoadedAt: null,
 
     getActiveAccount: () => {
       const { snapshot, activeAccountId } = get();
@@ -60,15 +66,25 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => {
       );
     },
 
-    loadPortfolio: async () => {
+    loadPortfolio: async (client?: any) => {
       set({ isLoading: true, error: null });
       try {
-        const snap = await fetchPortfolioSnapshot();
+        let snap;
+        if (client?.getPortfolio) {
+          const res = await client.getPortfolio();
+          snap = res.data || res;
+        } else {
+          snap = await fetchPortfolioSnapshot();
+        }
+        if (!snap?.accounts || snap.accounts.length === 0) {
+          throw new Error('No accounts found in portfolio');
+        }
         set((state) => ({
           snapshot: snap,
           isLoading: false,
+          lastLoadedAt: snap.as_of?.iso || new Date().toISOString(),
           activeAccountId:
-            snap.accounts.find((a) => a.id === state.activeAccountId)?.id ??
+            snap.accounts.find((a: any) => a.id === state.activeAccountId)?.id ??
             snap.accounts[0]?.id ??
             state.activeAccountId,
         }));
@@ -77,6 +93,72 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => {
           isLoading: false,
           error: err instanceof Error ? err.message : String(err),
         });
+      }
+    },
+
+    loadPortfolioAccounts: async (client?: any) => {
+      if (!client?.getPortfolioAccounts) return;
+      try {
+        const res = await client.getPortfolioAccounts();
+        const accounts = res.data?.accounts || res.accounts;
+        if (accounts) {
+          set((state) => ({
+            snapshot: { ...state.snapshot, accounts },
+            lastLoadedAt: state.lastLoadedAt || new Date().toISOString(),
+          }));
+        }
+      } catch (err) {
+        set({ error: err instanceof Error ? err.message : String(err) });
+      }
+    },
+
+    loadPortfolioHoldings: async (client?: any) => {
+      if (!client?.getPortfolioHoldings) return;
+      try {
+        const res = await client.getPortfolioHoldings();
+        const holdings = res.data?.holdings || res.holdings;
+        if (holdings) {
+          set((state) => {
+            const accounts = state.snapshot.accounts.map((a) => ({ ...a, holdings }));
+            return {
+              snapshot: { ...state.snapshot, accounts },
+              lastLoadedAt: state.lastLoadedAt || new Date().toISOString(),
+            };
+          });
+        }
+      } catch (err) {
+        set({ error: err instanceof Error ? err.message : String(err) });
+      }
+    },
+
+    loadPortfolioPositions: async (client?: any) => {
+      if (!client?.getPortfolioPositions) return;
+      try {
+        const res = await client.getPortfolioPositions();
+        const positions = res.data?.positions || res.positions;
+        if (positions) {
+          set((state) => {
+            const accounts = state.snapshot.accounts.map((a) => ({ ...a, positions }));
+            return {
+              snapshot: { ...state.snapshot, accounts },
+              lastLoadedAt: state.lastLoadedAt || new Date().toISOString(),
+            };
+          });
+        }
+      } catch (err) {
+        set({ error: err instanceof Error ? err.message : String(err) });
+      }
+    },
+
+    loadPortfolioTrades: async (client?: any) => {
+      if (!client?.getPortfolioTrades) return;
+      try {
+        const res = await client.getPortfolioTrades();
+        const trades = res.data?.trades || res.trades;
+        // Store via workbench if needed; just track last load
+        set((state) => ({ lastLoadedAt: state.lastLoadedAt || new Date().toISOString() }));
+      } catch (err) {
+        set({ error: err instanceof Error ? err.message : String(err) });
       }
     },
 
@@ -406,6 +488,7 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => {
         searchQuery: '',
         modeFilter: 'all',
         error: null,
+        lastLoadedAt: fresh.as_of?.iso || null,
       });
     },
   };

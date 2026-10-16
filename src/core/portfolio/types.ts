@@ -33,6 +33,7 @@ export type {
 };
 
 export type PortfolioTab =
+  | 'accounts'
   | 'holdings'
   | 'positions'
   | 'orders'
