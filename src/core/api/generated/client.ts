@@ -15,6 +15,7 @@ import type {
   DepthResponse,
   InstrumentsQuery,
   InstrumentsResponse,
+  LayoutDocument,
   LayoutsResponse,
   Module,
   ModulesResponse,
@@ -233,8 +234,8 @@ export class HonbaClient {
     return request<ProfileRevision>(this.fetchImpl, 'DELETE', apiUrl(this.baseUrl, `/profile/layouts/${encodeURIComponent(name)}`), { signal });
   }
 
-  async putProfileLayoutsByName(name: string, signal?: AbortSignal): Promise<ResponseEnvelope<ProfileRevision>> {
-    return request<ProfileRevision>(this.fetchImpl, 'PUT', apiUrl(this.baseUrl, `/profile/layouts/${encodeURIComponent(name)}`), { signal });
+  async putProfileLayoutsByName(name: string, body: LayoutDocument, signal?: AbortSignal): Promise<ResponseEnvelope<ProfileRevision>> {
+    return request<ProfileRevision>(this.fetchImpl, 'PUT', apiUrl(this.baseUrl, `/profile/layouts/${encodeURIComponent(name)}`), { body, signal });
   }
 
   async getProfileModules(signal?: AbortSignal): Promise<ResponseEnvelope<ModulesResponse>> {

@@ -212,6 +212,8 @@ export interface IrUniverse {
   named?: string | null;
 }
 
+export type LayoutDocument = unknown;
+
 export interface LayoutsResponse {
   layouts: Record<string, unknown>;
 }
@@ -363,6 +365,69 @@ export interface PboResult {
   median_oos_percentile: number;
   passed: boolean;
   pbo: number;
+}
+
+export interface PortfolioAccount {
+  broker?: string | null;
+  cash: Money;
+  currency: Currency;
+  equity: Money;
+  holdings: PortfolioHolding[];
+  id: string;
+  leverage: number;
+  margin_available: Money;
+  margin_used: Money;
+  market_value: Money;
+  mode: PortfolioMode;
+  name: string;
+  positions: PortfolioPosition[];
+  realized_pnl: Money;
+  source: PortfolioSource;
+  unrealized_pnl: Money;
+}
+
+export interface PortfolioHolding {
+  avg_price: number;
+  instrument_id: InstrumentId;
+  mark: number;
+  market_value: Money;
+  quantity: number;
+  realized_pnl: Money;
+  unrealized_pnl: Money;
+}
+
+export type PortfolioMode = "live" | "sandbox";
+
+export interface PortfolioPosition {
+  avg_price: number;
+  instrument_id: InstrumentId;
+  mark: number;
+  market_value: Money;
+  product: Product;
+  quantity: number;
+  realized_pnl: Money;
+  side: PositionSide;
+  unrealized_pnl: Money;
+}
+
+export interface PortfolioSnapshot {
+  accounts: PortfolioAccount[];
+  as_of: UnixNanos;
+  base_currency: Currency;
+  owner: string;
+  revision: number;
+  totals: PortfolioTotals;
+}
+
+export type PortfolioSource = "ledger" | "broker";
+
+export interface PortfolioTotals {
+  cash: Money;
+  equity: Money;
+  market_value: Money;
+  realized_pnl: Money;
+  total_pnl: Money;
+  unrealized_pnl: Money;
 }
 
 export interface Position {
