@@ -4,6 +4,8 @@ import { HONBA_APPS, AppId } from '../core/apps';
 import { themeEngine, ColorPalette, TypographyPreset } from '../core/theme-engine';
 import { CountryCode } from '../core/market-data';
 import { useScreenerStore } from '../core/store/use-screener-store';
+import { usePortfolioStore } from '../core/portfolio/store';
+import { formatMoney, moneyToMajor } from '../core/portfolio/money';
 import {
   Filter,
   Layout,
@@ -14,6 +16,7 @@ import {
   SunMoon,
   Maximize2,
   Minimize2,
+  Briefcase,
 } from 'lucide-react';
 
 interface AppNavProps {
@@ -25,6 +28,14 @@ export const AppNav: React.FC<AppNavProps> = ({ currentAppId = 'screener' }) => 
   const setMarket = useScreenerStore((state) => state.setMarket);
   const isLive = useScreenerStore((state) => state.isLive);
   const toggleLiveTicks = useScreenerStore((state) => state.toggleLiveTicks);
+
+  const { getActiveAccount } = usePortfolioStore();
+  const activeAccount = getActiveAccount();
+
+  const navTotalPnl = activeAccount
+    ? moneyToMajor(activeAccount.unrealized_pnl) + moneyToMajor(activeAccount.realized_pnl)
+    : 0;
+  const isNavPnlPositive = navTotalPnl >= 0;
 
   const [activeMenu, setActiveMenu] = useState<'apps' | 'market' | 'theme' | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -81,6 +92,8 @@ export const AppNav: React.FC<AppNavProps> = ({ currentAppId = 'screener' }) => 
         return <PlayCircle size={15} />;
       case 'book-open':
         return <BookOpen size={15} />;
+      case 'briefcase':
+        return <Briefcase size={15} />;
       default:
         return <Filter size={15} />;
     }
@@ -128,6 +141,57 @@ export const AppNav: React.FC<AppNavProps> = ({ currentAppId = 'screener' }) => 
 
       {/* Right: Live Telemetry, Market Country, Theme, Fullscreen */}
       <div className="header-right">
+        {/* Portfolio Direct Navigation Pill */}
+        {activeAccount && (
+          <a
+            href="/portfolio.html"
+            className="tv-market-status-pill"
+            style={{
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              background: 'var(--bg-surface)',
+              border: '1px solid var(--border-subtle)',
+              textDecoration: 'none',
+            }}
+            title="Open Honba Portfolio Manager"
+          >
+            <Briefcase size={12} color="var(--accent-primary)" />
+            <span
+              className="status-dot"
+              style={{
+                background:
+                  activeAccount.mode === 'live'
+                    ? 'var(--bullish)'
+                    : 'var(--accent-gold, #f59e0b)',
+              }}
+            />
+            <span style={{ fontWeight: 600, fontSize: 11, color: 'var(--text-primary)' }}>
+              {activeAccount.name}
+            </span>
+            <span
+              style={{
+                fontFamily: 'var(--font-family-mono)',
+                fontSize: 10.5,
+                color: 'var(--text-secondary)',
+              }}
+            >
+              {formatMoney(activeAccount.equity, activeAccount.currency)}
+            </span>
+            <span
+              style={{
+                fontFamily: 'var(--font-family-mono)',
+                fontSize: 10,
+                fontWeight: 700,
+                color: isNavPnlPositive ? 'var(--bullish)' : 'var(--bearish)',
+              }}
+            >
+              ({isNavPnlPositive ? '+' : ''}{formatMoney(navTotalPnl, activeAccount.currency)})
+            </span>
+          </a>
+        )}
+
         {/* Real-time Telemetry */}
         <div
           className="tv-market-status-pill"
@@ -283,4 +347,3 @@ export const AppNav: React.FC<AppNavProps> = ({ currentAppId = 'screener' }) => 
 };
 
 export const HbAppNav = AppNav;
-

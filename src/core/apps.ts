@@ -21,6 +21,13 @@ export const HONBA_APPS = [
     icon: 'filter',
   },
   {
+    id: 'portfolio',
+    name: 'Portfolio',
+    tagline: 'Multi-Account Holdings, Intraday Positions & Live/Sandbox PnL',
+    url: '/portfolio.html',
+    icon: 'briefcase',
+  },
+  {
     id: 'instrument',
     name: 'Instruments',
     tagline: 'Deep Asset Pages: Equities, Indices, Mutual Funds & IPOs',

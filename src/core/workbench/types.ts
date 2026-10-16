@@ -39,7 +39,13 @@ export interface WorkbenchPositionItem extends Position {
   unrealized_pnl: number;
 }
 
-export type DrawerTab = 'positions' | 'orders' | 'trades' | 'depth';
+export type DrawerTab =
+  | 'holdings'
+  | 'positions'
+  | 'orders'
+  | 'trades'
+  | 'analytics'
+  | 'depth';
 
 export interface DepthLevel {
   price: number;

@@ -1,1 +1,1 @@
-Roadmap v4 edit in progress: add E9 frontend epic; AlgoDesigner = flow graph <-> Python code via shared StrategyGraph IR + manifest. File: ../ROADMAP-borrowed-ideas.md
+Plan: docs/Multi-User-Profiles-PLAN.md. Chunks 1-2 done (honba ad29007..699bc54, unpushed). Next: review chunks 1-2, chunk 3 codegen (npm run codegen), then frontend, alerts A1-A8.

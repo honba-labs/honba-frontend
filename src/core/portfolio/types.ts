@@ -1,0 +1,46 @@
+import type {
+  Currency,
+  InstrumentId,
+  Money,
+  PortfolioAccount,
+  PortfolioHolding,
+  PortfolioMode,
+  PortfolioPosition,
+  PortfolioSnapshot,
+  PortfolioSource,
+  PortfolioTotals,
+  PositionSide,
+  Product,
+  Trade,
+  UnixNanos,
+} from '../types/generated/domain';
+
+export type {
+  Currency,
+  InstrumentId,
+  Money,
+  PortfolioAccount,
+  PortfolioHolding,
+  PortfolioMode,
+  PortfolioPosition,
+  PortfolioSnapshot,
+  PortfolioSource,
+  PortfolioTotals,
+  PositionSide,
+  Product,
+  Trade,
+  UnixNanos,
+};
+
+export type PortfolioTab =
+  | 'holdings'
+  | 'positions'
+  | 'orders'
+  | 'trades'
+  | 'analytics'
+  | 'depth';
+
+export interface PortfolioFilterState {
+  searchQuery: string;
+  modeFilter: 'all' | 'sandbox' | 'live';
+}

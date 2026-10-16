@@ -30,6 +30,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
+        portfolio: resolve(__dirname, 'portfolio.html'),
         workbench: resolve(__dirname, 'workbench.html'),
         algodesigner: resolve(__dirname, 'algodesigner.html'),
         simulator: resolve(__dirname, 'simulator.html'),

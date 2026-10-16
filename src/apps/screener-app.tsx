@@ -8,6 +8,8 @@ import '../styles/screener.css';
 
 import { themeEngine } from '../core/theme-engine';
 import { useScreenerStore } from '../core/store/use-screener-store';
+import { useWorkbenchStore } from '../core/workbench/store';
+import { HonbaClient } from '../core/api/generated/client';
 import { Instrument } from '../core/market-data';
 
 if (typeof window !== 'undefined') {
@@ -21,12 +23,15 @@ import { SymbolDetailDrawer } from '../components/features/screener/symbol-detai
 import { ColumnModal } from '../components/features/screener/column-modal';
 import { FiltersModal } from '../components/features/screener/filters-modal';
 import { OpenScreenModal } from '../components/features/screener/open-screen-modal';
+import { TradingDrawer } from '../components/features/workbench/trading-drawer';
+import { OrderModal } from '../components/features/workbench/order-modal';
 
 import { useLayoutStore } from '../layouts/use-layout-store';
 import { ScreenerHeatmap } from '../components/features/screener/screener-heatmap';
 import { instrumentBelongsToIndex } from '../core/indices';
 
 export const ScreenerApp: React.FC = () => {
+  const client = useMemo(() => new HonbaClient({}), []);
   const instruments = useScreenerStore((state) => state.instruments);
   const searchQuery = useScreenerStore((state) => state.searchQuery);
   const quickPreset = useScreenerStore((state) => state.quickPreset);
@@ -34,8 +39,17 @@ export const ScreenerApp: React.FC = () => {
   const viewMode = useLayoutStore((state) => state.viewMode);
   const setOpenScreenModalOpen = useScreenerStore((state) => state.setOpenScreenModalOpen);
 
+  const { fetchState, setDrawerTab, isDrawerOpen, toggleDrawer } = useWorkbenchStore();
+
   useEffect(() => {
     themeEngine.applyToDOM();
+    void fetchState(client);
+
+    // If loaded with #portfolio hash, open drawer directly
+    if (typeof window !== 'undefined' && window.location.hash === '#portfolio') {
+      setDrawerTab('holdings');
+      if (!isDrawerOpen) toggleDrawer();
+    }
 
     // Hotkey listener: '.' opens "Open screen…", 'Shift+N' creates new custom screen
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -63,7 +77,7 @@ export const ScreenerApp: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [setOpenScreenModalOpen]);
+  }, [client, fetchState, setDrawerTab, setOpenScreenModalOpen, isDrawerOpen, toggleDrawer]);
 
   // Filter instruments
   const filteredInstruments = useMemo(() => {
@@ -201,6 +215,10 @@ export const ScreenerApp: React.FC = () => {
         }
         secondaryContent={<SymbolDetailDrawer />}
       />
+
+      {/* Trading & Portfolio Drawer plugged into the default view */}
+      <TradingDrawer client={client} />
+      <OrderModal client={client} />
 
       {/* Modals */}
       <ColumnModal />

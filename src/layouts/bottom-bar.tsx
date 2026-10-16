@@ -1,13 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { useScreenerStore } from '../core/store/use-screener-store';
+import { usePortfolioStore } from '../core/portfolio/store';
+import { formatMoney, moneyToMajor } from '../core/portfolio/money';
 import { dataLayer } from '../core/data-layer';
-import { SlidersHorizontal, Code2, PlayCircle, BarChart3 } from 'lucide-react';
+import { SlidersHorizontal, Code2, PlayCircle, BarChart3, Briefcase } from 'lucide-react';
 
 export const BottomBar: React.FC = () => {
   const shortlistedSymbols = useScreenerStore((state) => state.shortlistedSymbols);
   const currentMarket = useScreenerStore((state) => state.currentMarket);
   const isLive = useScreenerStore((state) => state.isLive);
   const toggleLiveTicks = useScreenerStore((state) => state.toggleLiveTicks);
+
+  const { getActiveAccount } = usePortfolioStore();
+  const activeAccount = getActiveAccount();
+
+  const holdingsCount = activeAccount?.holdings.length ?? 0;
+  const positionsCount = activeAccount?.positions.length ?? 0;
+  const totalPortfolioItems = holdingsCount + positionsCount;
+
+  const totalPnl = activeAccount
+    ? moneyToMajor(activeAccount.unrealized_pnl) + moneyToMajor(activeAccount.realized_pnl)
+    : 0;
+  const isPnlPositive = totalPnl >= 0;
 
   const [timeStr, setTimeStr] = useState<string>(() => new Date().toTimeString().split(' ')[0]);
 
@@ -27,6 +41,32 @@ export const BottomBar: React.FC = () => {
           <SlidersHorizontal size={13} style={{ marginRight: 6 }} />
           <span>Stock Screener</span>
         </button>
+
+        <a
+          href="/portfolio.html"
+          className="hb-bottom-tab tv-bottom-tab"
+          data-tab="portfolio"
+          title="Open Honba Portfolio Manager"
+        >
+          <Briefcase size={13} style={{ marginRight: 6 }} />
+          <span>Portfolio</span>
+          {totalPortfolioItems > 0 && (
+            <span
+              style={{
+                fontSize: 9.5,
+                padding: '0 5px',
+                borderRadius: 8,
+                background: 'var(--accent-subtle)',
+                color: 'var(--accent-primary)',
+                fontWeight: 700,
+                marginLeft: 5,
+              }}
+            >
+              {totalPortfolioItems}
+            </span>
+          )}
+        </a>
+
         <a href="/algodesigner.html" className="hb-bottom-tab tv-bottom-tab" data-tab="algodesigner">
           <Code2 size={13} style={{ marginRight: 6 }} />
           <span>Algo Designer</span>
@@ -42,6 +82,24 @@ export const BottomBar: React.FC = () => {
       </div>
 
       <div className="bottom-bar-right">
+        {activeAccount && (
+          <a
+            href="/portfolio.html"
+            className="hb-status-item tv-status-item"
+            style={{ textDecoration: 'none', fontFamily: 'var(--font-family-mono)', display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}
+            title="Open Honba Portfolio Manager"
+          >
+            <Briefcase size={11} color="var(--accent-primary)" />
+            <span style={{ color: 'var(--text-muted)' }}>{activeAccount.name}:</span>
+            <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+              {formatMoney(activeAccount.equity, activeAccount.currency)}
+            </span>
+            <span style={{ fontWeight: 700, color: isPnlPositive ? 'var(--bullish)' : 'var(--bearish)' }}>
+              ({isPnlPositive ? '+' : ''}{formatMoney(totalPnl, activeAccount.currency)})
+            </span>
+          </a>
+        )}
+
         {shortlistedSymbols.length > 0 && (
           <div className="hb-status-item tv-status-item tv-highlight" style={{ cursor: 'pointer' }}>
             <span>Selected: {shortlistedSymbols.length}</span>
@@ -71,4 +129,3 @@ export const BottomBar: React.FC = () => {
 };
 
 export const HbBottomBar = BottomBar;
-

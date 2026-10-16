@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { HonbaClient } from '../api/generated/client';
 import type { Order, Trade, TradingState } from '../types/generated/domain';
 import { INSTRUMENTS_DATABASE } from '../market-data';
+import { usePortfolioStore } from '../portfolio/store';
 import type {
   ChartPaneConfig,
   DrawerTab,
@@ -130,7 +131,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   orders: INITIAL_ORDERS,
   trades: [],
   tradingState: 'active',
-  drawerTab: 'positions',
+  drawerTab: 'holdings',
   isDrawerOpen: false,
   isOrderTicketOpen: false,
   isOrderModalOpen: false,
@@ -246,6 +247,9 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
       ts_event: { iso: nowIso, unix_nanos: nowNanos },
     };
 
+    // Sync with Portfolio Store
+    usePortfolioStore.getState().applyTrade(trade, 'intraday');
+
     set((state) => {
       const existingIdx = state.positions.findIndex(
         (p) => p.instrument_id.symbol === symbol
@@ -341,6 +345,9 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
         ts_event: { iso: nowIso, unix_nanos: nowNanos },
       };
 
+      // Sync with Portfolio Store
+      usePortfolioStore.getState().applyTrade(trade, orderTicket.product);
+
       set((state) => {
         const existingIdx = state.positions.findIndex(
           (p) => p.instrument_id.symbol === orderTicket.symbol
@@ -411,6 +418,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
         set({ error: err instanceof Error ? err.message : String(err) });
       }
     }
+    usePortfolioStore.getState().closePosition(symbol);
     set((state) => ({
       positions: state.positions.filter((p) => p.instrument_id.symbol !== symbol),
       statusMessage: `Closed position for ${symbol}`,
@@ -425,6 +433,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
         set({ error: err instanceof Error ? err.message : String(err) });
       }
     }
+    usePortfolioStore.getState().closeAllPositions();
     set({
       positions: [],
       statusMessage: 'All open positions have been closed',
@@ -450,6 +459,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
       const [tradingStateRes, ordersRes] = await Promise.all([
         client.getTradingState(),
         client.getOrders(),
+        usePortfolioStore.getState().loadPortfolio(),
       ]);
       set({
         tradingState: tradingStateRes.data?.state ?? 'active',
