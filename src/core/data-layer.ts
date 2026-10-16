@@ -155,31 +155,84 @@ class CommonDataLayer {
 
   public async loadLiveInstruments(country: CountryCode = 'IN') {
     try {
-      const res = await fetch(`/api/instruments?country=${country}&limit=4000`);
+      const res = await fetch('/api/v1/instruments');
       if (res.ok) {
-        const liveData: any[] = await res.json();
-        if (Array.isArray(liveData) && liveData.length > 0) {
-          this.isBackendConnected = true;
-          // Normalize instruments to have sparkline & history
-          const normalized: Instrument[] = liveData.map((item) => {
-            const price = Number(item.price);
-            const chgPct = Number(item.changePercent || 0);
-            return {
-              ...item,
-              sparkline: item.sparkline || [
-                price * (1 - chgPct * 0.015),
-                price * (1 - chgPct * 0.008),
-                price * (1 + chgPct * 0.004),
-                price,
-              ],
-              history: item.history || [],
-              description: item.description || `${item.name} (${item.symbol}) listed on ${item.exchange}.`,
-            };
-          });
+        const payload: any = await res.json();
+        const rawList: any[] = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.data?.instruments)
+          ? payload.data.instruments
+          : Array.isArray(payload?.instruments)
+          ? payload.instruments
+          : [];
 
-          // Merge: keep non-matching markets
-          const otherMarkets = this.instruments.filter((i) => i.country !== country);
-          this.instruments = [...normalized, ...otherMarkets];
+        if (rawList.length > 0) {
+          this.isBackendConnected = true;
+          const bySymbol = new Map<string, Instrument>(
+            this.instruments.map((inst) => [inst.symbol.toUpperCase(), inst])
+          );
+
+          for (const item of rawList) {
+            const sym = String(item.symbol || '').trim().toUpperCase();
+            if (!sym) continue;
+            const existing = bySymbol.get(sym);
+            const rawPrice = Number(item.price || existing?.price || 0);
+            if (existing) {
+              if (rawPrice > 0) existing.price = rawPrice;
+              if (item.name) existing.name = item.name;
+              if (item.exchange) existing.exchange = item.exchange;
+              if (item.sector) existing.sector = item.sector;
+            } else if (rawPrice > 0) {
+              const chgPct = Number(item.changePercent || 0);
+              bySymbol.set(sym, {
+                ...item,
+                symbol: sym,
+                name: item.name || sym,
+                country: (item.country as CountryCode) || country,
+                exchange: item.exchange || 'NSE',
+                sector: item.sector || 'Equities',
+                industry: item.industry || item.sector || 'Equities',
+                price: rawPrice,
+                change: Number(item.change || 0),
+                changePercent: chgPct,
+                volume: Number(item.volume || 0),
+                avgVolume30d: Number(item.avgVolume30d || item.volume || 0),
+                marketCap: Number(item.marketCap || 0),
+                marketCapTier: item.marketCapTier || 'mid',
+                pe: Number(item.pe || 20),
+                forwardPe: Number(item.forwardPe || 18),
+                pb: Number(item.pb || 2.5),
+                eps: Number(item.eps || 10),
+                dividendYield: Number(item.dividendYield || 0.5),
+                high52: Number(item.high52 || rawPrice * 1.2),
+                low52: Number(item.low52 || rawPrice * 0.8),
+                rsi14: Number(item.rsi14 || 50),
+                sma20: Number(item.sma20 || rawPrice),
+                sma50: Number(item.sma50 || rawPrice),
+                sma200: Number(item.sma200 || rawPrice),
+                technicalRating: item.technicalRating || 'Neutral',
+                perf1W: Number(item.perf1W || 0),
+                perf1M: Number(item.perf1M || 0),
+                perf3M: Number(item.perf3M || 0),
+                perf1Y: Number(item.perf1Y || 0),
+                revenueGrowth: Number(item.revenueGrowth || 10),
+                netMargin: Number(item.netMargin || 12),
+                roce: Number(item.roce || 14),
+                roe: Number(item.roe || 14),
+                debtToEquity: Number(item.debtToEquity || 0.4),
+                sparkline: item.sparkline || [
+                  rawPrice * (1 - chgPct * 0.015),
+                  rawPrice * (1 - chgPct * 0.008),
+                  rawPrice * (1 + chgPct * 0.004),
+                  rawPrice,
+                ],
+                history: item.history || [],
+                description: item.description || `${item.name || sym} (${sym}) listed on ${item.exchange || 'NSE'}.`,
+              });
+            }
+          }
+
+          this.instruments = Array.from(bySymbol.values());
           this.notify();
         }
       }

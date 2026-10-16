@@ -2,14 +2,14 @@ import React, { useState } from 'react';
 import { useWorkbenchStore } from '../../../core/workbench/store';
 import type { HonbaClient } from '../../../core/api/generated/client';
 import { MarketDepth } from './market-depth';
-import { ArrowDownUp, Check } from 'lucide-react';
+import { ArrowDownUp, Check, X } from 'lucide-react';
 
 interface OrderTicketProps {
   client?: HonbaClient;
 }
 
 export const OrderTicket: React.FC<OrderTicketProps> = ({ client }) => {
-  const { orderTicket, setTicketField, placeOrder, tradingState } = useWorkbenchStore();
+  const { orderTicket, setTicketField, placeOrder, tradingState, closeOrderTicket } = useWorkbenchStore();
   const [showDepth, setShowDepth] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -51,23 +51,43 @@ export const OrderTicket: React.FC<OrderTicketProps> = ({ client }) => {
           <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>{orderTicket.symbol}</span>
           <span style={{ fontSize: 12, color: 'var(--text-secondary)', marginLeft: 8 }}>NSE</span>
         </div>
-        <button
-          onClick={() => setShowDepth(!showDepth)}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 4,
-            fontSize: 10,
-            padding: '2px 6px',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: 4,
-            background: showDepth ? 'var(--bg-surface-elevated)' : 'transparent',
-            color: 'var(--text-secondary)',
-            cursor: 'pointer',
-          }}
-        >
-          <ArrowDownUp size={11} /> Depth
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button
+            onClick={() => setShowDepth(!showDepth)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              fontSize: 10,
+              padding: '2px 6px',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 4,
+              background: showDepth ? 'var(--bg-surface-elevated)' : 'transparent',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+            }}
+          >
+            <ArrowDownUp size={11} /> Depth
+          </button>
+          <button
+            onClick={closeOrderTicket}
+            title="Close Order Ticket"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 22,
+              height: 22,
+              border: 'none',
+              borderRadius: 4,
+              background: 'transparent',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+            }}
+          >
+            <X size={14} />
+          </button>
+        </div>
       </div>
 
       {showDepth && <MarketDepth symbol={orderTicket.symbol} />}
@@ -81,10 +101,11 @@ export const OrderTicket: React.FC<OrderTicketProps> = ({ client }) => {
             fontSize: 12,
             fontWeight: 700,
             borderRadius: 4,
-            border: 'none',
             cursor: 'pointer',
-            background: isBuy ? 'var(--bullish)' : 'var(--bg-app)',
-            color: isBuy ? '#ffffff' : 'var(--text-secondary)',
+            border: isBuy ? '1px solid var(--bullish)' : '1px solid var(--border-subtle)',
+            background: isBuy ? 'var(--bullish)' : 'var(--bullish-subtle)',
+            color: isBuy ? '#ffffff' : 'var(--bullish)',
+            transition: 'all 0.15s ease',
           }}
         >
           BUY
@@ -96,10 +117,11 @@ export const OrderTicket: React.FC<OrderTicketProps> = ({ client }) => {
             fontSize: 12,
             fontWeight: 700,
             borderRadius: 4,
-            border: 'none',
             cursor: 'pointer',
-            background: !isBuy ? 'var(--bearish)' : 'var(--bg-app)',
-            color: !isBuy ? '#ffffff' : 'var(--text-secondary)',
+            border: !isBuy ? '1px solid var(--bearish)' : '1px solid var(--border-subtle)',
+            background: !isBuy ? 'var(--bearish)' : 'var(--bearish-subtle)',
+            color: !isBuy ? '#ffffff' : 'var(--bearish)',
+            transition: 'all 0.15s ease',
           }}
         >
           SELL

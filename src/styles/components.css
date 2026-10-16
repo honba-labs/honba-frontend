@@ -1733,8 +1733,6 @@
   flex: 1 1 auto !important;
   min-height: 0 !important;
   min-width: 0 !important;
-  height: 100% !important;
-  width: 100% !important;
   overflow: hidden !important;
 }
 
@@ -1742,7 +1740,7 @@
   position: relative !important;
   flex: 1 1 0% !important;
   min-width: 0 !important;
-  width: 100% !important;
+  min-height: 0 !important;
   height: 100% !important;
 }
 
@@ -1765,3 +1763,13 @@
   pointer-events: auto !important;
   flex-shrink: 0 !important;
 }
+
+/* Suppress openalgo mobile actions/draw button in multi-chart workbench */
+.oac-widget .oac-mobile,
+.oac-widget.is-mobile .oac-mobile,
+.oac-widget .oac-mobile__action,
+.oac-widget .oac-mobile__bar,
+.oac-widget .oac-mobile__footer {
+  display: none !important;
+}
+

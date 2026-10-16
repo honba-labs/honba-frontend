@@ -85,6 +85,8 @@ export interface WorkbenchState {
   tradingState: TradingState;
   drawerTab: DrawerTab;
   isDrawerOpen: boolean;
+  isOrderTicketOpen: boolean;
+  isOrderModalOpen: boolean;
   statusMessage: string | null;
   error: string | null;
 
@@ -93,6 +95,12 @@ export interface WorkbenchState {
   updatePane: (index: number, updates: Partial<ChartPaneConfig>) => void;
   setTicketField: <K extends keyof OrderTicketDraft>(key: K, value: OrderTicketDraft[K]) => void;
   syncTicketWithSymbol: (symbol: string) => void;
+  toggleOrderTicket: () => void;
+  openOrderTicket: (side?: 'buy' | 'sell', symbol?: string) => void;
+  closeOrderTicket: () => void;
+  openOrderModal: (options?: { symbol?: string; side?: 'buy' | 'sell'; price?: number; quantity?: number }) => void;
+  closeOrderModal: () => void;
+  quickOrder: (symbol: string, side: 'buy' | 'sell', quantity: number, client?: HonbaClient) => Promise<void>;
   placeOrder: (client?: HonbaClient) => Promise<void>;
   cancelOrder: (client: HonbaClient | undefined, orderId: string) => Promise<void>;
   closePosition: (client: HonbaClient | undefined, symbol: string) => Promise<void>;
@@ -124,6 +132,8 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   tradingState: 'active',
   drawerTab: 'positions',
   isDrawerOpen: false,
+  isOrderTicketOpen: false,
+  isOrderModalOpen: false,
   statusMessage: null,
   error: null,
 
@@ -165,6 +175,115 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
         price: ltp,
       },
     }));
+  },
+
+  toggleOrderTicket: () => set((state) => ({ isOrderTicketOpen: !state.isOrderTicketOpen })),
+  openOrderTicket: (side, symbol) => {
+    set((state) => ({
+      isOrderTicketOpen: true,
+      orderTicket: {
+        ...state.orderTicket,
+        ...(side ? { side } : {}),
+        ...(symbol ? { symbol: symbol.toUpperCase(), price: getInstrumentPrice(symbol) } : {}),
+      },
+    }));
+  },
+  closeOrderTicket: () => set({ isOrderTicketOpen: false }),
+
+  openOrderModal: (options?: { symbol?: string; side?: 'buy' | 'sell'; price?: number; quantity?: number }) => {
+    set((state) => {
+      const sym = (options?.symbol ?? state.orderTicket.symbol).toUpperCase();
+      const ltp = options?.price ?? getInstrumentPrice(sym);
+      return {
+        isOrderModalOpen: true,
+        orderTicket: {
+          ...state.orderTicket,
+          symbol: sym,
+          price: ltp,
+          side: options?.side ?? state.orderTicket.side,
+          quantity: options?.quantity ?? state.orderTicket.quantity,
+        },
+      };
+    });
+  },
+  closeOrderModal: () => set({ isOrderModalOpen: false }),
+
+  quickOrder: async (symbol, side, quantity, client) => {
+    const { tradingState } = get();
+    if (tradingState === 'halted') {
+      set({ error: 'Cannot place order: Trading state is HALTED' });
+      return;
+    }
+    const orderId = `ORD-${Date.now().toString().slice(-5)}`;
+    const ltp = getInstrumentPrice(symbol);
+    const nowIso = new Date().toISOString();
+    const nowNanos = `${Date.now()}000000`;
+
+    if (client) {
+      try {
+        await client.postOrders({
+          client_order_id: orderId,
+          instrument_id: { exchange: 'NSE', symbol },
+          order_type: 'market',
+          side,
+          qty: quantity,
+          price: ltp,
+          tif: 'day',
+        });
+      } catch (err) {
+        // client error handled gracefully, continue mock book update
+      }
+    }
+
+    const trade: Trade = {
+      instrument_id: { exchange: 'NSE', symbol },
+      order_id: orderId,
+      price: ltp,
+      quantity,
+      side,
+      costs: { amount: Number((ltp * quantity * 0.0003).toFixed(2)), currency: 'INR' },
+      ts_init: { iso: nowIso, unix_nanos: nowNanos },
+      ts_event: { iso: nowIso, unix_nanos: nowNanos },
+    };
+
+    set((state) => {
+      const existingIdx = state.positions.findIndex(
+        (p) => p.instrument_id.symbol === symbol
+      );
+      let updatedPositions = [...state.positions];
+
+      if (existingIdx >= 0) {
+        const current = updatedPositions[existingIdx];
+        const newQty = side === 'buy' ? current.quantity + quantity : current.quantity - quantity;
+        if (newQty <= 0) {
+          updatedPositions = updatedPositions.filter((_, i) => i !== existingIdx);
+        } else {
+          updatedPositions[existingIdx] = {
+            ...current,
+            quantity: newQty,
+            ltp,
+            unrealized_pnl: (ltp - current.avg_price) * newQty,
+          };
+        }
+      } else if (side === 'buy') {
+        updatedPositions.push({
+          instrument_id: { exchange: 'NSE', symbol },
+          side: 'long',
+          quantity,
+          avg_price: ltp,
+          currency: 'INR',
+          realized_pnl: { amount: 0, currency: 'INR' },
+          ltp,
+          unrealized_pnl: 0,
+        });
+      }
+
+      return {
+        trades: [trade, ...state.trades],
+        positions: updatedPositions,
+        statusMessage: `Quick ${side.toUpperCase()} filled for ${quantity}x ${symbol} @ ₹${ltp}`,
+      };
+    });
   },
 
   placeOrder: async (client) => {

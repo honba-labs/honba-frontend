@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { SeriesApi } from 'openalgo-charts';
+import { BuySellButtons, type SeriesApi } from 'openalgo-charts';
 import {
   createWidget,
   registerWidgetDialog,
@@ -10,6 +10,8 @@ import {
   WIDGET_COMPONENT_CSS,
   type Widget,
 } from 'openalgo-charts/widget';
+import { buildHonbaChartTheme, subscribeHonbaTheme } from '../../../core/workbench/chart-theme';
+import { useWorkbenchStore } from '../../../core/workbench/store';
 import {
   Search,
   BarChart3,
@@ -30,9 +32,10 @@ import {
   MoreHorizontal,
 } from 'lucide-react';
 import { defaultHonbaFeed } from '../../../core/workbench/openalgo-feed';
-import { INSTRUMENTS_DATABASE } from '../../../core/market-data';
 import { loadAll502Indicators } from '../../../core/indicators/loader';
 import { mountCustomIndicatorPicker } from './indicator-picker-dialog';
+import { SymbolSearchModal } from './symbol-search-modal';
+import { resolveSymbolMetadata } from '../../../core/symbol-search';
 
 interface OpenAlgoChartProps {
   symbol: string;
@@ -59,6 +62,541 @@ function ensureWidgetReady() {
       registerWidgetDialog('indicatorPicker', mountCustomIndicatorPicker as any);
       dialogsRegistered = true;
     }
+  }
+}
+
+interface BubbleBounds {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+function getBuySellBubbleBounds(tradeBtns: any, chart: any, paneIndex: number): BubbleBounds | null {
+  const sell = tradeBtns?._sellRect;
+  const buy = tradeBtns?._buyRect;
+  if (sell && buy) {
+    return {
+      left: sell.x,
+      top: sell.y,
+      right: buy.x + buy.w,
+      bottom: sell.y + sell.h,
+    };
+  }
+  const rect = chart?.plotRect?.(paneIndex);
+  if (rect && typeof tradeBtns?._origin === 'function' && typeof tradeBtns?._h === 'number') {
+    const o = tradeBtns._origin(rect.width, rect.height);
+    return {
+      left: o.x,
+      top: o.y,
+      right: o.x + o.w,
+      bottom: o.y + tradeBtns._h,
+    };
+  }
+  return null;
+}
+
+function intersectSegmentWithBox(
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  box: BubbleBounds
+): { x: number; y: number } {
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  let tMin = 0;
+  let tMax = 1;
+  const clip = (p: number, q: number): boolean => {
+    if (p === 0) return q >= 0;
+    const t = q / p;
+    if (p < 0) {
+      if (t > tMax) return false;
+      if (t > tMin) tMin = t;
+    } else {
+      if (t < tMin) return false;
+      if (t < tMax) tMax = t;
+    }
+    return true;
+  };
+  if (
+    clip(-dx, x0 - box.left) &&
+    clip(dx, box.right - x0) &&
+    clip(-dy, y0 - box.top) &&
+    clip(dy, box.bottom - y0)
+  ) {
+    return {
+      x: x0 + dx * tMin,
+      y: y0 + dy * tMin,
+    };
+  }
+  return { x: x0, y: y0 };
+}
+
+/**
+ * Freezes chart crosshair & OHLC statusline readout when the pointer moves inside
+ * the Buy/Sell bubble's boundary, and resumes tracking as soon as the pointer
+ * moves outside of the bubble's boundary.
+ */
+function attachBuySellBubbleCursorFreeze(chart: any, tradeBtns: BuySellButtons): void {
+  const tb = tradeBtns as any;
+  if (typeof tb.hitTest === 'function') {
+    const origHitTest = tb.hitTest.bind(tb);
+    tb.hitTest = (plotX: number, localY: number, rc: any) => {
+      const hit = origHitTest(plotX, localY, rc);
+      if (hit) return hit;
+      const primaryPane = typeof chart.primaryPaneIndex === 'function' ? chart.primaryPaneIndex() : 0;
+      const bounds = getBuySellBubbleBounds(tb, chart, primaryPane);
+      if (
+        bounds &&
+        plotX >= bounds.left &&
+        plotX <= bounds.right &&
+        localY >= bounds.top &&
+        localY <= bounds.bottom
+      ) {
+        return {
+          externalId: `${tb._id ?? 'trade'}:qty`,
+          zOrder: 'top' as const,
+          distance: 0,
+          cursor: 'pointer',
+        };
+      }
+      return null;
+    };
+  }
+
+  const input = chart?._input;
+  if (!input || typeof input._updateCursor !== 'function') return;
+
+  let wasInsideBubble = false;
+  let lastOutsidePoint: { pane: number; plotX: number; localY: number } | null = null;
+
+  const isPointInBubble = (pane: number, x: number, localY: number): { inside: boolean; bounds: BubbleBounds | null; plotX: number; leftAxisWidth: number } => {
+    const leftAxisWidth = chart._leftAxisWidth ?? 0;
+    const plotX = x - leftAxisWidth;
+    const primaryPane = typeof chart.primaryPaneIndex === 'function' ? chart.primaryPaneIndex() : 0;
+    if (pane !== primaryPane) {
+      return { inside: false, bounds: null, plotX, leftAxisWidth };
+    }
+    const bounds = getBuySellBubbleBounds(tb, chart, pane);
+    const inside =
+      bounds !== null &&
+      plotX >= bounds.left &&
+      plotX <= bounds.right &&
+      localY >= bounds.top &&
+      localY <= bounds.bottom;
+    return { inside, bounds, plotX, leftAxisWidth };
+  };
+
+  const origUpdateCursor = input._updateCursor.bind(input);
+  input._updateCursor = function (pane: number, x: number, localY: number, y: number, event: PointerEvent) {
+    const { inside, bounds, plotX, leftAxisWidth } = isPointInBubble(pane, x, localY);
+
+    if (inside && bounds) {
+      if (!wasInsideBubble && lastOutsidePoint !== null && lastOutsidePoint.pane === pane) {
+        const entry = intersectSegmentWithBox(
+          lastOutsidePoint.plotX,
+          lastOutsidePoint.localY,
+          plotX,
+          localY,
+          bounds
+        );
+        const paneTop = y - localY;
+        origUpdateCursor(
+          pane,
+          leftAxisWidth + entry.x,
+          entry.y,
+          paneTop + entry.y,
+          event
+        );
+      }
+      wasInsideBubble = true;
+      const hit = this._hitAt?.(pane, x, localY) ?? null;
+      this._setHover?.(hit);
+      this._host?._feedTimeNav?.(null);
+      return;
+    }
+
+    wasInsideBubble = false;
+    lastOutsidePoint = { pane, plotX, localY };
+    origUpdateCursor(pane, x, localY, y, event);
+  };
+
+  if (typeof input._onPointerDown === 'function') {
+    const origOnPointerDown = input._onPointerDown.bind(input);
+    input._onPointerDown = function (event: PointerEvent) {
+      origOnPointerDown(event);
+      const pt = this._localPoint?.(event);
+      if (pt) {
+        const { inside } = isPointInBubble(pt.pane, pt.x, pt.localY);
+        if (inside) {
+          this._dragging = false;
+        }
+      }
+    };
+  }
+
+  if (typeof input._onPointerLeave === 'function') {
+    const origOnPointerLeave = input._onPointerLeave.bind(input);
+    input._onPointerLeave = function () {
+      wasInsideBubble = false;
+      lastOutsidePoint = null;
+      origOnPointerLeave();
+    };
+  }
+}
+
+const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
+const SHORT_WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+const IST_OFFSET_SEC = 19800; // UTC+5:30
+
+function pad2(n: number): string {
+  return n < 10 ? `0${n}` : String(n);
+}
+
+function getDateParts(utcSec: number, tz?: string): {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+  weekday: number;
+} {
+  if (!tz || tz === 'Asia/Kolkata' || tz === 'Asia/Calcutta') {
+    const d = new Date((utcSec + IST_OFFSET_SEC) * 1000);
+    return {
+      year: d.getUTCFullYear(),
+      month: d.getUTCMonth() + 1,
+      day: d.getUTCDate(),
+      hour: d.getUTCHours(),
+      minute: d.getUTCMinutes(),
+      second: d.getUTCSeconds(),
+      weekday: d.getUTCDay(),
+    };
+  }
+  const d = new Date(utcSec * 1000);
+  return {
+    year: d.getFullYear(),
+    month: d.getMonth() + 1,
+    day: d.getDate(),
+    hour: d.getHours(),
+    minute: d.getMinutes(),
+    second: d.getSeconds(),
+    weekday: d.getDay(),
+  };
+}
+
+/**
+ * Ensures the Buy/Sell bubble renders on top of all dotted lines (crosshair & last-price line)
+ * by repainting it at the end of the pane's top overlay pass.
+ */
+function ensureBuySellBubbleOnTop(chart: any, tradeBtns: BuySellButtons): void {
+  const panes: any[] = chart?._panes;
+  if (!Array.isArray(panes)) return;
+
+  for (const pane of panes) {
+    if (!pane || pane.__honbaBubbleTopPatched || typeof pane.paintTop !== 'function') continue;
+    pane.__honbaBubbleTopPatched = true;
+    const origPaintTop = pane.paintTop.bind(pane);
+    pane.paintTop = function (cursor: any, rc: any, targetCtx?: CanvasRenderingContext2D) {
+      origPaintTop(cursor, rc, targetCtx);
+      try {
+        const live = typeof this._live === 'function' ? this._live(rc) : this._primitives;
+        if (!Array.isArray(live) || !live.includes(tradeBtns)) return;
+        const ctx: CanvasRenderingContext2D | undefined = targetCtx ?? this.top?.ctx;
+        if (!ctx) return;
+        const layout = typeof this._layout === 'function' ? this._layout(rc) : { plotLeft: 0 };
+        const dpr = rc?.dpr ?? 1;
+        ctx.save();
+        if (layout.plotLeft > 0) {
+          ctx.translate(Math.round(layout.plotLeft * dpr), 0);
+        }
+        const primCtx = typeof this._primitiveContext === 'function' ? this._primitiveContext(rc) : rc;
+        const boundCtx =
+          typeof this._boundPrimitiveContext === 'function'
+            ? this._boundPrimitiveContext(tradeBtns, primCtx, rc)
+            : primCtx;
+        tradeBtns.draw(ctx, boundCtx);
+        ctx.restore();
+      } catch {
+        // ignore
+      }
+    };
+  }
+}
+
+/**
+ * TradingView-style compact timeline formatter:
+ * Shows the month name only on the first and last visible ticks of each month
+ * (e.g. '02Jul', then '05', '07', ... until the month ends with '31Jul'),
+ * saving horizontal real estate and increasing visibility.
+ */
+function paintTradingViewTimeAxis(
+  ctx: CanvasRenderingContext2D,
+  pane: any,
+  rc: any,
+  tz: string
+): void {
+  const ts = rc?.timeScale;
+  const dl = rc?.dataLayer;
+  if (!ts || !dl || typeof ts.visibleRange !== "function") return;
+
+  const layout = typeof pane._layout === "function" ? pane._layout(rc) : null;
+  if (!layout || layout.plotWidth <= 0) return;
+
+  const dpr = rc.dpr ?? 1;
+  const vr = ts.visibleRange();
+  const fromIdx = Math.max(0, Math.floor(vr.from));
+  const toIdx = Math.min(dl.baseIndex ?? 0, Math.ceil(vr.to));
+  if (toIdx < fromIdx) return;
+
+  const barSpacing = Math.max(1, ts.barSpacing || 6);
+  const step = Math.max(1, Math.round(72 / barSpacing));
+  const axisTopY = Math.round(layout.plotHeight * dpr);
+  const plotWidthPx = Math.round(layout.plotWidth * dpr);
+
+  // Detect whether bars are intraday or daily+
+  let minBarStepSec = Number.POSITIVE_INFINITY;
+  let prevBarSec = dl.indexToTime(fromIdx);
+  for (let i = fromIdx + 1; i <= toIdx; i++) {
+    const sec = dl.indexToTime(i);
+    if (sec !== undefined && prevBarSec !== undefined && sec > prevBarSec) {
+      minBarStepSec = Math.min(minBarStepSec, sec - prevBarSec);
+    }
+    if (sec !== undefined) prevBarSec = sec;
+  }
+  const isIntraday = Number.isFinite(minBarStepSec) && minBarStepSec < 86400;
+  const showSeconds = Number.isFinite(minBarStepSec * step) && minBarStepSec * step < 60;
+
+  const fontSize = Math.max(
+    10,
+    Math.min(14, Math.round(rc.canvasOptions?.scales?.fontSize ?? rc.theme?.axisFontSize ?? 11))
+  );
+  const textColor = rc.canvasOptions?.scales?.textColor ?? rc.theme?.axisText ?? "#8b91a7";
+  const lineColor = rc.canvasOptions?.scales?.lineColor ?? rc.theme?.axisLine ?? "#2a3046";
+  const regularFont = `${fontSize * dpr}px system-ui, sans-serif`;
+  const boldFont = `600 ${fontSize * dpr}px system-ui, sans-serif`;
+
+  ctx.save();
+  if (layout.plotLeft > 0) {
+    ctx.translate(Math.round(layout.plotLeft * dpr), 0);
+  }
+  ctx.fillStyle = textColor;
+  ctx.strokeStyle = lineColor;
+  ctx.font = regularFont;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.lineWidth = 1;
+
+  // Axis top border line
+  ctx.beginPath();
+  ctx.moveTo(0, axisTopY + 0.5);
+  ctx.lineTo(plotWidthPx, axisTopY + 0.5);
+  ctx.stroke();
+
+  interface AxisTick {
+    idx: number;
+    x: number;
+    text: string;
+    half: number;
+    priority: number; // 3 = year, 2 = month, 1 = day (on intraday), 0 = equal-interval sub-tick
+  }
+
+  const candidates: AxisTick[] = [];
+  const addedIndices = new Set<number>();
+
+  const pushTick = (idx: number, text: string, priority: number) => {
+    if (addedIndices.has(idx)) return;
+    const x = Math.round(ts.indexToX(idx) * dpr);
+    if (x < 12 * dpr || x > plotWidthPx - 12 * dpr) return;
+    ctx.font = priority >= 2 ? boldFont : regularFont;
+    const half = ctx.measureText(text).width / 2;
+    candidates.push({ idx, x, text, half, priority });
+    addedIndices.add(idx);
+  };
+
+  if (!isIntraday) {
+    // 1. Collect all visible bars with their date parts and group by month
+    const monthGroups = new Map<string, { firstIdx: number; indices: number[]; parts: ReturnType<typeof getDateParts> }>();
+    let prevParts: ReturnType<typeof getDateParts> | null = null;
+    const prevStartSec = fromIdx > 0 ? dl.indexToTime(fromIdx - 1) : undefined;
+    if (prevStartSec !== undefined) {
+      prevParts = getDateParts(prevStartSec, tz);
+    }
+
+    for (let i = fromIdx; i <= toIdx; i++) {
+      const sec = dl.indexToTime(i);
+      if (sec === undefined) continue;
+      const p = getDateParts(sec, tz);
+      const mKey = `${p.year}-${p.month}`;
+      let grp = monthGroups.get(mKey);
+      if (!grp) {
+        grp = { firstIdx: i, indices: [], parts: p };
+        monthGroups.set(mKey, grp);
+      }
+      grp.indices.push(i);
+
+      // Month / Year transition boundary -> TradingView shows just the month name ("Jul", "Aug") or year ("2026")
+      if (prevParts && (p.year !== prevParts.year || p.month !== prevParts.month)) {
+        if (p.year !== prevParts.year && p.month === 1) {
+          pushTick(i, String(p.year), 3);
+        } else {
+          pushTick(i, SHORT_MONTHS[p.month - 1], 2);
+        }
+      } else if (i === fromIdx && !prevParts) {
+        pushTick(i, SHORT_MONTHS[p.month - 1], 2);
+      }
+      prevParts = p;
+    }
+
+    // 2. Within each month, if zoomed in enough that the month spans more than ~90px,
+    // equally divide the month space into N equal segments and place day numbers (e.g. 8, 15, 22)
+    const targetSubTickPx = 76 * dpr;
+    for (const grp of monthGroups.values()) {
+      const idxs = grp.indices;
+      if (idxs.length < 2) continue;
+      const startX = ts.indexToX(idxs[0]) * dpr;
+      const endX = ts.indexToX(idxs[idxs.length - 1]) * dpr;
+      const spanPx = endX - startX;
+      const segments = Math.floor(spanPx / targetSubTickPx);
+      if (segments >= 2) {
+        for (let s = 1; s < segments; s++) {
+          const pos = Math.round((s * (idxs.length - 1)) / segments);
+          const barIdx = idxs[pos];
+          const sec = dl.indexToTime(barIdx);
+          if (sec === undefined) continue;
+          const p = getDateParts(sec, tz);
+          pushTick(barIdx, String(p.day), 0);
+        }
+      }
+    }
+  } else {
+    // Intraday: group by day, show month name on month transitions, day number on day transitions,
+    // and equally divide each day into time ticks (HH:mm)
+    const dayGroups = new Map<string, number[]>();
+    let prevParts: ReturnType<typeof getDateParts> | null = null;
+    const prevStartSec = fromIdx > 0 ? dl.indexToTime(fromIdx - 1) : undefined;
+    if (prevStartSec !== undefined) {
+      prevParts = getDateParts(prevStartSec, tz);
+    }
+
+    for (let i = fromIdx; i <= toIdx; i++) {
+      const sec = dl.indexToTime(i);
+      if (sec === undefined) continue;
+      const p = getDateParts(sec, tz);
+      const dKey = `${p.year}-${p.month}-${p.day}`;
+      let grp = dayGroups.get(dKey);
+      if (!grp) {
+        grp = [];
+        dayGroups.set(dKey, grp);
+      }
+      grp.push(i);
+
+      if (prevParts) {
+        if (p.year !== prevParts.year || p.month !== prevParts.month) {
+          pushTick(i, SHORT_MONTHS[p.month - 1], 2);
+        } else if (p.day !== prevParts.day) {
+          pushTick(i, String(p.day), 1);
+        }
+      } else if (i === fromIdx) {
+        pushTick(i, `${p.day} ${SHORT_MONTHS[p.month - 1]}`, 2);
+      }
+      prevParts = p;
+    }
+
+    const targetTimeTickPx = 80 * dpr;
+    for (const idxs of dayGroups.values()) {
+      if (idxs.length < 2) continue;
+      const startX = ts.indexToX(idxs[0]) * dpr;
+      const endX = ts.indexToX(idxs[idxs.length - 1]) * dpr;
+      const spanPx = endX - startX;
+      const segments = Math.floor(spanPx / targetTimeTickPx);
+      if (segments >= 2) {
+        for (let s = 1; s < segments; s++) {
+          const pos = Math.round((s * (idxs.length - 1)) / segments);
+          const barIdx = idxs[pos];
+          const sec = dl.indexToTime(barIdx);
+          if (sec === undefined) continue;
+          const p = getDateParts(sec, tz);
+          const timeLabel = showSeconds
+            ? `${pad2(p.hour)}:${pad2(p.minute)}:${pad2(p.second)}`
+            : `${pad2(p.hour)}:${pad2(p.minute)}`;
+          pushTick(barIdx, timeLabel, 0);
+        }
+      }
+    }
+  }
+
+  // Sort by priority descending (Year > Month > Day > Sub-tick), then x ascending
+  const byPriority = [...candidates].sort((a, b) => b.priority - a.priority || a.x - b.x);
+  const minGap = 14 * dpr;
+  const accepted: AxisTick[] = [];
+
+  for (const cand of byPriority) {
+    const fits = accepted.every(
+      (other) =>
+        cand.x + cand.half + minGap <= other.x - other.half ||
+        cand.x - cand.half - minGap >= other.x + other.half
+    );
+    if (fits) accepted.push(cand);
+  }
+
+  accepted.sort((a, b) => a.x - b.x);
+
+  for (const tk of accepted) {
+    ctx.font = tk.priority >= 2 ? boldFont : regularFont;
+    ctx.fillText(tk.text, tk.x, axisTopY + 4 * dpr);
+  }
+
+  ctx.restore();
+}
+
+function attachTradingViewTimeFormatter(chart: any): void {
+  if (!chart) return;
+
+  // 1. Set crosshair time tag formatter
+  if (typeof chart.setTimeFormatter === "function") {
+    chart.setTimeFormatter((utcSeconds: number) => {
+      const tz = typeof chart.timezone === "function" ? chart.timezone() : "Asia/Kolkata";
+      const parts = getDateParts(utcSeconds, tz);
+      let label = `${SHORT_WEEKDAYS[parts.weekday]} ${pad2(parts.day)} ${SHORT_MONTHS[parts.month - 1]} '${String(parts.year).slice(-2)}`;
+      if (parts.hour !== 0 || parts.minute !== 0 || parts.second !== 0) {
+        label += ` ${pad2(parts.hour)}:${pad2(parts.minute)}`;
+        if (parts.second !== 0) label += `:${pad2(parts.second)}`;
+      }
+      return label;
+    });
+  }
+
+  // 2. Override pane.paintBase time-axis pass so first & last visible ticks of each month are
+  // computed AFTER collision filtering
+  const panes: any[] = chart._panes;
+  if (!Array.isArray(panes)) return;
+
+  for (const pane of panes) {
+    if (!pane || pane.__honbaTimeAxisPatched || typeof pane.paintBase !== "function") continue;
+    pane.__honbaTimeAxisPatched = true;
+    const origPaintBase = pane.paintBase.bind(pane);
+    pane.paintBase = function (rc: any, targetCtx?: CanvasRenderingContext2D) {
+      const wantTimeAxis = Boolean(rc?.showTimeAxis);
+      const patchedRc = wantTimeAxis ? { ...rc, showTimeAxis: false } : rc;
+      origPaintBase(patchedRc, targetCtx);
+      if (wantTimeAxis) {
+        try {
+          const ctx: CanvasRenderingContext2D | undefined =
+            targetCtx ?? this._backend?.overlay2d?.() ?? this.base?.ctx;
+          if (ctx) {
+            const tz =
+              rc?.timezone ??
+              (typeof chart.timezone === "function" ? chart.timezone() : "Asia/Kolkata");
+            paintTradingViewTimeAxis(ctx, this, rc, tz);
+          }
+        } catch {
+          // ignore
+        }
+      }
+    };
   }
 }
 
@@ -227,21 +765,40 @@ export const OpenAlgoChart: React.FC<OpenAlgoChartProps> = ({
   const chartHostRef = useRef<HTMLDivElement>(null);
   const widgetRef = useRef<Widget | null>(null);
   const volumeSeriesRef = useRef<SeriesApi | null>(null);
+  const tradeBtnsRef = useRef<BuySellButtons | null>(null);
+
+  const ticketQuantity = useWorkbenchStore((s) => s.orderTicket.quantity);
+  const quickQtyRef = useRef(ticketQuantity || 25);
+  const symbolRef = useRef(symbol);
+
+  useEffect(() => {
+    quickQtyRef.current = ticketQuantity || 25;
+    if (tradeBtnsRef.current) {
+      tradeBtnsRef.current.setQty(ticketQuantity || 25);
+    }
+  }, [ticketQuantity]);
+
+  useEffect(() => {
+    symbolRef.current = symbol;
+  }, [symbol]);
 
   // Measure container width for responsive compact multi-grid rendering
   const [containerWidth, setContainerWidth] = useState<number>(800);
   useEffect(() => {
     if (!rootRef.current) return;
     const el = rootRef.current;
+    let lastReportedWidth = Math.round(el.getBoundingClientRect().width || 800);
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        if (entry.contentRect.width > 0) {
-          setContainerWidth(entry.contentRect.width);
+        const w = Math.round(entry.contentRect.width);
+        if (w > 0 && Math.abs(w - lastReportedWidth) >= 12) {
+          lastReportedWidth = w;
+          setContainerWidth(w);
         }
       }
     });
     observer.observe(el);
-    setContainerWidth(el.getBoundingClientRect().width || 800);
+    setContainerWidth(lastReportedWidth);
     return () => observer.disconnect();
   }, []);
 
@@ -259,8 +816,8 @@ export const OpenAlgoChart: React.FC<OpenAlgoChartProps> = ({
 
   // Popover anchors and states
   const [symbolSearchOpen, setSymbolSearchOpen] = useState(false);
+  const [symbolSearchInitialQuery, setSymbolSearchInitialQuery] = useState("");
   const symbolBtnRef = useRef<HTMLButtonElement>(null);
-  const [searchQuery, setSearchQuery] = useState('');
 
   const [timeframeMenuOpen, setTimeframeMenuOpen] = useState(false);
   const timeframeBtnRef = useRef<HTMLButtonElement>(null);
@@ -274,14 +831,31 @@ export const OpenAlgoChart: React.FC<OpenAlgoChartProps> = ({
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const moreBtnRef = useRef<HTMLButtonElement>(null);
 
-  // Filter instruments for symbol search dropdown
-  const filteredSymbols = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return INSTRUMENTS_DATABASE.slice(0, 15);
-    return INSTRUMENTS_DATABASE.filter(
-      (i) => i.symbol.toLowerCase().includes(q) || i.name.toLowerCase().includes(q)
-    ).slice(0, 20);
-  }, [searchQuery]);
+  // Open full-pool SymbolSearchModal when typing a letter on the focused chart canvas
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (symbolSearchOpen || e.defaultPrevented || e.isComposing || e.ctrlKey || e.metaKey || e.altKey || e.repeat) {
+        return;
+      }
+      if (!/^[a-zA-Z]$/.test(e.key)) return;
+      const rootEl = rootRef.current;
+      const activeEl = document.activeElement;
+      const targetEl = e.target as HTMLElement | null;
+      if (!rootEl || !activeEl || !targetEl) return;
+      if (!rootEl.contains(activeEl) && !rootEl.contains(targetEl)) return;
+      for (let el: HTMLElement | null = targetEl; el; el = el.parentElement) {
+        if (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return;
+      }
+      const w = widgetRef.current as any;
+      if (w && (w.draw?.activeTool?.() !== null || w.context?.overlays?.size?.() > 0)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setSymbolSearchInitialQuery(e.key.toUpperCase());
+      setSymbolSearchOpen(true);
+    };
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => document.removeEventListener('keydown', handleKeyDown, true);
+  }, [symbolSearchOpen]);
 
   // Track fullscreen state
   useEffect(() => {
@@ -331,6 +905,7 @@ export const OpenAlgoChart: React.FC<OpenAlgoChartProps> = ({
     if (!chartHostRef.current) return;
 
     let destroyed = false;
+    let unsubscribeTheme: (() => void) | null = null;
     const normInterval = timeframe.toLowerCase() === '1d' ? '1d' : timeframe.toLowerCase();
     const initialChartType = chartMode === 'area' ? 'area' : 'candlestick';
 
@@ -339,12 +914,14 @@ export const OpenAlgoChart: React.FC<OpenAlgoChartProps> = ({
       if (destroyed || !chartHostRef.current) return;
 
       try {
+        const initialTheme = buildHonbaChartTheme();
+        const initialMeta = resolveSymbolMetadata(symbol);
         const widget = createWidget(chartHostRef.current, {
           feed: defaultHonbaFeed,
           symbol: symbol.toUpperCase(),
-          exchange: 'NSE',
+          exchange: initialMeta.exchange || 'NSE',
           interval: normInterval,
-          theme: 'dark',
+          theme: initialTheme,
           chartType: initialChartType,
           rail: showRail,
           topbar: false, // Replicated clean OpenAlgo toolbar
@@ -359,6 +936,73 @@ export const OpenAlgoChart: React.FC<OpenAlgoChartProps> = ({
         }
 
         widgetRef.current = widget;
+
+        // In-chart canvas BuySellButtons primitive (matching OpenAlgo terminal)
+        try {
+          const tradeBtns = new BuySellButtons({
+            id: 'trade',
+            position: 'top-left',
+            margin: { x: 14, y: 44 },
+            qty: quickQtyRef.current,
+            scale: 0.72,
+            buyColor: initialTheme.buy,
+            sellColor: initialTheme.sell,
+          });
+          widget.chart.addPrimitive(tradeBtns, 0);
+          attachBuySellBubbleCursorFreeze(widget.chart, tradeBtns);
+          ensureBuySellBubbleOnTop(widget.chart, tradeBtns);
+          attachTradingViewTimeFormatter(widget.chart);
+          tradeBtnsRef.current = tradeBtns;
+        } catch (e) {
+          console.warn('Could not attach BuySellButtons primitive:', e);
+        }
+
+        // Handle in-chart clicks for Buy/Sell -> open full-featured OrderModal with options
+        widget.chart.subscribeClick((id: string) => {
+          if (id === 'trade:buy' || id.endsWith(':buy')) {
+            useWorkbenchStore.getState().openOrderModal({
+              symbol: symbolRef.current,
+              side: 'buy',
+              quantity: quickQtyRef.current,
+            });
+          } else if (id === 'trade:sell' || id.endsWith(':sell')) {
+            useWorkbenchStore.getState().openOrderModal({
+              symbol: symbolRef.current,
+              side: 'sell',
+              quantity: quickQtyRef.current,
+            });
+          } else if (id === 'trade:qty' || id.endsWith(':qty')) {
+            useWorkbenchStore.getState().openOrderModal({
+              symbol: symbolRef.current,
+              side: 'buy',
+              quantity: quickQtyRef.current,
+            });
+          }
+        });
+
+        // Theme subscription to dynamically follow theme changes across candles, wicks, grid, and buttons
+        unsubscribeTheme = subscribeHonbaTheme((newTheme) => {
+          if (widgetRef.current && !widgetRef.current.isDestroyed) {
+            try {
+              widgetRef.current.setTheme(newTheme);
+              if (widgetRef.current.series) {
+                widgetRef.current.series.applyOptions({
+                  upColor: newTheme.upColor,
+                  downColor: newTheme.downColor,
+                  wickUpColor: newTheme.wickUpColor,
+                  wickDownColor: newTheme.wickDownColor,
+                  borderUpColor: newTheme.upColor,
+                  borderDownColor: newTheme.downColor,
+                });
+              }
+              if (tradeBtnsRef.current) {
+                tradeBtnsRef.current.setColors(newTheme.buy, newTheme.sell);
+              }
+            } catch {
+              // ignore
+            }
+          }
+        });
 
         widget.on('symbol', (evt) => {
           if (evt?.symbol && onSymbolChange) {
@@ -391,6 +1035,7 @@ export const OpenAlgoChart: React.FC<OpenAlgoChartProps> = ({
 
     return () => {
       destroyed = true;
+      if (unsubscribeTheme) unsubscribeTheme();
       if (volumeSeriesRef.current) {
         try {
           volumeSeriesRef.current.remove();
@@ -445,7 +1090,8 @@ export const OpenAlgoChart: React.FC<OpenAlgoChartProps> = ({
     const w = widgetRef.current;
     if (w && symbol && w.symbol().toUpperCase() !== symbol.toUpperCase()) {
       try {
-        w.setSymbol(symbol.toUpperCase(), 'NSE');
+        const meta = resolveSymbolMetadata(symbol);
+        w.setSymbol(symbol.toUpperCase(), meta.exchange || 'NSE');
       } catch {
         // ignore
       }
@@ -484,14 +1130,16 @@ export const OpenAlgoChart: React.FC<OpenAlgoChartProps> = ({
   }, [chartMode]);
 
   // Actions
-  const handlePickSymbol = (picked: string) => {
+  const handlePickSymbol = (picked: string, exchange?: string) => {
     setSymbolSearchOpen(false);
-    setSearchQuery('');
+    const ex = exchange || (picked.includes(':') ? picked.split(':')[0] : 'NSE');
+    const cleanSym = picked.includes(':') ? picked.split(':')[1] : picked;
+    const normSym = cleanSym.toUpperCase();
     const w = widgetRef.current;
     if (w) {
       try {
-        w.setSymbol(picked.toUpperCase(), 'NSE');
-        onSymbolChange?.(picked.toUpperCase());
+        w.setSymbol(normSym, ex);
+        onSymbolChange?.(normSym);
       } catch {
         // ignore
       }
@@ -620,6 +1268,7 @@ export const OpenAlgoChart: React.FC<OpenAlgoChartProps> = ({
   };
 
   const currentChartTypeObj = CHART_TYPES.find((c) => c.id === currentChartType) ?? CHART_TYPES[0];
+  const currentSymbolMeta = resolveSymbolMetadata(symbol);
 
   return (
     <div
@@ -665,7 +1314,10 @@ export const OpenAlgoChart: React.FC<OpenAlgoChartProps> = ({
           {/* Symbol Search Trigger Button */}
           <button
             ref={symbolBtnRef}
-            onClick={() => setSymbolSearchOpen(!symbolSearchOpen)}
+            onClick={() => {
+              setSymbolSearchInitialQuery("");
+              setSymbolSearchOpen(!symbolSearchOpen);
+            }}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -681,7 +1333,7 @@ export const OpenAlgoChart: React.FC<OpenAlgoChartProps> = ({
               cursor: 'pointer',
               flexShrink: 0,
             }}
-            title="Search symbol"
+            title="Search symbol across 3,700+ available markets, indices, ETFs, F&O, and custom tickers"
           >
             <Search size={11} style={{ opacity: 0.7 }} />
             <span
@@ -705,7 +1357,7 @@ export const OpenAlgoChart: React.FC<OpenAlgoChartProps> = ({
                   color: 'var(--text-muted)',
                 }}
               >
-                NSE
+                {currentSymbolMeta.exchange}
               </span>
             )}
           </button>
@@ -1068,71 +1720,17 @@ export const OpenAlgoChart: React.FC<OpenAlgoChartProps> = ({
         </div>
       </div>
 
-      {/* PORTALED FLOATING DROPDOWNS: NEVER CLIPPED BY OVERFLOW */}
-
-      {/* 1. Symbol Search Dropdown */}
-      <FloatingDropdown
+      {/* 1. Symbol Search Modal (Full Available Pool: 3,700+ symbols, category chips, spread expressions, and arbitrary symbols) */}
+      <SymbolSearchModal
         open={symbolSearchOpen}
-        onClose={() => setSymbolSearchOpen(false)}
-        anchorRef={symbolBtnRef}
-        width={260}
-      >
-        <div style={{ padding: 4, borderBottom: '1px solid var(--border-subtle)' }}>
-          <input
-            autoFocus
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search NSE symbol..."
-            style={{
-              width: '100%',
-              height: 26,
-              background: 'var(--bg-app)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 4,
-              padding: '0 8px',
-              color: 'var(--text-primary)',
-              fontSize: 11.5,
-              outline: 'none',
-              boxSizing: 'border-box',
-            }}
-          />
-        </div>
-        <div style={{ maxHeight: 240, overflowY: 'auto', padding: '4px 2px' }}>
-          {filteredSymbols.map((item) => (
-            <div
-              key={item.symbol}
-              onClick={() => handlePickSymbol(item.symbol)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '5px 8px',
-                borderRadius: 4,
-                cursor: 'pointer',
-                fontSize: 11.5,
-                background: item.symbol === symbol.toUpperCase() ? 'var(--accent-subtle)' : 'transparent',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'var(--bg-surface-hover)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = item.symbol === symbol.toUpperCase() ? 'var(--accent-subtle)' : 'transparent';
-              }}
-            >
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{item.symbol}</div>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {item.name}
-                </div>
-              </div>
-              <span style={{ fontSize: 11, fontFamily: 'var(--font-family-mono)', color: 'var(--text-secondary)' }}>
-                ₹{item.price}
-              </span>
-            </div>
-          ))}
-        </div>
-      </FloatingDropdown>
+        onClose={() => {
+          setSymbolSearchOpen(false);
+          setSymbolSearchInitialQuery('');
+        }}
+        currentSymbol={symbol}
+        onSelectSymbol={handlePickSymbol}
+        initialQuery={symbolSearchInitialQuery}
+      />
 
       {/* 2. Timeframe Selector Dropdown */}
       <FloatingDropdown

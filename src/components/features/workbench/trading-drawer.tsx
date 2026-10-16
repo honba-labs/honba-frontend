@@ -3,7 +3,7 @@ import { useWorkbenchStore } from '../../../core/workbench/store';
 import type { HonbaClient } from '../../../core/api/generated/client';
 import type { DrawerTab } from '../../../core/workbench/types';
 import { MarketDepth } from './market-depth';
-import { X, Ban } from 'lucide-react';
+import { X, Ban, ChevronUp } from 'lucide-react';
 
 interface TradingDrawerProps {
   client?: HonbaClient;
@@ -23,16 +23,90 @@ export const TradingDrawer: React.FC<TradingDrawerProps> = ({ client }) => {
     orderTicket,
   } = useWorkbenchStore();
 
-  if (!isDrawerOpen) {
-    return null;
-  }
-
   const tabs: Array<{ id: DrawerTab; label: string; count?: number }> = [
     { id: 'positions', label: 'Positions', count: positions.length },
     { id: 'orders', label: 'Open Orders', count: orders.length },
     { id: 'trades', label: 'Trade Book', count: trades.length },
     { id: 'depth', label: 'Depth' },
   ];
+
+  if (!isDrawerOpen) {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          height: 28,
+          minHeight: 28,
+          background: 'var(--bg-app)',
+          borderTop: '1px solid var(--border-subtle)',
+          padding: '0 8px',
+          zIndex: 10,
+          userSelect: 'none',
+        }}
+      >
+        <div style={{ display: 'flex', gap: 4 }}>
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => {
+                setDrawerTab(tab.id);
+                useWorkbenchStore.getState().toggleDrawer();
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                padding: '2px 8px',
+                fontSize: 11,
+                fontWeight: 500,
+                border: 'none',
+                borderRadius: 3,
+                cursor: 'pointer',
+                background: 'transparent',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              {tab.label}
+              {tab.count !== undefined && tab.count > 0 && (
+                <span
+                  style={{
+                    fontSize: 9.5,
+                    padding: '0 4px',
+                    borderRadius: 8,
+                    background: 'var(--accent-subtle)',
+                    color: 'var(--accent-primary)',
+                    fontWeight: 700,
+                  }}
+                >
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={useWorkbenchStore.getState().toggleDrawer}
+          title="Open Trading Drawer"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+            padding: '2px 6px',
+            fontSize: 10.5,
+            border: 'none',
+            background: 'transparent',
+            color: 'var(--text-muted)',
+            cursor: 'pointer',
+          }}
+        >
+          <span>Trading Drawer</span>
+          <ChevronUp size={12} />
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div

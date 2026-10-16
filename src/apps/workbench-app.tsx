@@ -12,11 +12,12 @@ import { useWorkbenchStore } from '../core/workbench/store';
 import { WorkbenchToolbar } from '../components/features/workbench/workbench-toolbar';
 import { MultiChartGrid } from '../components/features/workbench/multi-chart-grid';
 import { OrderTicket } from '../components/features/workbench/order-ticket';
+import { OrderModal } from '../components/features/workbench/order-modal';
 import { TradingDrawer } from '../components/features/workbench/trading-drawer';
 
 export const WorkbenchApp: React.FC = () => {
   const client = useMemo(() => new HonbaClient({}), []);
-  const { fetchState } = useWorkbenchStore();
+  const { fetchState, isOrderTicketOpen } = useWorkbenchStore();
 
   useEffect(() => {
     themeEngine.applyToDOM();
@@ -43,13 +44,15 @@ export const WorkbenchApp: React.FC = () => {
             display: 'flex',
             minHeight: 0,
             overflow: 'hidden',
+            position: 'relative',
           }}
         >
           <MultiChartGrid />
-          <OrderTicket client={client} />
+          {isOrderTicketOpen && <OrderTicket client={client} />}
         </div>
 
         <TradingDrawer client={client} />
+        <OrderModal client={client} />
       </main>
     </AppShell>
   );

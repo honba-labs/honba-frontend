@@ -24,8 +24,9 @@ export const ChartPaneCard: React.FC<ChartPaneCardProps> = ({ pane, index, isAct
         overflow: 'hidden',
         minHeight: 0,
         height: '100%',
+        width: '100%',
+        boxSizing: 'border-box',
         boxShadow: isActive ? '0 0 0 1px var(--accent-primary)' : 'none',
-        transition: 'border-color 0.15s ease',
         position: 'relative',
       }}
     >

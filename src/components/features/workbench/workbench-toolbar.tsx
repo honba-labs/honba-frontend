@@ -4,6 +4,7 @@ import {
   Power,
   ChevronDown,
   ChevronUp,
+  PanelRight,
 } from 'lucide-react';
 import { useWorkbenchStore } from '../../../core/workbench/store';
 import type { HonbaClient } from '../../../core/api/generated/client';
@@ -21,6 +22,8 @@ export const WorkbenchToolbar: React.FC<WorkbenchToolbarProps> = ({ client }) =>
     setTradingState,
     isDrawerOpen,
     toggleDrawer,
+    isOrderTicketOpen,
+    toggleOrderTicket,
     statusMessage,
     error,
     dismissStatus,
@@ -219,6 +222,27 @@ export const WorkbenchToolbar: React.FC<WorkbenchToolbarProps> = ({ client }) =>
           >
             {tradingState === 'halted' ? <Power size={12} /> : <ShieldAlert size={12} />}
             {tradingState === 'halted' ? 'Resume Trading' : 'Kill Switch'}
+          </button>
+
+          <button
+            onClick={toggleOrderTicket}
+            title={isOrderTicketOpen ? 'Collapse Order Ticket' : 'Expand Order Ticket'}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '4px 9px',
+              fontSize: 11,
+              fontWeight: 600,
+              borderRadius: 4,
+              border: '1px solid var(--border-subtle)',
+              cursor: 'pointer',
+              background: isOrderTicketOpen ? 'var(--bg-surface-elevated)' : 'var(--bg-app)',
+              color: isOrderTicketOpen ? 'var(--text-primary)' : 'var(--text-secondary)',
+            }}
+          >
+            <PanelRight size={12} />
+            <span>Ticket</span>
           </button>
 
           <button

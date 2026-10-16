@@ -1,5 +1,5 @@
 import type { Bar, BarsRequest, DataFeed, SymbolMatch, SymbolSearchRequest } from 'openalgo-charts';
-import { INSTRUMENTS_DATABASE } from '../market-data';
+import { resolveSymbolPrice, searchInstruments } from '../symbol-search';
 
 function createRng(seed: number): () => number {
   let s = seed;
@@ -24,12 +24,18 @@ function hashString(str: string): number {
 export function getStepSeconds(interval: string = '1d'): number {
   const norm = (interval || '1d').toLowerCase();
   if (norm === '1m') return 60;
+  if (norm === '3m') return 180;
   if (norm === '5m') return 300;
   if (norm === '15m') return 900;
   if (norm === '30m') return 1800;
+  if (norm === '45m') return 2700;
   if (norm === '1h') return 3600;
+  if (norm === '2h') return 7200;
+  if (norm === '3h') return 10800;
+  if (norm === '4h') return 14400;
   if (norm === '1d' || norm === 'd') return 86400;
   if (norm === '1w' || norm === 'w') return 604800;
+  if (norm === '1m' || norm === 'm' || norm === 'month') return 2592000;
   return 86400;
 }
 
@@ -38,10 +44,9 @@ export function generateOpenAlgoBars(
   interval: string = '1d',
   barCount: number = 300
 ): Bar[] {
-  const normSym = symbol.toUpperCase();
-  const inst = INSTRUMENTS_DATABASE.find((i) => i.symbol.toUpperCase() === normSym) ?? INSTRUMENTS_DATABASE[0];
+  const normSym = symbol.trim().toUpperCase();
+  const currentPrice = resolveSymbolPrice(normSym);
   const rng = createRng(hashString(`${normSym}_${interval}`));
-  const currentPrice = inst.price;
   const bars: Bar[] = [];
 
   const stepSeconds = getStepSeconds(interval);
@@ -146,16 +151,12 @@ export class HonbaOpenAlgoDataFeed implements DataFeed {
   }
 
   async searchSymbols(req: SymbolSearchRequest): Promise<SymbolMatch[]> {
-    const q = req.query.trim().toLowerCase();
-    const matches = INSTRUMENTS_DATABASE.filter(
-      (inst) => inst.symbol.toLowerCase().includes(q) || inst.name.toLowerCase().includes(q)
-    ).slice(0, 20);
-
+    const matches = searchInstruments(req.query, 'ALL', 500);
     return matches.map((m) => ({
       symbol: m.symbol,
-      description: m.name,
-      exchange: 'NSE',
-      type: m.assetType || 'stock',
+      name: m.name,
+      exchange: m.exchange,
+      assetClass: m.category,
     }));
   }
 }
