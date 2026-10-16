@@ -111,4 +111,11 @@ Risks to watch:
   - User ids are limited to `[A-Za-z0-9_-]`, 1 to 64 bytes. The unauthenticated user is `DEFAULT_USER_ID = "default"`. Writes are atomic (temp file, sync, rename) behind a store-wide mutex.
   - `Profile` currently has `revision`, `layouts`, `modules`, `watchlists`, `shortlist`, `preferences` and `workbench`. It has **no `alerts` field yet**.
   - 6 new tests; `cargo fmt`, `clippy` and `cargo test -p honba-api-rest` pass.
-- **Chunk 2 in progress**: `GET/PUT /profile` plus the named layout and module routes, the `--profiles-dir` flag, an "any valid token" auth entry, an `alerts` field on `Profile`, and codegen endpoint-list entries (the client itself is regenerated in chunk 3).
+- **Chunk 2 done** (`honba` commits `6293d64`, `bb71560`, `0d91edf`, `f87e8e4`, `699bc54`, not pushed):
+  - Routes, all enveloped, any valid token and no scope: `GET/PUT /profile` (409 on a stale revision), `GET /profile/layouts`, `PUT/DELETE /profile/layouts/{name}`, `GET /profile/modules`, `PUT/DELETE /profile/modules/{id}`. Names and ids are 1 to 128 characters with no control characters (400 otherwise). A no-op PUT or DELETE does not bump the revision. With no profiles dir the routes answer 503.
+  - Identity: `token_id` from the validated token, else `default`. A hostile `token_id` gives 403 and writes no file. New `RouteScope::Authenticated`.
+  - `Profile` now has `alerts`. `Profile`, `Module` and `Source` moved to `crates/honba-api/src/profile.rs`. `ProfileStore::update` does an atomic read-modify-write. `honba serve --profiles-dir` (default `data/profiles`).
+  - Codegen: endpoints registered; regenerated `schema/domain/domain_schema.json`, `schema/openapi/openapi.json` and `python/src/honba/wire/generated/__init__.pyi`.
+  - Checks run by the subagent: fmt, workspace clippy, and cargo tests for api-rest, cli, codegen, api and messages. Not run: Python pytest, `make check-pyi`, `make check-docs`.
+  - Open items: 409 reuses `validation_invalid_request` (no `ErrorCode::Conflict`); OpenAPI marks the profile writes `read_only`; `python/src/honba/api/auth.py` keeps its own scope map without `/profile*`; the `tokens.toml` docs and ADRs do not mention the new flag or scope.
+- **Next:** independent review of chunks 1 and 2, then chunk 3 (codegen of the TypeScript client).
