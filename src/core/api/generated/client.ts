@@ -15,10 +15,15 @@ import type {
   DepthResponse,
   InstrumentsQuery,
   InstrumentsResponse,
+  LayoutsResponse,
+  Module,
+  ModulesResponse,
   OrdersQuery,
   OrdersRequest,
   OrdersResponse,
   PositionsResponse,
+  Profile,
+  ProfileRevision,
   QuotesQuery,
   QuotesResponse,
   ResponseEnvelope,
@@ -210,6 +215,38 @@ export class HonbaClient {
 
   async postPositionsClose(signal?: AbortSignal): Promise<ResponseEnvelope<PositionsResponse>> {
     return request<PositionsResponse>(this.fetchImpl, 'POST', apiUrl(this.baseUrl, '/positions/close'), { signal });
+  }
+
+  async getProfile(signal?: AbortSignal): Promise<ResponseEnvelope<Profile>> {
+    return request<Profile>(this.fetchImpl, 'GET', apiUrl(this.baseUrl, '/profile'), { signal });
+  }
+
+  async putProfile(body: Profile, signal?: AbortSignal): Promise<ResponseEnvelope<Profile>> {
+    return request<Profile>(this.fetchImpl, 'PUT', apiUrl(this.baseUrl, '/profile'), { body, signal });
+  }
+
+  async getProfileLayouts(signal?: AbortSignal): Promise<ResponseEnvelope<LayoutsResponse>> {
+    return request<LayoutsResponse>(this.fetchImpl, 'GET', apiUrl(this.baseUrl, '/profile/layouts'), { signal });
+  }
+
+  async deleteProfileLayoutsByName(name: string, signal?: AbortSignal): Promise<ResponseEnvelope<ProfileRevision>> {
+    return request<ProfileRevision>(this.fetchImpl, 'DELETE', apiUrl(this.baseUrl, `/profile/layouts/${encodeURIComponent(name)}`), { signal });
+  }
+
+  async putProfileLayoutsByName(name: string, signal?: AbortSignal): Promise<ResponseEnvelope<ProfileRevision>> {
+    return request<ProfileRevision>(this.fetchImpl, 'PUT', apiUrl(this.baseUrl, `/profile/layouts/${encodeURIComponent(name)}`), { signal });
+  }
+
+  async getProfileModules(signal?: AbortSignal): Promise<ResponseEnvelope<ModulesResponse>> {
+    return request<ModulesResponse>(this.fetchImpl, 'GET', apiUrl(this.baseUrl, '/profile/modules'), { signal });
+  }
+
+  async deleteProfileModulesById(id: string, signal?: AbortSignal): Promise<ResponseEnvelope<ProfileRevision>> {
+    return request<ProfileRevision>(this.fetchImpl, 'DELETE', apiUrl(this.baseUrl, `/profile/modules/${encodeURIComponent(id)}`), { signal });
+  }
+
+  async putProfileModulesById(id: string, body: Module, signal?: AbortSignal): Promise<ResponseEnvelope<ProfileRevision>> {
+    return request<ProfileRevision>(this.fetchImpl, 'PUT', apiUrl(this.baseUrl, `/profile/modules/${encodeURIComponent(id)}`), { body, signal });
   }
 
   async getQuotes(query?: QuotesQuery, signal?: AbortSignal): Promise<ResponseEnvelope<QuotesResponse>> {

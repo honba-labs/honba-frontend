@@ -30,6 +30,7 @@ export interface BacktestMetrics {
 export interface BacktestRequest {
   bar_spec?: string | null;
   end?: string | null;
+  fill_model?: string | null;
   initial_capital?: number | null;
   seed?: number | null;
   start?: string | null;
@@ -211,6 +212,10 @@ export interface IrUniverse {
   named?: string | null;
 }
 
+export interface LayoutsResponse {
+  layouts: Record<string, unknown>;
+}
+
 export interface Message {
   event: Event;
   schema_version: number;
@@ -248,6 +253,17 @@ export interface MetricRef {
 }
 
 export type MetricValue = number | string | boolean | null;
+
+export interface Module {
+  enabled: boolean;
+  id: string;
+  name: string;
+  sources: Source[];
+}
+
+export interface ModulesResponse {
+  modules: Record<string, Module>;
+}
 
 export interface Money {
   amount: number;
@@ -368,6 +384,21 @@ export type PriceType = "bid" | "ask" | "mid" | "last";
 
 export type Product = "delivery" | "intraday" | "carry";
 
+export interface Profile {
+  alerts?: unknown;
+  layouts?: Record<string, unknown>;
+  modules?: Record<string, Module>;
+  preferences?: unknown;
+  revision?: number;
+  shortlist?: string[];
+  watchlists?: Record<string, string[]>;
+  workbench?: unknown;
+}
+
+export interface ProfileRevision {
+  revision: number;
+}
+
 export interface QuoteTick {
   ask_price: number;
   ask_size: number;
@@ -469,6 +500,11 @@ export interface SortSpec {
   key: string;
   period?: MetricPeriod | null;
   timeframe?: Timeframe | null;
+}
+
+export interface Source {
+  kind: string;
+  reference: string;
 }
 
 export interface StrategiesRequest {
