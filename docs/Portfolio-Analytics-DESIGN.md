@@ -91,13 +91,13 @@ Backend chunks go to `honba` and must be sequenced with the E13 session (it owns
 
 Each chunk: one small commit set, tests, independent review after P2, P4 and F3, and per-chunk subagents one at a time (Rust chunks to a stronger model, mechanical frontend chunks to a lighter one).
 
-## 7. Decisions needed
-1. Is it OK to put this proposal into the E13 ADR sequence (an ADR 0033 and extending S3/S6) rather than a parallel track? The other session owns E13.
-2. Backtest/sim runs as **run-scoped, read-only accounts valued by journal replay** (this design) vs importing them into the user's portfolio. Recommended: run-scoped.
-3. Equity series storage: NDJSON beside the document (recommended) vs inside it vs SQLite (ADR 0032 open item).
-4. Is the additive `account_id` / `strategy_id` / `costs` schema bump acceptable now, or should attribution wait?
-5. Benchmark data: which source supplies index bars (honba-data lakehouse?) and is a benchmark optional for v1 (recommended: optional).
-6. Out of scope for v1, as in ADR 0032: multi-currency and FX, dividends and corporate actions in valuation, tax lots.
+## 7. Decisions (confirmed 2026-10-16)
+1. **Parallel track**, not folded into the E13 sequence: this work gets its own ADR (0033, number to be confirmed against `honba/docs/adr/`). It must still not collide with the E13 session, which owns S2 to S6 of ADR 0032: P0 therefore also lists, item by item, which parts overlap (fill ingest, `GET /positions`, S6 analytics) and which session builds what.
+2. **Backtest and sim runs are not part of the portfolio.** They stay run-scoped, read-only and valued by journal replay.
+3. **Equity series is stored beside the portfolio document** (NDJSON), not inside it.
+4. **The additive schema bump is accepted now**: optional `account_id`, `strategy_id` and `costs` on order and fill events, bumping `SCHEMA_VERSION`.
+5. **Benchmark is optional in v1.** The benchmark and beta section appears only when benchmark bars are supplied.
+Still open: the out-of-scope list in ADR 0032 (multi-currency/FX, dividends and corporate actions, tax lots) stays out of v1.
 
 ## 8. Risks
 - Two sessions editing `honba` at once: sequence through P0 and keep commits file-scoped.
