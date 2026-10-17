@@ -24,8 +24,22 @@ import {
   type UniverseShape,
 } from '../graph/model';
 import { graphIssues, nodePorts } from '../graph/validation';
+import { nodeLine } from './diagnostics';
+import {
+  DEFAULT_LAYOUT,
+  layoutWithFocusToggled,
+  layoutWithPaneToggled,
+  loadLayout,
+  normalizeLayout,
+  saveLayout,
+  type DesignerLayout,
+  type DesignerPane,
+  type DrawerTab,
+} from './layout';
 
 export type DesignerTab = 'canvas' | 'code' | 'verify' | 'run' | 'sweeps' | 'assistant' | 'ops' | 'results';
+
+export type { DesignerLayout, DesignerPane, DrawerTab } from './layout';
 
 export interface VerifyState {
   ok: boolean;
@@ -98,8 +112,15 @@ export interface DesignerState {
   run: RunState;
   assistant: AssistantMessage[];
   versions: DesignerVersion[];
+  layout: DesignerLayout;
 
   setTab: (tab: DesignerTab) => void;
+  setLayout: (patch: Partial<DesignerLayout>) => void;
+  togglePane: (pane: DesignerPane) => void;
+  toggleFocus: (pane: DesignerPane) => void;
+  setPaneWidth: (pane: 'library' | 'assistant', width: number) => void;
+  setCodeRatio: (ratio: number) => void;
+  setDrawer: (open: boolean, tab?: DrawerTab) => void;
   setName: (name: string) => Promise<void>;
   setGraph: (graph: StrategyGraphShape) => Promise<void>;
   setPositions: (positions: Record<string, { x: number; y: number }>) => void;
@@ -152,14 +173,6 @@ export interface DesignerState {
 async function buildCode(graph: StrategyGraphShape): Promise<string> {
   const hash = await graphHash(graph);
   return generateCode(graph, hash);
-}
-
-function nodeLine(source: string, nodeId: string): number | null {
-  const lines = source.split('\n');
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].includes('.node(') && lines[i].includes(`id='${nodeId}'`)) return i + 1;
-  }
-  return null;
 }
 
 export function defaultGraph(): StrategyGraphShape {
@@ -227,8 +240,46 @@ export const useDesignerStore = create<DesignerState>((set, get) => {
     run: { status: 'idle', runId: null, response: null, error: null },
     assistant: [],
     versions: [],
+    layout: loadLayout(),
 
     setTab: (tab) => set({ tab }),
+
+    setLayout: (patch) => {
+      const layout = normalizeLayout(patch, get().layout);
+      saveLayout(layout);
+      set({ layout });
+    },
+
+    togglePane: (pane) => {
+      const layout = layoutWithPaneToggled(get().layout, pane);
+      saveLayout(layout);
+      set({ layout });
+    },
+
+    toggleFocus: (pane) => {
+      const layout = layoutWithFocusToggled(get().layout, pane);
+      saveLayout(layout);
+      set({ layout });
+    },
+
+    setPaneWidth: (pane, width) => {
+      const current = get().layout;
+      const layout = normalizeLayout(pane === 'library' ? { libraryWidth: width } : { assistantWidth: width }, current);
+      saveLayout(layout);
+      set({ layout });
+    },
+
+    setCodeRatio: (ratio) => {
+      const layout = normalizeLayout({ codeRatio: ratio }, get().layout);
+      saveLayout(layout);
+      set({ layout });
+    },
+
+    setDrawer: (open, tab) => {
+      const layout = normalizeLayout({ drawerOpen: open, ...(tab ? { drawerTab: tab } : {}) }, get().layout);
+      saveLayout(layout);
+      set({ layout });
+    },
 
     setName: async (name) => {
       const { graph } = get();

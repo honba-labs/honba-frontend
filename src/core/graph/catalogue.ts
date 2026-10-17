@@ -80,3 +80,8 @@ export function catalogue(): NodeCatalogue {
   if (!cached) cached = { families: [...FAMILIES], indicators: build() };
   return cached;
 }
+
+/** Look up a single indicator entry by its `kind` (e.g. `sma`, `rsi`). */
+export function cataloguelookup(kind: string): IndicatorEntry | undefined {
+  return catalogue().indicators.find((entry) => entry.kind === kind);
+}

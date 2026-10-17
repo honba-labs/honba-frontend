@@ -8,26 +8,18 @@ import '../styles/components.css';
 import { themeEngine } from '../core/theme-engine';
 import { AppShell } from '../layouts/app-shell';
 import { HonbaClient } from '../core/api/generated/client';
-import { defaultGraph, useDesignerStore, type DesignerTab } from '../core/designer/store';
-import { useOpsStore } from '../core/designer/ops-state';
-import { DesignerCanvas } from './algodesigner/canvas';
-import { AssistantPanel, CodePane, OpsPanel, ResultsPanel, RunPanel, VerifyPanel } from './algodesigner/panels';
-import { SweepsPanel } from './algodesigner/sweeps-panel';
+import { defaultGraph, useDesignerStore } from '../core/designer/store';
+import { WorkspaceLayout } from './algodesigner/workspace-layout';
 
-const TABS: Array<{ id: DesignerTab; label: string }> = [
-  { id: 'canvas', label: 'Canvas' },
-  { id: 'code', label: 'Code' },
-  { id: 'verify', label: 'Verify' },
-  { id: 'run', label: 'Run' },
-  { id: 'sweeps', label: 'Sweeps' },
-  { id: 'assistant', label: 'Assistant' },
-  { id: 'ops', label: 'Ops' },
-  { id: 'results', label: 'Results' },
-];
-
+/**
+ * Honba Algo Designer entry point.
+ *
+ * Phase 1 (HBD-2026-DES-004): the tab-switched shell is replaced by the
+ * four-pane `WorkspaceLayout` (library | code | canvas | co-pilot) with a
+ * diagnostics drawer. Panes, sizes and focus mode persist via the store.
+ */
 const AlgoDesigner: React.FC = () => {
   const store = useDesignerStore();
-  const ops = useOpsStore();
   const [notice, setNotice] = useState<string | null>(null);
   const client = useMemo(() => new HonbaClient({}), []);
 
@@ -44,80 +36,27 @@ const AlgoDesigner: React.FC = () => {
   return (
     <AppShell currentAppId="algodesigner">
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        <nav style={{ display: 'flex', gap: 8, padding: '12px 16px', borderBottom: '1px solid var(--border-subtle)' }}>
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              className={store.tab === tab.id ? 'shortlist-btn shortlist-btn-primary' : 'shortlist-btn'}
-              onClick={() => store.setTab(tab.id)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
         {notice ? (
-          <div style={{ padding: '8px 16px', fontSize: 12, color: 'var(--text-secondary)' }}>{notice}</div>
+          <div
+            role="status"
+            style={{
+              padding: '6px 16px',
+              fontSize: 12,
+              color: 'var(--text-secondary)',
+              borderBottom: '1px solid var(--border-subtle, #2a2e39)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              gap: 12,
+            }}
+          >
+            <span>{notice}</span>
+            <button type="button" className="shortlist-btn" onClick={() => setNotice(null)} style={{ fontSize: 11, padding: '2px 8px' }}>
+              Dismiss
+            </button>
+          </div>
         ) : null}
         <section style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-          {store.tab === 'canvas' ? (
-            <DesignerCanvas
-              graph={store.graph}
-              client={client}
-              onNodeParams={(id, params) => {
-                void store.updateNodeParams(id, params);
-              }}
-              onError={setNotice}
-            />
-          ) : null}
-          {store.tab === 'code' ? <CodePane code={store.code} onChange={store.setCode} /> : null}
-          {store.tab === 'verify' ? (
-            <VerifyPanel
-              verify={store.verify}
-              onVerify={() => {
-                void store.verifyNow(client);
-              }}
-              onSelectNode={(nodeId) => {
-                store.selectNode(nodeId);
-                store.setTab('canvas');
-              }}
-            />
-          ) : null}
-          {store.tab === 'run' ? (
-            <RunPanel
-              status={store.run.status}
-              runId={store.run.runId}
-              response={store.run.response}
-              error={store.run.error}
-              onRun={(seed) => {
-                void store.runNow(client, { seed: seed ?? 42 });
-              }}
-              onViewResults={() => store.setTab('results')}
-            />
-          ) : null}
-          {store.tab === 'sweeps' ? <SweepsPanel /> : null}
-          {store.tab === 'assistant' ? (
-            <AssistantPanel
-              messages={store.assistant}
-              onPropose={(text) => void store.proposeAI(text, client)}
-              onApplyProposal={(idx) => void store.applyProposal(idx)}
-              onClear={store.resetAssistant}
-            />
-          ) : null}
-          {store.tab === 'ops' ? (
-            <OpsPanel
-              client={client}
-              mode={ops.mode}
-              badge={ops.badge().label}
-              orders={ops.orders.length}
-              onRefresh={() => {
-                void ops.refresh(client);
-              }}
-              onClose={() => {
-                void ops.closePositions(client);
-              }}
-            />
-          ) : null}
-          {store.tab === 'results' ? <ResultsPanel response={store.run.response} /> : null}
+          <WorkspaceLayout client={client} onNotice={setNotice} />
         </section>
       </main>
     </AppShell>

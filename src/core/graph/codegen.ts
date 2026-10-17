@@ -35,7 +35,7 @@ function indicatorNodes(graph: StrategyGraphShape) {
   return graph.nodes.filter((node) => node.type === 'indicator' && node.indicator);
 }
 
-function parameterLayout(graph: StrategyGraphShape): Record<string, string> {
+export function parameterLayout(graph: StrategyGraphShape): Record<string, string> {
   const counts: Record<string, number> = {};
   for (const node of indicatorNodes(graph)) {
     for (const pname of Object.keys(node.params ?? {})) counts[pname] = (counts[pname] ?? 0) + 1;
