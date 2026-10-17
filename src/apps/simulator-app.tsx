@@ -11,6 +11,7 @@ import { AppShell } from '../layouts/app-shell';
 import { HonbaClient } from '../core/api/generated/client';
 import { getAppMetadata } from '../core/apps';
 import { SimulationControls } from './simulator/components/simulation-controls';
+import { SimulatorChart } from './simulator/components/interactive-chart';
 import { ResultsPanel } from './simulator/components/results-panel';
 import { useSimulatorStore } from './simulator/store/simulator-store';
 
@@ -88,14 +89,19 @@ const Simulator: React.FC = () => {
         ) : null}
 
         <section style={{ flex: 1, minHeight: 0, display: 'flex' }}>
-          <aside style={{ width: 320, minWidth: 260, borderRight: '1px solid var(--border-subtle)', minHeight: 0 }}>
+          <aside style={{ width: 320, minWidth: 260, borderRight: '1px solid var(--border-subtle)', minHeight: 0, overflowY: 'auto' }}>
             <SimulationControls
               onRun={() => void store.execute(client)}
               onSweeps={() => setNotice('Parameter sweeps open in the Designer optimisation engine (Phase 8).')}
             />
           </aside>
-          <div style={{ flex: 1, minHeight: 0 }}>
-            <ResultsPanel />
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ flex: 1, minHeight: 0, borderBottom: '1px solid var(--border-subtle)' }}>
+              <SimulatorChart client={client} />
+            </div>
+            <div style={{ flex: '0 0 42%', minHeight: 0 }}>
+              <ResultsPanel />
+            </div>
           </div>
         </section>
       </main>

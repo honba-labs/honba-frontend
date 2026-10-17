@@ -5,6 +5,14 @@ import { loadSaved, slugify, type SavedStrategyManifest } from '../../../core/de
 import type { StrategyGraphShape } from '../../../core/graph/model';
 import { compileStrategy } from '../../../core/designer/compile';
 import { DEFAULT_CONTROLS, toBacktestRequest, type SimulatorControls, type SimulationRequestPlan } from '../../../core/simulator/controls';
+import {
+  applyJournalLoading,
+  hasJournalClient,
+  initialJournalState,
+  loadJournal,
+  type JournalClient,
+  type JournalState,
+} from '../../../core/simulator/journal';
 import { loadPersisted, persistSelection } from '../../../core/simulator/persistence';
 import { initialRunState, runBacktest, type RunClient, type RunOptions, type SimRunState } from '../../../core/simulator/run';
 import {
@@ -36,13 +44,15 @@ export interface SimulatorState {
   origin: SelectionOrigin;
   controls: SimulatorControls;
   run: SimRunState;
+  /** Journal fills of the last completed run (Phase 7); the chart pairs them into round trips. */
+  journal: JournalState;
   /** The last built request plan, for the payload preview and the R5 note. */
   lastPlan: SimulationRequestPlan | null;
   hydrate: (input?: SimulatorHydrateInput) => void;
   setControls: (patch: Partial<SimulatorControls>) => void;
   select: (graph: StrategyGraphShape, name: string, origin?: SelectionOrigin) => void;
   plan: () => SimulationRequestPlan;
-  execute: (client: RunClient, options?: RunOptions) => Promise<void>;
+  execute: (client: RunClient & Partial<JournalClient>, options?: RunOptions) => Promise<void>;
   resetRun: () => void;
 }
 
@@ -54,7 +64,10 @@ function defaultQuery(): string {
   }
 }
 
-function initialState(): Pick<SimulatorState, 'strategy' | 'strategyName' | 'origin' | 'controls' | 'run' | 'lastPlan'> {
+function initialState(): Pick<
+  SimulatorState,
+  'strategy' | 'strategyName' | 'origin' | 'controls' | 'run' | 'journal' | 'lastPlan'
+> {
   const selection = resolveSelection({});
   return {
     strategy: selection.graph,
@@ -62,6 +75,7 @@ function initialState(): Pick<SimulatorState, 'strategy' | 'strategyName' | 'ori
     origin: selection.origin,
     controls: controlsForGraph(selection.graph),
     run: initialRunState(),
+    journal: initialJournalState(),
     lastPlan: null,
   };
 }
@@ -118,7 +132,9 @@ export function createSimulatorStore() {
     execute: async (client, options) => {
       const { strategy } = get();
       const plan = get().plan();
-      set({ lastPlan: plan });
+      // A fresh attempt clears the previous run's journal so stale markers never
+      // outlive the run they describe.
+      set({ lastPlan: plan, journal: initialJournalState() });
       if (plan.issues.length > 0) {
         set({
           run: {
@@ -153,10 +169,21 @@ export function createSimulatorStore() {
         onUpdate: (state) => set({ run: state }),
       });
       set({ run: final });
+
+      // Journal fills are the marker source (Phase 7). They are fetched only for
+      // a completed run, and only when the client exposes the route; a missing
+      // route degrades to an empty journal the chart renders without markers.
+      if (final.status === 'completed' && final.runId && hasJournalClient(client)) {
+        const runId = final.runId;
+        set({ journal: applyJournalLoading(initialJournalState(), runId) });
+        const journal = await loadJournal(client, runId, { signal: options?.signal });
+        if (get().run.runId === runId) set({ journal });
+      }
+
       persistSelection({ strategyName: get().strategyName, source: get().origin, controls: get().controls });
     },
 
-    resetRun: () => set({ run: initialRunState(), lastPlan: null }),
+    resetRun: () => set({ run: initialRunState(), journal: initialJournalState(), lastPlan: null }),
   }));
 }
 

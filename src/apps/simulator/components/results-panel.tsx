@@ -7,8 +7,9 @@ import { useSimulatorStore } from '../store/simulator-store';
  * Run results surface (Phase 6).
  *
  * Deliberately modest: the metrics grid from `BacktestMetrics`, the run status,
- * the request payload actually sent, and the progress log. Equity curves, trade
- * markers, journals and heatmaps are Phase 7/8.
+ * the request payload actually sent, and the progress log. The interactive
+ * chart with trade markers lives beside this panel (Phase 7); equity curves,
+ * the trade journal table and heatmaps are Phase 8.
  */
 
 const cardStyle: React.CSSProperties = {
