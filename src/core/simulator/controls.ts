@@ -20,6 +20,49 @@ export const PERIOD_PRESETS: ReadonlyArray<PeriodPreset> = ['1M', '3M', '6M', '1
 /** Server spellings, pinned equal to `honba-api`'s `FILL_MODELS`. */
 export const FILL_MODELS: ReadonlyArray<string> = ['bar_fill', 'bar_fill_through', 'l2', 'none'];
 
+export interface FillModelDescriptor {
+  id: string;
+  name: string;
+  label: string;
+  description: string;
+  badge: string;
+}
+
+export const FILL_MODEL_DESCRIPTORS: Record<string, FillModelDescriptor> = {
+  bar_fill: {
+    id: 'bar_fill',
+    name: 'Bar Fill (Close / Market)',
+    label: 'Bar Fill',
+    description: 'Fills immediately at bar close / current tick. Standard execution baseline.',
+    badge: 'Standard',
+  },
+  bar_fill_through: {
+    id: 'bar_fill_through',
+    name: 'Bar Fill Through (Limit / Penetration)',
+    label: 'Bar Fill Through',
+    description: 'Strict limit execution: requires intra-bar price to trade strictly through the limit level.',
+    badge: 'Realistic',
+  },
+  l2: {
+    id: 'l2',
+    name: 'L2 Order Book Simulation',
+    label: 'L2 Simulation',
+    description: 'Simulates micro-ticks with adverse bid/ask spread and order-size depth slippage.',
+    badge: 'High Fidelity',
+  },
+  none: {
+    id: 'none',
+    name: 'None (Signals Only / Paperless)',
+    label: 'Signals Only',
+    description: 'Evaluates all indicators and confluence signals without executing trades or fills.',
+    badge: 'Signal Test',
+  },
+};
+
+export function formatFillModel(model: string): string {
+  return FILL_MODEL_DESCRIPTORS[model]?.name ?? model;
+}
+
 /** Bar specifications the run contract accepts (`parse_timeframe`). */
 export const TIMEFRAMES: ReadonlyArray<string> = [
   '1m',

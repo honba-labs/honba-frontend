@@ -46,6 +46,9 @@ export class ReplayController {
   private selectedAccountId: string = 'acc-sandbox-primary';
   private multiTimeframe: boolean = false;
   private secondaryTimeframe: string = '1h';
+  private fillModel: string = 'bar_fill';
+  private commission: number = 0;
+  private slippage: number = 0;
 
   constructor(callbacks: ReplayCallbacks = {}) {
     this.callbacks = callbacks;
@@ -58,6 +61,9 @@ export class ReplayController {
     exchange: string = 'NSE',
     initialCapital: number = 100_000,
     accountId: string = 'acc-sandbox-primary',
+    fillModel: string = 'bar_fill',
+    commission: number = 0,
+    slippage: number = 0,
   ) {
     this.stop();
     this.bars = [...bars];
@@ -66,6 +72,9 @@ export class ReplayController {
     this.exchange = exchange;
     this.initialCapital = initialCapital;
     this.selectedAccountId = accountId;
+    this.fillModel = fillModel;
+    this.commission = commission;
+    this.slippage = slippage;
 
     this.currentBarIndex = 0;
     this.currentTickPhase = 0;
@@ -80,6 +89,13 @@ export class ReplayController {
     // Pre-calculate indicators over the dataset
     this.indicators = computeGraphIndicators(graph, this.bars);
 
+    this.notifyState();
+  }
+
+  public setExecutionConfig(fillModel: string, commission: number = 0, slippage: number = 0) {
+    this.fillModel = fillModel;
+    this.commission = commission;
+    this.slippage = slippage;
     this.notifyState();
   }
 
@@ -316,7 +332,36 @@ export class ReplayController {
     trade: NonNullable<ConfluenceSnapshot['executedTrade']>,
     bar: ChartBar,
   ) {
+    if (this.fillModel === 'none') {
+      // Signals only / paperless mode: record signal & confluence without placing orders or opening positions
+      this.callbacks.onTrade?.(trade, null);
+      return;
+    }
+
     const isBuy = trade.side === 'buy';
+
+    if (this.fillModel === 'bar_fill_through') {
+      // Strict limit trade-through: requires price to penetrate through limit price
+      const tradedThrough = isBuy ? bar.low < trade.price : bar.high > trade.price;
+      if (!tradedThrough) {
+        // Price touched or never reached; order unfilled
+        return;
+      }
+    }
+
+    let executionPrice = trade.price;
+    if (this.fillModel === 'l2') {
+      // L2 order book simulation:
+      // Half spread estimation based on bar range + user slippage_bps
+      const estimatedHalfSpreadPct = Math.max(0.0002, ((bar.high - bar.low) / (bar.close || 1)) * 0.05);
+      const slippagePct = (this.slippage > 0 ? this.slippage : 2) / 10000;
+      const adverseImpact = estimatedHalfSpreadPct + slippagePct;
+      executionPrice = isBuy
+        ? Math.round(trade.price * (1 + adverseImpact) * 100) / 100
+        : Math.round(trade.price * (1 - adverseImpact) * 100) / 100;
+    }
+
+    const fillFee = this.commission > 0 ? this.commission : 10;
 
     if (!this.activePosition) {
       // Open new position
@@ -325,8 +370,8 @@ export class ReplayController {
         exchange: this.exchange,
         side: isBuy ? 'long' : 'short',
         quantity: trade.quantity,
-        entryPrice: trade.price,
-        currentPrice: trade.price,
+        entryPrice: executionPrice,
+        currentPrice: executionPrice,
         unrealizedPnl: 0,
         unrealizedReturnPct: 0,
         entryTimestamp: bar.time,
@@ -338,7 +383,7 @@ export class ReplayController {
         this.exchange,
         trade.side,
         trade.quantity,
-        trade.price,
+        executionPrice,
         bar.time,
       );
     } else {
@@ -347,10 +392,12 @@ export class ReplayController {
       const isOpposite = (currentSide === 'long' && !isBuy) || (currentSide === 'short' && isBuy);
 
       if (isOpposite) {
-        // Position Closed! Calculate Realized PnL
+        // Position Closed! Calculate Realized PnL net of fees
         const mult = currentSide === 'long' ? 1 : -1;
-        const pnl = (trade.price - this.activePosition.entryPrice) * this.activePosition.quantity * mult;
-        this.realizedPnl += pnl;
+        const grossPnl = (executionPrice - this.activePosition.entryPrice) * this.activePosition.quantity * mult;
+        const totalFees = fillFee * 2;
+        const netPnl = grossPnl - totalFees;
+        this.realizedPnl += netPnl;
 
         const roundTrip: RoundTrip = {
           id: `trip-${this.roundTrips.length + 1}`,
@@ -361,26 +408,33 @@ export class ReplayController {
           entryTs: this.activePosition.entryTimestamp,
           exitTs: bar.time,
           avgEntry: this.activePosition.entryPrice,
-          avgExit: trade.price,
-          realizedPnl: pnl,
-          returnPct: this.activePosition.entryPrice > 0 ? ((trade.price - this.activePosition.entryPrice) / this.activePosition.entryPrice) * mult : 0,
-          fees: 20.0,
+          avgExit: executionPrice,
+          realizedPnl: netPnl,
+          returnPct:
+            this.activePosition.entryPrice > 0
+              ? ((executionPrice - this.activePosition.entryPrice) / this.activePosition.entryPrice) * mult
+              : 0,
+          fees: totalFees,
           status: 'closed',
           exitReason: 'position_closed',
-          entryFills: [{
-            orderId: 'sim-entry',
-            ts: this.activePosition.entryTimestamp,
-            price: this.activePosition.entryPrice,
-            quantity: this.activePosition.quantity,
-            costs: 10,
-          }],
-          exitFills: [{
-            orderId: 'sim-exit',
-            ts: bar.time,
-            price: trade.price,
-            quantity: trade.quantity,
-            costs: 10,
-          }],
+          entryFills: [
+            {
+              orderId: 'sim-entry',
+              ts: this.activePosition.entryTimestamp,
+              price: this.activePosition.entryPrice,
+              quantity: this.activePosition.quantity,
+              costs: fillFee,
+            },
+          ],
+          exitFills: [
+            {
+              orderId: 'sim-exit',
+              ts: bar.time,
+              price: executionPrice,
+              quantity: trade.quantity,
+              costs: fillFee,
+            },
+          ],
         };
 
         this.roundTrips.unshift(roundTrip);
@@ -391,7 +445,7 @@ export class ReplayController {
           this.exchange,
           trade.side,
           trade.quantity,
-          trade.price,
+          executionPrice,
           bar.time,
         );
 
@@ -439,6 +493,9 @@ export class ReplayController {
       selectedAccountId: this.selectedAccountId,
       multiTimeframe: this.multiTimeframe,
       secondaryTimeframe: this.secondaryTimeframe,
+      fillModel: this.fillModel,
+      commission: this.commission,
+      slippage: this.slippage,
     };
   }
 

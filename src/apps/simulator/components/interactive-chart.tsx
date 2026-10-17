@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   createChart,
   type Bar as OaBar,
@@ -28,6 +28,8 @@ import {
 import { resolveRange, universeFor } from '../../../core/simulator/controls';
 import { markersFromPairing, pairTrades, type RoundTrip, type TradeMarker } from '../../../core/simulator/trade-pairing';
 import { useSimulatorStore } from '../store/simulator-store';
+import { SimulatorDrawingRail, type DrawingToolType } from './simulator-drawing-rail';
+import { SimulatorDrawingCanvas, type ChartDrawing } from './simulator-drawing-canvas';
 
 /**
  * Interactive multi-pane chart with trade markers (Phase 7).
@@ -167,6 +169,57 @@ export const InteractiveChart: React.FC<InteractiveChartProps> = ({
   const [ready, setReady] = useState(false);
   const [palette, setPalette] = useState<Palette>(() => paletteOf(buildHonbaChartTheme()));
   const [tip, setTip] = useState<ChartTooltip | null>(null);
+
+  const [activeDrawingTool, setActiveDrawingTool] = useState<DrawingToolType>('cursor');
+  const [drawings, setDrawings] = useState<ChartDrawing[]>([]);
+  const [undoneDrawings, setUndoneDrawings] = useState<ChartDrawing[]>([]);
+
+  const handleAddDrawing = useCallback((d: ChartDrawing) => {
+    setDrawings((prev) => [...prev, d]);
+    setUndoneDrawings([]);
+  }, []);
+
+  const handleUndo = useCallback(() => {
+    setDrawings((prev) => {
+      if (prev.length === 0) return prev;
+      const last = prev[prev.length - 1];
+      setUndoneDrawings((u) => [...u, last]);
+      return prev.slice(0, prev.length - 1);
+    });
+  }, []);
+
+  const handleRedo = useCallback(() => {
+    setUndoneDrawings((u) => {
+      if (u.length === 0) return u;
+      const last = u[u.length - 1];
+      setDrawings((prev) => [...prev, last]);
+      return u.slice(0, u.length - 1);
+    });
+  }, []);
+
+  const handleClearDrawings = useCallback(() => {
+    setDrawings([]);
+    setUndoneDrawings([]);
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isReplaying) return;
+      if (e.key === 'Escape') {
+        setActiveDrawingTool('cursor');
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        if (e.shiftKey) {
+          handleRedo();
+        } else {
+          handleUndo();
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+        handleRedo();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isReplaying, handleUndo, handleRedo]);
 
   // Create the chart once. Everything after this point talks to `chartRef`.
   useEffect(() => {
@@ -365,6 +418,29 @@ export const InteractiveChart: React.FC<InteractiveChartProps> = ({
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: 0 }}>
       <div ref={hostRef} style={{ position: 'absolute', inset: 0 }} />
+
+      {/* Interactive Drawing Canvas Overlay */}
+      <SimulatorDrawingCanvas
+        activeTool={activeDrawingTool}
+        disabled={!!isReplaying}
+        drawings={drawings}
+        onAddDrawing={handleAddDrawing}
+        onSelectTool={setActiveDrawingTool}
+        color="var(--accent-primary, #38bdf8)"
+      />
+
+      {/* Consistent OpenAlgo Drawing Rail on Left */}
+      <SimulatorDrawingRail
+        activeTool={activeDrawingTool}
+        onSelectTool={setActiveDrawingTool}
+        disabled={!!isReplaying}
+        canUndo={drawings.length > 0}
+        canRedo={undoneDrawings.length > 0}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        onClear={handleClearDrawings}
+        drawingCount={drawings.length}
+      />
 
       {empty ? (
         <div

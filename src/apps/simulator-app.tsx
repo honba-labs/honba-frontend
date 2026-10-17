@@ -67,6 +67,9 @@ const Simulator: React.FC = () => {
     store.controls.exchange,
     store.controls.capital,
     selectedAccountId,
+    store.controls.fillModel,
+    store.controls.commission,
+    store.controls.slippage,
   );
 
   return (

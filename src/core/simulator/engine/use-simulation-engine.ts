@@ -12,6 +12,9 @@ export function useSimulationEngine(
   exchange: string = 'NSE',
   initialCapital: number = 100_000,
   accountId: string = 'acc-sandbox-primary',
+  fillModel: string = 'bar_fill',
+  commission: number = 0,
+  slippage: number = 0,
 ) {
   const controllerRef = useRef<ReplayController | null>(null);
 
@@ -32,16 +35,16 @@ export function useSimulationEngine(
   }, [controller]);
 
   const lastInitKey = useRef<string>('');
-  const initKey = `${symbol}|${exchange}|${bars.length}|${bars[0]?.time ?? 0}|${bars[bars.length - 1]?.time ?? 0}|${initialCapital}|${accountId}`;
+  const initKey = `${symbol}|${exchange}|${bars.length}|${bars[0]?.time ?? 0}|${bars[bars.length - 1]?.time ?? 0}|${initialCapital}|${accountId}|${fillModel}|${commission}|${slippage}`;
 
-  // Initialize or re-initialize when underlying dataset or instrument actually changes
+  // Initialize or re-initialize when underlying dataset, instrument, or execution config changes
   useEffect(() => {
     if (bars.length > 0 && lastInitKey.current !== initKey) {
       lastInitKey.current = initKey;
-      controller.init([...bars], strategy, symbol, exchange, initialCapital, accountId);
+      controller.init([...bars], strategy, symbol, exchange, initialCapital, accountId, fillModel, commission, slippage);
       setVisibleBars([...bars]);
     }
-  }, [initKey, bars, strategy, symbol, exchange, initialCapital, accountId, controller]);
+  }, [initKey, bars, strategy, symbol, exchange, initialCapital, accountId, fillModel, commission, slippage, controller]);
 
   const play = useCallback(() => controller.play(), [controller]);
   const pause = useCallback(() => controller.pause(), [controller]);
@@ -60,6 +63,9 @@ export function useSimulationEngine(
   }, [controller]);
   const selectAccount = useCallback((accId: string) => {
     controller.setAccountId(accId);
+  }, [controller]);
+  const setExecutionConfig = useCallback((model: string, comm: number = 0, slip: number = 0) => {
+    controller.setExecutionConfig(model, comm, slip);
   }, [controller]);
 
   const clearPortfolio = useCallback(() => {
@@ -80,6 +86,7 @@ export function useSimulationEngine(
     toggleMultiTimeframe,
     setSecondaryTimeframe,
     selectAccount,
+    setExecutionConfig,
     clearPortfolio,
   };
 }

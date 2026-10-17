@@ -4,6 +4,7 @@ import { FlaskConical, Play, Search, SlidersHorizontal } from 'lucide-react';
 import { SymbolSearchModal } from '../../../components/features/workbench/symbol-search-modal';
 import {
   FILL_MODELS,
+  FILL_MODEL_DESCRIPTORS,
   PERIOD_PRESETS,
   TIMEFRAMES,
   formatTimeframe,
@@ -329,14 +330,38 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({
       </div>
 
       <label style={fieldStyle}>
-        <span style={labelStyle}>Fill model</span>
-        <select style={inputStyle} value={controls.fillModel} onChange={(event) => setControls({ fillModel: event.target.value })}>
-          {FILL_MODELS.map((model) => (
-            <option key={model} value={model}>
-              {model}
-            </option>
-          ))}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+          <span style={labelStyle}>Fill model</span>
+          <span
+            style={{
+              fontSize: 9,
+              fontWeight: 700,
+              padding: '1px 5px',
+              borderRadius: 3,
+              background: 'var(--accent-subtle)',
+              color: 'var(--accent-primary)',
+            }}
+          >
+            {FILL_MODEL_DESCRIPTORS[controls.fillModel]?.badge ?? 'Execution'}
+          </span>
+        </div>
+        <select
+          style={inputStyle}
+          value={controls.fillModel}
+          onChange={(event) => setControls({ fillModel: event.target.value })}
+        >
+          {FILL_MODELS.map((model) => {
+            const desc = FILL_MODEL_DESCRIPTORS[model];
+            return (
+              <option key={model} value={model}>
+                {desc ? `${desc.label} (${desc.badge})` : model}
+              </option>
+            );
+          })}
         </select>
+        <span style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.3 }}>
+          {FILL_MODEL_DESCRIPTORS[controls.fillModel]?.description ?? 'Simulation execution model.'}
+        </span>
       </label>
 
       {issues.length > 0 ? (

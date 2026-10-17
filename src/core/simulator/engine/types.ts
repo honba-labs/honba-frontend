@@ -88,4 +88,7 @@ export interface SimulationEngineState {
   selectedAccountId: string;
   multiTimeframe: boolean;
   secondaryTimeframe: string;
+  fillModel: string;
+  commission: number;
+  slippage: number;
 }
