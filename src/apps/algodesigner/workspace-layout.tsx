@@ -3,6 +3,7 @@ import {
   Bot,
   Braces,
   CheckCircle2,
+  Download,
   GitCompare,
   Layers,
   Maximize2,
@@ -21,6 +22,7 @@ import {
   type DesignerPane,
   type DrawerTab,
 } from '../../core/designer/store';
+import { STRATEGY_TEMPLATES } from '../../core/designer/strategy-templates';
 import { mapNodeLines, nodeAtLine, spansToMarkers, verifyIssuesToMarkers } from '../../core/designer/diagnostics';
 import type { EditorReveal } from './monaco-python-editor';
 import { graphHashSync, type GraphNode } from '../../core/graph/model';
@@ -59,6 +61,15 @@ const SYNC_BADGE: Record<'idle' | 'pending' | 'synced' | 'invalid', { text: stri
   pending: { text: 'Pending valid syntax…', color: 'var(--accent-gold, #f7a600)' },
   synced: { text: 'Graph synced (clean)', color: 'var(--bullish, #089981)' },
   invalid: { text: 'Last valid graph held', color: 'var(--bearish, #f23645)' },
+};
+
+/** Top-bar Save label per save state (Phase 5). */
+const SAVE_LABEL: Record<'idle' | 'saving' | 'saved' | 'error' | 'offline', string> = {
+  idle: 'Save',
+  saving: 'Saving…',
+  saved: 'Saved',
+  error: 'Save failed',
+  offline: 'Saved (offline)',
 };
 
 export interface WorkspaceLayoutProps {
@@ -129,16 +140,32 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({ client, onNoti
     [store, setNotice],
   );
 
-  const handleSimulate = useCallback(() => {
-    stashHandoff(store.graph);
-    window.location.href = simulatorHandoffUrl(store.graph.name);
-  }, [store.graph]);
+  const handleSimulate = useCallback(
+    (graph = store.graph) => {
+      stashHandoff(graph);
+      window.location.href = simulatorHandoffUrl(graph.name);
+    },
+    [store.graph],
+  );
 
   const handleSave = useCallback(() => {
-    void store.snapshotVersion();
-    store.markSaved();
-    setNotice(`Saved revision ${hash.slice(0, 8)}.`);
-  }, [store, hash, setNotice]);
+    void store.saveStrategy(client);
+    setNotice(`Saving ${store.graph.name}…`);
+  }, [store, client, setNotice]);
+
+  const handleExportPython = useCallback(() => {
+    const code = store.exportPython();
+    const blob = new Blob([code], { type: 'text/x-python' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `${store.graph.name || 'strategy'}.py`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(url);
+    setNotice(`Exported ${store.graph.name || 'strategy'}.py`);
+  }, [store, setNotice]);
 
   const focus = layout.focus;
   const isFocused = (pane: DesignerPane) => focus === pane;
@@ -217,11 +244,21 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({ client, onNoti
             type="button"
             className="shortlist-btn"
             onClick={handleSave}
-            title="Snapshot the current revision (Ctrl+S)"
+            title="Save this strategy to the library (Ctrl+S)"
             style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px' }}
           >
             <Save size={12} />
-            <span>Save</span>
+            <span>{SAVE_LABEL[store.saveState]}</span>
+          </button>
+          <button
+            type="button"
+            className="shortlist-btn"
+            onClick={handleExportPython}
+            title="Export the generated strategy as a Python .py file"
+            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px' }}
+          >
+            <Download size={12} />
+            <span>Export .py</span>
           </button>
           <button
             type="button"
@@ -264,7 +301,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({ client, onNoti
           <button
             type="button"
             className="shortlist-btn shortlist-btn-primary"
-            onClick={handleSimulate}
+            onClick={() => handleSimulate()}
             title="Open the Simulator with this strategy"
             style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px' }}
           >
@@ -298,7 +335,16 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({ client, onNoti
               onToggleFocus={store.toggleFocus}
               onClose={focus ? undefined : store.togglePane}
             >
-              <LibraryDrawer onNewStrategy={handleNewStrategy} onAddIndicator={handleAddIndicator} />
+              <LibraryDrawer
+                templates={STRATEGY_TEMPLATES}
+                saved={store.savedStrategies}
+                onNewStrategy={handleNewStrategy}
+                onAddIndicator={handleAddIndicator}
+                onOpen={(graph) => void store.openStrategy(graph)}
+                onSimulate={(graph) => handleSimulate(graph)}
+                onFork={(manifest) => void store.forkStrategy(manifest)}
+                onDelete={store.deleteSavedStrategy}
+              />
             </Pane>
           </div>
         ) : null}

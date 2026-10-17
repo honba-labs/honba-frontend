@@ -293,8 +293,8 @@ function DesignerCanvasInner({ graph, onError, client }: CanvasProps) {
 
       if ((event.ctrlKey || event.metaKey) && event.key === 's') {
         event.preventDefault();
-        void store.snapshotVersion();
-        store.markSaved();
+        // Full Phase 5 save: manifest → localStorage (+ profile API), revision snapshot.
+        void store.saveStrategy(client);
       }
 
       if (event.key === 'Escape') {
@@ -307,7 +307,7 @@ function DesignerCanvasInner({ graph, onError, client }: CanvasProps) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [store]);
+  }, [store, client]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>

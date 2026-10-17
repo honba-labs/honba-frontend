@@ -41,6 +41,16 @@ import {
   type AssistantRunSummary,
 } from './assistant';
 import {
+  loadSaved,
+  persistSaved,
+  removeSaved,
+  slugify,
+  toSavedManifest,
+  uniqueId,
+  upsertSaved,
+  type SavedStrategyManifest,
+} from './library-store';
+import {
   DEFAULT_LAYOUT,
   layoutWithFocusToggled,
   layoutWithPaneToggled,
@@ -150,6 +160,10 @@ export interface DesignerState {
   assistant: AssistantMessage[];
   /** Phase 4 co-pilot request status, drives the typing indicator. */
   assistantStatus: 'idle' | 'thinking';
+  /** Phase 5 library: the user's saved strategies (localStorage-backed). */
+  savedStrategies: SavedStrategyManifest[];
+  /** Phase 5 save feedback for the top bar. */
+  saveState: 'idle' | 'saving' | 'saved' | 'error' | 'offline';
   versions: DesignerVersion[];
   layout: DesignerLayout;
 
@@ -195,6 +209,16 @@ export interface DesignerState {
   }) => Promise<void>;
 
   markSaved: () => void;
+  /** Phase 5: persist the current graph+code to localStorage and (best-effort) the profile API. */
+  saveStrategy: (client?: HonbaClient) => Promise<void>;
+  /** Phase 5: open a strategy graph from the library, resetting editor/sync state. */
+  openStrategy: (graph: StrategyGraphShape) => Promise<void>;
+  /** Phase 5: duplicate a strategy under a fresh id without touching the original. */
+  forkStrategy: (manifest: SavedStrategyManifest) => Promise<void>;
+  /** Phase 5: delete a saved strategy from the library. */
+  deleteSavedStrategy: (id: string) => void;
+  /** Phase 5: the current generated Python source (for `.py` export). */
+  exportPython: () => string;
   setCode: (code: string) => void;
   setRecognizer: (recognizer: Recognizer) => void;
   /** Queue a debounced recognition of `source` (called by the editor). */
@@ -323,6 +347,8 @@ export const useDesignerStore = create<DesignerState>((set, get) => {
     recognizer: recognizeGeneratedSource,
     assistant: [],
     assistantStatus: 'idle',
+    savedStrategies: loadSaved(),
+    saveState: 'idle',
     versions: [],
     layout: loadLayout(),
 
@@ -667,6 +693,63 @@ export const useDesignerStore = create<DesignerState>((set, get) => {
     },
 
     markSaved: () => set({ isModified: false }),
+
+    saveStrategy: async (client) => {
+      const { graph, code } = get();
+      set({ saveState: 'saving' });
+      const id = slugify(graph.name);
+      const existing = get().savedStrategies.find((entry) => entry.id === id);
+      const manifest = toSavedManifest(graph, code, {
+        id,
+        ...(existing ? { category: existing.category, version: existing.version, author: existing.author } : {}),
+      });
+      const list = upsertSaved(get().savedStrategies, manifest);
+      persistSaved(list);
+      set({ savedStrategies: list });
+
+      let state: DesignerState['saveState'] = 'saved';
+      if (client && typeof client.putProfileLayoutsByName === 'function') {
+        try {
+          await client.putProfileLayoutsByName(manifest.id, manifest);
+        } catch {
+          // localStorage already holds it; surface a degraded but non-fatal state.
+          state = 'offline';
+        }
+      }
+      await get().snapshotVersion();
+      set({ saveState: state, isModified: false });
+    },
+
+    openStrategy: async (graph) => {
+      await get().setGraph(graph);
+      set({ tab: 'canvas', saveState: 'idle' });
+    },
+
+    forkStrategy: async (manifest) => {
+      const taken = get().savedStrategies.map((entry) => entry.id);
+      const id = uniqueId(`${manifest.id}_copy`, taken);
+      const name = `${manifest.name}_copy`;
+      const graph: StrategyGraphShape = { ...manifest.graph, name };
+      await get().setGraph(graph);
+      const forked = toSavedManifest(graph, await buildCode(graph), {
+        id,
+        category: manifest.category === 'custom' ? 'custom' : manifest.category,
+        description: manifest.description,
+        tags: [...manifest.tags],
+        author: manifest.author,
+      });
+      const list = upsertSaved(get().savedStrategies, forked);
+      persistSaved(list);
+      set({ savedStrategies: list, tab: 'canvas', saveState: 'saved' });
+    },
+
+    deleteSavedStrategy: (id) => {
+      const list = removeSaved(get().savedStrategies, id);
+      persistSaved(list);
+      set({ savedStrategies: list });
+    },
+
+    exportPython: () => get().code,
 
     setCode: (code) => {
       set({ code, codeEdited: true });
