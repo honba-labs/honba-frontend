@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AlertTriangle,
   Bot,
   Braces,
   CheckCircle2,
@@ -266,25 +267,6 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({ client, onNoti
           </button>
           <button
             type="button"
-            className="shortlist-btn"
-            onClick={() => {
-              void store.verifyNow(client);
-              store.setDrawer(true, 'verify');
-            }}
-            title="Verify the strategy graph structure and ports"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-              padding: '4px 8px',
-              color: store.verify.ok ? 'var(--bullish, #089981)' : store.verify.issues.length > 0 ? 'var(--bearish, #f23645)' : undefined,
-            }}
-          >
-            <ShieldCheck size={12} />
-            <span>{store.verify.ok ? 'Verified' : store.verify.issues.length > 0 ? `${store.verify.issues.length} Defect(s)` : 'Verify'}</span>
-          </button>
-          <button
-            type="button"
             className={layout.assistantOpen ? 'shortlist-btn shortlist-btn-primary' : 'shortlist-btn'}
             onClick={() => store.togglePane('assistant')}
             aria-pressed={layout.assistantOpen}
@@ -297,23 +279,49 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({ client, onNoti
           <button
             type="button"
             className={layout.drawerOpen ? 'shortlist-btn shortlist-btn-primary' : 'shortlist-btn'}
-            onClick={() => store.setDrawer(!layout.drawerOpen, layout.drawerTab)}
+            onClick={() => {
+              void store.verifyNow(client);
+              store.setDrawer(!layout.drawerOpen, store.verify.issues.length > 0 ? 'verify' : layout.drawerTab);
+            }}
             aria-pressed={layout.drawerOpen}
-            title="Toggle the Diagnostics drawer (Verify, Run, Sweeps, Ops, Results)"
-            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px' }}
+            title={
+              store.verify.ok
+                ? 'Diagnostics (verified clean) — Click to toggle drawer'
+                : store.verify.issues.length > 0
+                ? `${store.verify.issues.length} defect(s) detected — Click to inspect diagnostics`
+                : 'Toggle Diagnostics drawer (Verify, Run, Sweeps, Ops, Results)'
+            }
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '4px 8px',
+              color: store.verify.issues.length > 0 ? 'var(--bearish, #f23645)' : undefined,
+            }}
           >
-            <PanelBottom size={12} />
+            {store.verify.issues.length > 0 ? (
+              <AlertTriangle size={12} style={{ color: 'var(--bearish, #f23645)' }} />
+            ) : (
+              <PanelBottom size={12} style={{ color: store.verify.ok ? 'var(--bullish, #089981)' : undefined }} />
+            )}
             <span>Diagnostics</span>
-          </button>
-          <button
-            type="button"
-            className="shortlist-btn"
-            onClick={() => handleSimulate()}
-            title="Open the Simulator with this strategy"
-            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', color: 'var(--accent-primary)' }}
-          >
-            <Play size={12} />
-            <span>Simulate →</span>
+            {store.verify.issues.length > 0 ? (
+              <span
+                style={{
+                  background: 'var(--bearish, #f23645)',
+                  color: '#ffffff',
+                  borderRadius: 10,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  padding: '1px 5px',
+                  lineHeight: '12px',
+                }}
+              >
+                {store.verify.issues.length}
+              </span>
+            ) : store.verify.ok ? (
+              <span style={{ fontSize: 10, color: 'var(--bullish, #089981)' }}>✓</span>
+            ) : null}
           </button>
           {focus ? (
             <button

@@ -3,6 +3,7 @@ import {
   Background,
   Controls,
   MiniMap,
+  Panel,
   ReactFlow,
   ReactFlowProvider,
   useReactFlow,
@@ -20,9 +21,11 @@ import {
   FileCode,
   History,
   Layers,
+  MoreHorizontal,
   Play,
   RotateCcw,
   Save,
+  Sliders,
   Trash2,
   Upload,
   X,
@@ -36,7 +39,6 @@ import { honbaNodeTypes } from './nodes/HonbaNodes';
 import { honbaEdgeTypes } from './edges/HonbaInsertableEdge';
 import { NodePalette, type NodeTemplate } from './palette';
 import { NodeInspector } from './inspector';
-import { StrategyNameEditor } from './strategy-name-editor';
 
 interface CanvasProps {
   graph: StrategyGraphShape;
@@ -54,10 +56,23 @@ function DesignerCanvasInner({ graph, onError, client }: CanvasProps) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [versionModalOpen, setVersionModalOpen] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
 
   const [importText, setImportText] = useState('');
   const [importError, setImportError] = useState<string | null>(null);
   const [parsedGraph, setParsedGraph] = useState<StrategyGraphShape | null>(null);
+
+  useEffect(() => {
+    if (!moreMenuOpen) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setMoreMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [moreMenuOpen]);
 
   const activeClient = useMemo(() => client || new HonbaClient({}), [client]);
 
@@ -303,6 +318,7 @@ function DesignerCanvasInner({ graph, onError, client }: CanvasProps) {
         store.selectEdge(null);
         setImportModalOpen(false);
         setVersionModalOpen(false);
+        setMoreMenuOpen(false);
       }
     };
 
@@ -311,258 +327,383 @@ function DesignerCanvasInner({ graph, onError, client }: CanvasProps) {
   }, [store, client]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-      {/* Top Action Bar */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '6px 12px',
-          background: 'var(--bg-surface)',
-          borderBottom: '1px solid var(--border-subtle)',
-          fontSize: 12,
-          flexShrink: 0,
-          gap: 8,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button
-            type="button"
-            className={paletteOpen ? 'shortlist-btn shortlist-btn-primary' : 'shortlist-btn'}
-            onClick={() => setPaletteOpen(!paletteOpen)}
-            title={paletteOpen ? 'Close Node Palette' : 'Open Node Palette to add nodes'}
-            style={{ padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 6 }}
-          >
-            <Layers size={13} />
-            <span>+ Add Nodes</span>
-          </button>
-
-          <StrategyNameEditor
-            name={graph.name}
-            onChange={(next) => void store.setName(next)}
-            prefix="Strategy:"
+    <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: 0, overflow: 'hidden' }}>
+      {/* Canvas Area: takes 100% of workspace */}
+      <div ref={reactFlowWrapper} style={{ width: '100%', height: '100%', position: 'relative' }}>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={honbaNodeTypes}
+          edgeTypes={honbaEdgeTypes}
+          onNodesChange={store.onNodesChange}
+          onEdgesChange={store.onEdgesChange}
+          onConnect={handleConnect}
+          isValidConnection={isValidConnection}
+          onNodeClick={(_, node) => store.selectNode(node.id)}
+          onEdgeClick={(_, edge) => store.selectEdge(edge.id)}
+          onPaneClick={() => {
+            store.selectNode(null);
+            store.selectEdge(null);
+            setMoreMenuOpen(false);
+          }}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+          fitView
+          snapToGrid
+          snapGrid={[16, 16]}
+          deleteKeyCode={null}
+          defaultEdgeOptions={{
+            type: 'insertable',
+            animated: true,
+          }}
+        >
+          <Background gap={16} size={1} color="var(--border-subtle)" />
+          <MiniMap
+            nodeStrokeWidth={3}
+            pannable
+            zoomable
+            style={{
+              background: 'var(--bg-surface)',
+              border: '1px solid var(--border-subtle)',
+            }}
           />
+          <Controls />
 
-          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-            ({graph.nodes.length} nodes, {(graph.edges ?? []).length} edges)
-          </span>
-
-          {store.isModified ? (
-            <span style={{ fontSize: 10, color: 'var(--accent-gold, #f7a600)', display: 'flex', alignItems: 'center', gap: 4 }}>
-              ● Unsaved
-            </span>
-          ) : (
-            <span style={{ fontSize: 10, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <CheckCircle2 size={11} style={{ color: 'var(--bullish, #089981)' }} /> Saved
-            </span>
-          )}
-        </div>
-
-        {/* Action Controls Group */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {store.selectedNodeId || store.selectedEdgeId ? (
-            <button
-              type="button"
-              className="shortlist-btn"
-              onClick={() => void store.deleteSelected()}
-              style={{ padding: '4px 8px', color: 'var(--bearish, #f23645)', display: 'flex', alignItems: 'center', gap: 4 }}
-              title="Delete selected item (Del)"
+          {/* Floating Top-Left Controls HUD (inside canvas, like zoom) */}
+          <Panel position="top-left" style={{ margin: 12 }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '4px 8px',
+                background: 'var(--bg-surface, #1e222d)',
+                border: '1px solid var(--border-subtle, #2a2e39)',
+                borderRadius: 20,
+                boxShadow: 'var(--shadow-md, 0 4px 12px rgba(0,0,0,0.25))',
+                fontSize: 12,
+              }}
             >
-              <Trash2 size={12} />
-              <span>Delete</span>
-            </button>
-          ) : null}
-
-          <button
-            type="button"
-            className="shortlist-btn"
-            onClick={() => setImportModalOpen(true)}
-            title="Import strategy graph from JSON"
-            style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 4 }}
-          >
-            <Upload size={12} />
-            <span>Import JSON</span>
-          </button>
-
-          <button
-            type="button"
-            className="shortlist-btn"
-            onClick={handleExportJson}
-            title="Export strategy graph as JSON"
-            style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 4 }}
-          >
-            <Download size={12} />
-            <span>Export JSON</span>
-          </button>
-
-          <button
-            type="button"
-            className="shortlist-btn"
-            onClick={() => setVersionModalOpen(true)}
-            title="View and restore version snapshots"
-            style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 4 }}
-          >
-            <History size={12} />
-            <span>Versions ({store.versions.length})</span>
-          </button>
-
-          {/* Prominent, slightly oversized Simulate (play) button */}
-          {(() => {
-            const structuralIssues = graphIssues(graph);
-            const verifyIssues = store.verify?.issues ?? [];
-            const errorCount = structuralIssues.length + verifyIssues.length;
-            const canSimulate = errorCount === 0;
-
-            return (
               <button
                 type="button"
-                disabled={!canSimulate}
-                onClick={() => {
-                  if (!canSimulate) {
-                    store.setDrawer(true, 'verify');
-                    return;
-                  }
-                  window.location.href = `/simulator.html?strategy=${encodeURIComponent(graph.name)}&source=designer`;
-                }}
-                title={
-                  canSimulate
-                    ? `Launch quantitative simulation for ${graph.name} (strategy is verified clean)`
-                    : `Cannot simulate: ${errorCount} error(s) detected. Click to inspect diagnostics.`
-                }
+                className={paletteOpen ? 'shortlist-btn shortlist-btn-primary' : 'shortlist-btn'}
+                onClick={() => setPaletteOpen(!paletteOpen)}
+                title={paletteOpen ? 'Close Node Palette' : 'Open Node Palette to add nodes'}
                 style={{
-                  height: 32,
-                  padding: '0 16px',
-                  fontSize: 12.5,
-                  fontWeight: 700,
-                  borderRadius: 16,
-                  display: 'inline-flex',
+                  padding: '4px 10px',
+                  display: 'flex',
                   alignItems: 'center',
-                  gap: 6,
-                  marginLeft: 6,
-                  cursor: canSimulate ? 'pointer' : 'not-allowed',
-                  background: canSimulate ? 'var(--bullish, #089981)' : 'var(--bg-surface-elevated, #2a2e39)',
-                  color: canSimulate ? '#ffffff' : 'var(--text-disabled, #787b86)',
-                  border: canSimulate ? '1px solid var(--bullish-hover, #07836f)' : '1px solid var(--border-subtle, #363a45)',
-                  boxShadow: canSimulate ? '0 2px 10px rgba(8, 153, 129, 0.4)' : 'none',
-                  opacity: canSimulate ? 1 : 0.6,
-                  transition: 'all var(--transition-fast, 120ms ease)',
-                  userSelect: 'none',
+                  gap: 5,
+                  borderRadius: 14,
+                  fontWeight: 600,
                 }}
               >
-                <Play size={14} fill={canSimulate ? 'currentColor' : 'none'} />
-                <span>Simulate</span>
-                {!canSimulate ? (
-                  <span
+                <Layers size={13} />
+                <span>+ Add Nodes</span>
+              </button>
+
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                {graph.nodes.length} nodes · {(graph.edges ?? []).length} edges
+              </span>
+
+              {store.isModified ? (
+                <span style={{ fontSize: 10, color: 'var(--accent-gold, #f7a600)', display: 'flex', alignItems: 'center', gap: 3 }}>
+                  ● Unsaved
+                </span>
+              ) : (
+                <span style={{ fontSize: 10, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3 }}>
+                  <CheckCircle2 size={11} style={{ color: 'var(--bullish, #089981)' }} /> Saved
+                </span>
+              )}
+
+              {(store.selectedNodeId || store.selectedEdgeId) && (
+                <span
+                  style={{
+                    padding: '2px 8px',
+                    fontSize: 11,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    borderRadius: 12,
+                    background: 'rgba(41, 98, 255, 0.1)',
+                    color: 'var(--accent-primary, #2962ff)',
+                    border: '1px solid rgba(41, 98, 255, 0.25)',
+                  }}
+                  title="Property Editor active for selected element"
+                >
+                  <Sliders size={11} />
+                  <span>Property Editor</span>
+                </span>
+              )}
+            </div>
+          </Panel>
+
+          {/* Floating Top-Right Controls: Grouped Actions & Oversized Simulate */}
+          <Panel position="top-right" style={{ margin: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {/* Grouped Actions Dropdown */}
+              <div style={{ position: 'relative' }} ref={moreMenuRef}>
+                <button
+                  type="button"
+                  className="shortlist-btn"
+                  onClick={() => setMoreMenuOpen(!moreMenuOpen)}
+                  title="Graph actions (Import, Export, Versions, Delete)"
+                  style={{
+                    height: 32,
+                    padding: '0 10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    background: moreMenuOpen ? 'var(--bg-surface-hover, #2a2e39)' : 'var(--bg-surface, #1e222d)',
+                    border: '1px solid var(--border-subtle, #2a2e39)',
+                    borderRadius: 16,
+                    boxShadow: 'var(--shadow-md, 0 4px 12px rgba(0,0,0,0.25))',
+                    color: 'var(--text-primary)',
+                    cursor: 'pointer',
+                    fontSize: 12,
+                    fontWeight: 500,
+                  }}
+                >
+                  <MoreHorizontal size={14} />
+                  <span>Actions</span>
+                </button>
+
+                {moreMenuOpen && (
+                  <div
                     style={{
-                      background: 'var(--bearish, #f23645)',
-                      color: '#ffffff',
-                      borderRadius: 10,
-                      fontSize: 10,
-                      fontWeight: 700,
-                      padding: '1px 6px',
-                      marginLeft: 2,
+                      position: 'absolute',
+                      right: 0,
+                      top: 36,
+                      minWidth: 180,
+                      background: 'var(--bg-surface, #1e222d)',
+                      border: '1px solid var(--border-subtle, #2a2e39)',
+                      borderRadius: 'var(--radius-md, 6px)',
+                      boxShadow: 'var(--shadow-lg, 0 10px 24px rgba(0,0,0,0.4))',
+                      zIndex: 50,
+                      padding: '4px 0',
+                      fontSize: 12,
                     }}
                   >
-                    {errorCount}
-                  </span>
-                ) : null}
-              </button>
-            );
-          })()}
-        </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMoreMenuOpen(false);
+                        setImportModalOpen(true);
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '7px 12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--text-primary)',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-surface-hover, #2a2e39)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <Upload size={13} style={{ color: 'var(--text-muted)' }} />
+                      <span>Import JSON</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMoreMenuOpen(false);
+                        handleExportJson();
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '7px 12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--text-primary)',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-surface-hover, #2a2e39)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <Download size={13} style={{ color: 'var(--text-muted)' }} />
+                      <span>Export JSON</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMoreMenuOpen(false);
+                        setVersionModalOpen(true);
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '7px 12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--text-primary)',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-surface-hover, #2a2e39)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <History size={13} style={{ color: 'var(--text-muted)' }} />
+                      <span>Version Snapshots ({store.versions.length})</span>
+                    </button>
+
+                    {(store.selectedNodeId || store.selectedEdgeId) && (
+                      <>
+                        <div style={{ height: 1, background: 'var(--border-subtle, #2a2e39)', margin: '4px 0' }} />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMoreMenuOpen(false);
+                            void store.deleteSelected();
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '7px 12px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'var(--bearish, #f23645)',
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-surface-hover, #2a2e39)')}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          <Trash2 size={13} />
+                          <span>Delete Selected (Del)</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Prominent, slightly oversized Simulate (play) button */}
+              {(() => {
+                const structuralIssues = graphIssues(graph);
+                const verifyIssues = store.verify?.issues ?? [];
+                const errorCount = structuralIssues.length + verifyIssues.length;
+                const canSimulate = errorCount === 0;
+
+                return (
+                  <button
+                    type="button"
+                    disabled={!canSimulate}
+                    onClick={() => {
+                      if (!canSimulate) {
+                        store.setDrawer(true, 'verify');
+                        return;
+                      }
+                      window.location.href = `/simulator.html?strategy=${encodeURIComponent(graph.name)}&source=designer`;
+                    }}
+                    title={
+                      canSimulate
+                        ? `Launch quantitative simulation for ${graph.name} (strategy is verified clean)`
+                        : `Cannot simulate: ${errorCount} error(s) detected. Click to inspect diagnostics.`
+                    }
+                    style={{
+                      height: 32,
+                      padding: '0 16px',
+                      fontSize: 12.5,
+                      fontWeight: 700,
+                      borderRadius: 16,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      cursor: canSimulate ? 'pointer' : 'not-allowed',
+                      background: canSimulate ? 'var(--bullish, #089981)' : 'var(--bg-surface-elevated, #2a2e39)',
+                      color: canSimulate ? '#ffffff' : 'var(--text-disabled, #787b86)',
+                      border: canSimulate ? '1px solid var(--bullish-hover, #07836f)' : '1px solid var(--border-subtle, #363a45)',
+                      boxShadow: canSimulate ? '0 2px 10px rgba(8, 153, 129, 0.4)' : 'var(--shadow-md, 0 4px 12px rgba(0,0,0,0.25))',
+                      opacity: canSimulate ? 1 : 0.6,
+                      transition: 'all var(--transition-fast, 120ms ease)',
+                      userSelect: 'none',
+                    }}
+                  >
+                    <Play size={14} fill={canSimulate ? 'currentColor' : 'none'} />
+                    <span>Simulate</span>
+                    {!canSimulate ? (
+                      <span
+                        style={{
+                          background: 'var(--bearish, #f23645)',
+                          color: '#ffffff',
+                          borderRadius: 10,
+                          fontSize: 10,
+                          fontWeight: 700,
+                          padding: '1px 6px',
+                          marginLeft: 2,
+                        }}
+                      >
+                        {errorCount}
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })()}
+            </div>
+          </Panel>
+        </ReactFlow>
       </div>
 
-      {/* Main Visual Workspace */}
-      <div style={{ display: 'flex', flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden' }}>
-        {/* Canvas Area: takes 100% of workspace width */}
-        <div ref={reactFlowWrapper} style={{ flex: 1, minWidth: 0, height: '100%', position: 'relative' }}>
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            nodeTypes={honbaNodeTypes}
-            edgeTypes={honbaEdgeTypes}
-            onNodesChange={store.onNodesChange}
-            onEdgesChange={store.onEdgesChange}
-            onConnect={handleConnect}
-            isValidConnection={isValidConnection}
-            onNodeClick={(_, node) => store.selectNode(node.id)}
-            onEdgeClick={(_, edge) => store.selectEdge(edge.id)}
-            onPaneClick={() => {
-              store.selectNode(null);
-              store.selectEdge(null);
-            }}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-            fitView
-            snapToGrid
-            snapGrid={[16, 16]}
-            deleteKeyCode={null}
-            defaultEdgeOptions={{
-              type: 'insertable',
-              animated: true,
-            }}
-          >
-            <Background gap={16} size={1} color="var(--border-subtle)" />
-            <MiniMap
-              nodeStrokeWidth={3}
-              pannable
-              zoomable
-              style={{
-                background: 'var(--bg-surface)',
-                border: '1px solid var(--border-subtle)',
-              }}
-            />
-            <Controls />
-          </ReactFlow>
+      {/* Floating Left Node Palette Drawer */}
+      {paletteOpen ? (
+        <div
+          style={{
+            position: 'absolute',
+            left: 12,
+            top: 56,
+            bottom: 12,
+            width: 260,
+            zIndex: 20,
+            borderRadius: 'var(--radius-md, 6px)',
+            border: '1px solid var(--border-subtle, #2a2e39)',
+            boxShadow: 'var(--shadow-lg, 0 10px 24px rgba(0,0,0,0.4))',
+            overflow: 'hidden',
+            background: 'var(--bg-surface, #1e222d)',
+          }}
+        >
+          <NodePalette
+            onDragStart={handleDragStart}
+            onAdd={handleAddFromPalette}
+            onClose={() => setPaletteOpen(false)}
+          />
         </div>
+      ) : null}
 
-        {/* Floating Left Node Palette Drawer */}
-        {paletteOpen ? (
-          <div
-            style={{
-              position: 'absolute',
-              left: 10,
-              top: 10,
-              bottom: 10,
-              width: 260,
-              zIndex: 20,
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--border-subtle)',
-              boxShadow: 'var(--shadow-lg)',
-              overflow: 'hidden',
-              background: 'var(--bg-surface)',
-            }}
-          >
-            <NodePalette
-              onDragStart={handleDragStart}
-              onAdd={handleAddFromPalette}
-              onClose={() => setPaletteOpen(false)}
-            />
-          </div>
-        ) : null}
-
-        {/* Floating Right Modular Inspector Drawer: ONLY visible when an element is selected */}
-        {store.selectedNodeId || store.selectedEdgeId ? (
-          <div
-            style={{
-              position: 'absolute',
-              right: 10,
-              top: 10,
-              bottom: 10,
-              width: 300,
-              zIndex: 20,
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--border-subtle)',
-              boxShadow: 'var(--shadow-lg)',
-              overflow: 'hidden',
-              background: 'var(--bg-surface)',
-            }}
-          >
-            <NodeInspector />
-          </div>
-        ) : null}
-      </div>
+      {/* Floating Right Property Editor Drawer: ONLY visible when an element is selected */}
+      {store.selectedNodeId || store.selectedEdgeId ? (
+        <div
+          style={{
+            position: 'absolute',
+            right: 12,
+            top: 56,
+            bottom: 12,
+            width: 310,
+            zIndex: 20,
+            borderRadius: 'var(--radius-md, 6px)',
+            border: '1px solid var(--border-subtle, #2a2e39)',
+            boxShadow: 'var(--shadow-lg, 0 10px 24px rgba(0,0,0,0.4))',
+            overflow: 'hidden',
+            background: 'var(--bg-surface, #1e222d)',
+          }}
+        >
+          <NodeInspector />
+        </div>
+      ) : null}
 
       {/* Phase 6.1: Replace / Import Strategy Modal */}
       {importModalOpen && (

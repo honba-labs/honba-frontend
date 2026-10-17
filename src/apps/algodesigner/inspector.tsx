@@ -131,7 +131,8 @@ export const NodeInspector: React.FC = () => {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <h3 style={{ fontSize: 13, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Inspector</h3>
+          <Sliders size={13} style={{ color: 'var(--accent-primary, #2962ff)' }} />
+          <h3 style={{ fontSize: 13, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Property Editor</h3>
           {selectedNode ? (
             <span
               style={{
