@@ -19,9 +19,16 @@ import { useSimulatorStore } from '../store/simulator-store';
  * Phase 6; any control without a wire field is surfaced as not modelled rather
  * than fabricated (risk R5).
  */
+import { getSandboxAccounts } from '../../../core/simulator/engine/portfolio-adapter';
+
 export interface SimulationControlsProps {
   onRun: () => void;
   onSweeps?: () => void;
+  selectedAccountId?: string;
+  onSelectAccount?: (accountId: string) => void;
+  multiTimeframe?: boolean;
+  secondaryTimeframe?: string;
+  onToggleMultiTf?: (enabled: boolean, tf: string) => void;
 }
 
 const labelStyle: React.CSSProperties = {
@@ -72,9 +79,21 @@ function NumberField({
   );
 }
 
-export const SimulationControls: React.FC<SimulationControlsProps> = ({ onRun, onSweeps }) => {
+export const SimulationControls: React.FC<SimulationControlsProps> = ({
+  onRun,
+  onSweeps,
+  selectedAccountId = 'acc-sandbox-primary',
+  onSelectAccount,
+  multiTimeframe = false,
+  secondaryTimeframe = '1h',
+  onToggleMultiTf,
+}) => {
   const { controls, strategyName, origin, run, setControls, plan } = useSimulatorStore();
   const [symbolOpen, setSymbolOpen] = useState(false);
+  const [portfolioAccountId, setPortfolioAccountId] = useState(selectedAccountId);
+  const [multiTf, setMultiTf] = useState(multiTimeframe);
+  const [secTf, setSecTf] = useState(secondaryTimeframe);
+  const sandboxAccounts = getSandboxAccounts();
   const issues = plan().issues;
   const busy = run.status === 'running';
 
@@ -168,6 +187,58 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({ onRun, o
         <div style={{ flex: 1 }}>
           <NumberField label="Slippage" value={controls.slippage} onChange={(slippage) => setControls({ slippage })} suffix="bps" />
         </div>
+      </div>
+
+      <label style={fieldStyle}>
+        <span style={labelStyle}>Sandboxed Portfolio</span>
+        <select
+          style={inputStyle}
+          value={portfolioAccountId}
+          onChange={(event) => {
+            setPortfolioAccountId(event.target.value);
+            onSelectAccount?.(event.target.value);
+          }}
+        >
+          {sandboxAccounts.map((acc) => (
+            <option key={acc.id} value={acc.id}>
+              {acc.name} ({acc.mode})
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <div style={{ ...fieldStyle, border: '1px solid var(--border-subtle, #2a2e39)', padding: 8, borderRadius: 6, background: 'rgba(255,255,255,0.02)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: multiTf ? 6 : 0 }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-primary)' }}>Multi-Chart Sync</span>
+          <input
+            type="checkbox"
+            checked={multiTf}
+            onChange={(e) => {
+              setMultiTf(e.target.checked);
+              onToggleMultiTf?.(e.target.checked, secTf);
+            }}
+            style={{ cursor: 'pointer' }}
+          />
+        </div>
+        {multiTf && (
+          <div>
+            <span style={labelStyle}>Higher Timeframe</span>
+            <select
+              style={{ ...inputStyle, padding: '4px 6px' }}
+              value={secTf}
+              onChange={(e) => {
+                setSecTf(e.target.value);
+                onToggleMultiTf?.(true, e.target.value);
+              }}
+            >
+              <option value="15m">15 Minutes</option>
+              <option value="30m">30 Minutes</option>
+              <option value="1h">1 Hour</option>
+              <option value="4h">4 Hours</option>
+              <option value="1d">1 Day (Daily)</option>
+            </select>
+          </div>
+        )}
       </div>
 
       <label style={fieldStyle}>

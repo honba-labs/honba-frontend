@@ -448,7 +448,30 @@ const SOURCE_BADGE: Record<BarsSource, { label: string; color: string } | null> 
  * the strategy's indicator specs and derives trade markers from the run's
  * journal, then hands all of it to {@link InteractiveChart}.
  */
-export const SimulatorChart: React.FC<{ client?: Partial<BarsClient> | null }> = ({ client = null }) => {
+import { MultiChartView } from './multi-chart-view';
+
+export interface SimulatorChartProps {
+  client?: Partial<BarsClient> | null;
+  onBarsLoaded?: (bars: readonly ChartBar[]) => void;
+  engineVisibleBars?: readonly ChartBar[];
+  engineTrips?: readonly RoundTrip[];
+  multiTimeframe?: boolean;
+  secondaryTimeframe?: string;
+}
+
+/**
+ * Store-wired container: loads the bars behind the current selection, resolves
+ * the strategy's indicator specs and derives trade markers from the run's
+ * journal or live replay engine, then hands all of it to {@link MultiChartView}.
+ */
+export const SimulatorChart: React.FC<SimulatorChartProps> = ({
+  client = null,
+  onBarsLoaded,
+  engineVisibleBars,
+  engineTrips,
+  multiTimeframe = false,
+  secondaryTimeframe = '1h',
+}) => {
   const strategy = useSimulatorStore((state) => state.strategy);
   const controls = useSimulatorStore((state) => state.controls);
   const run = useSimulatorStore((state) => state.run);
@@ -474,14 +497,17 @@ export const SimulatorChart: React.FC<{ client?: Partial<BarsClient> | null }> =
     setBarsState((prev) => ({ ...prev, status: 'loading' }));
     void loadRunBars(client, { instrumentId, from: start, to: end, barSpec: timeframe }, { signal: controller.signal }).then(
       (state) => {
-        if (active) setBarsState(state);
+        if (active) {
+          setBarsState(state);
+          onBarsLoaded?.(state.bars);
+        }
       },
     );
     return () => {
       active = false;
       controller.abort();
     };
-  }, [client, instrumentId, start, end, timeframe]);
+  }, [client, instrumentId, start, end, timeframe, onBarsLoaded]);
 
   // Indicator specs are resolved against the loaded registry (the tier import is
   // async), so the chart and the strategy agree on parameters.
@@ -498,10 +524,18 @@ export const SimulatorChart: React.FC<{ client?: Partial<BarsClient> | null }> =
   const drawable = useMemo(() => drawableSpecs(specs), [specs]);
   const skipped = useMemo(() => specs.filter((spec) => !spec.supported), [specs]);
 
-  const pairing = useMemo(() => pairTrades(journal.trades), [journal.trades]);
+  const pairing = useMemo(() => {
+    if (engineTrips && engineTrips.length > 0) {
+      return { fills: [], trips: [...engineTrips], openPositions: [], dropped: 0 };
+    }
+    return pairTrades(journal.trades);
+  }, [engineTrips, journal.trades]);
+
+  const activeBars = engineVisibleBars && engineVisibleBars.length > 0 ? engineVisibleBars : barsState.bars;
+
   const markers = useMemo(
-    () => snapToBars(markersFromPairing(pairing), barsState.bars, markerToleranceSec(timeframe)),
-    [pairing, barsState.bars, timeframe],
+    () => snapToBars(markersFromPairing(pairing), activeBars, markerToleranceSec(timeframe)),
+    [pairing, activeBars, timeframe],
   );
 
   const badge = SOURCE_BADGE[barsState.source];
@@ -537,24 +571,27 @@ export const SimulatorChart: React.FC<{ client?: Partial<BarsClient> | null }> =
             {badge.label}
           </span>
         ) : null}
-        {journal.status === 'ready' || journal.status === 'error' ? (
+        {pairing.trips.length > 0 ? (
           <span>
-            {journal.trades.length} fill{journal.trades.length === 1 ? '' : 's'}
-            {pairing.trips.length > 0 ? ` · ${pairing.trips.length} round trip${pairing.trips.length === 1 ? '' : 's'}` : ''}
+            {pairing.trips.length} round trip{pairing.trips.length === 1 ? '' : 's'}
           </span>
         ) : null}
         <span style={{ marginLeft: 'auto', color: 'var(--text-muted)' }}>
-          {run.status === 'completed' ? `Run ${run.runId ?? ''}` : 'Not simulated yet'}
+          {engineTrips && engineTrips.length > 0 ? 'Client Animated Simulation' : run.status === 'completed' ? `Run ${run.runId ?? ''}` : 'Ready for simulation'}
         </span>
       </div>
 
       <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-        <InteractiveChart
-          bars={barsState.bars}
+        <MultiChartView
+          bars={activeBars}
           indicators={drawable}
           markers={markers}
           trips={pairing.trips}
           seriesKey={seriesKey}
+          multiTimeframe={multiTimeframe}
+          secondaryTimeframe={secondaryTimeframe}
+          instrumentId={instrumentId}
+          primaryTimeframe={timeframe}
         />
       </div>
 
