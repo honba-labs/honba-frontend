@@ -122,12 +122,12 @@ export const ReplayToolbar: React.FC<ReplayToolbarProps> = ({
             type="button"
             className="shortlist-btn"
             style={{ fontSize: 11, padding: '4px 8px', color: 'var(--accent-gold, #f7a600)' }}
-            title="Fast simulate entire dataset"
+            title="Fast simulate entire dataset to the end"
             onClick={onInstant}
             disabled={!hasBars}
           >
             <Zap size={12} />
-            <span style={{ marginLeft: 3 }}>Instant</span>
+            <span style={{ marginLeft: 3 }}>Run to End</span>
           </button>
 
           {/* Speed Selector */}

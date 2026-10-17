@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Play, Pause, Zap } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 
 import '../styles/theme.css';
 import '../styles/base.css';
@@ -92,29 +92,28 @@ const Simulator: React.FC = () => {
             </span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button
-              type="button"
-              className="shortlist-btn shortlist-btn-primary"
-              style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-              onClick={engine.engineState.status === 'playing' ? engine.pause : engine.play}
-              disabled={loadedBars.length === 0}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span
+              style={{
+                fontSize: 11,
+                padding: '3px 8px',
+                borderRadius: 4,
+                background: 'rgba(255, 255, 255, 0.05)',
+                color: 'var(--text-secondary)',
+                fontFamily: 'var(--font-family-mono, monospace)',
+              }}
             >
-              {engine.engineState.status === 'playing' ? <Pause size={13} /> : <Play size={13} />}
-              {engine.engineState.status === 'playing' ? 'Pause Replay' : 'Animate Replay'}
-            </button>
-
-            <button
-              type="button"
+              {store.controls.symbol}.{store.controls.exchange} · {store.controls.timeframe}
+            </span>
+            <a
+              href={`/algodesigner.html?strategy=${encodeURIComponent(store.strategyName)}`}
               className="shortlist-btn"
-              style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--accent-gold, #f7a600)' }}
-              onClick={engine.instant}
-              disabled={loadedBars.length === 0}
-              title="Instantly simulate the entire period"
+              style={{ fontSize: 11, padding: '4px 10px', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 5 }}
+              title="Edit this strategy in AlgoDesigner"
             >
-              <Zap size={13} />
-              Instant Run
-            </button>
+              <ExternalLink size={12} />
+              <span>Edit in Designer</span>
+            </a>
           </div>
         </div>
 

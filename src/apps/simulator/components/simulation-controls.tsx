@@ -269,7 +269,7 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({
           onClick={onRun}
         >
           <Play size={13} />
-          {busy ? 'Running…' : 'Run Backtest'}
+          {busy ? 'Running…' : 'Run Simulation'}
         </button>
         <button
           type="button"
