@@ -1,8 +1,9 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Editor, { type OnMount } from '@monaco-editor/react';
 
 import './monaco-setup';
-import { HONBA_THEME } from './monaco-setup';
+import { HONBA_THEME, HONBA_LIGHT_THEME } from './monaco-setup';
+import { themeEngine } from '../../core/theme-engine';
 import type { EditorMarker, MarkerSeverity } from '../../core/designer/diagnostics';
 
 export interface EditorReveal {
@@ -56,6 +57,38 @@ const MonacoPythonEditor: React.FC<MonacoPythonEditorProps> = ({
   const lineClickRef = useRef(onLineClick);
   lineClickRef.current = onLineClick;
 
+  const [activeTheme, setActiveTheme] = useState<string>(() => {
+    const palette = typeof document !== 'undefined'
+      ? document.documentElement.getAttribute('data-theme') || themeEngine.getConfig().palette
+      : 'honba-dark';
+    return palette === 'honba-light' || palette === 'light' || palette === 'arbkit-ledger'
+      ? HONBA_LIGHT_THEME
+      : HONBA_THEME;
+  });
+
+  useEffect(() => {
+    const updateTheme = () => {
+      const palette = document.documentElement.getAttribute('data-theme') || themeEngine.getConfig().palette;
+      const isLight = palette === 'honba-light' || palette === 'light' || palette === 'arbkit-ledger';
+      setActiveTheme(isLight ? HONBA_LIGHT_THEME : HONBA_THEME);
+    };
+
+    const unsub = themeEngine.subscribe(updateTheme);
+    const observer = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        if (m.type === 'attributes' && m.attributeName === 'data-theme') {
+          updateTheme();
+        }
+      }
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+    return () => {
+      unsub();
+      observer.disconnect();
+    };
+  }, []);
+
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
@@ -101,7 +134,7 @@ const MonacoPythonEditor: React.FC<MonacoPythonEditorProps> = ({
       height="100%"
       width="100%"
       language="python"
-      theme={HONBA_THEME}
+      theme={activeTheme}
       value={value}
       onChange={(next) => onChange(next ?? '')}
       onMount={handleMount}

@@ -19,6 +19,7 @@ import { loader } from '@monaco-editor/react';
 loader.config({ monaco });
 
 export const HONBA_THEME = 'honba-dark';
+export const HONBA_LIGHT_THEME = 'honba-light';
 
 monaco.editor.defineTheme(HONBA_THEME, {
   base: 'vs-dark',
@@ -38,6 +39,27 @@ monaco.editor.defineTheme(HONBA_THEME, {
     'editor.lineHighlightBackground': '#1e222d',
     'editor.selectionBackground': '#2a2e39',
     'editorGutter.background': '#131722',
+  },
+});
+
+monaco.editor.defineTheme(HONBA_LIGHT_THEME, {
+  base: 'vs',
+  inherit: true,
+  rules: [
+    { token: 'comment', foreground: '6b7280', fontStyle: 'italic' },
+    { token: 'keyword', foreground: '1d4ed8' },
+    { token: 'string', foreground: '15803d' },
+    { token: 'number', foreground: 'c2410c' },
+    { token: 'type', foreground: '0891b2' },
+  ],
+  colors: {
+    'editor.background': '#ffffff',
+    'editor.foreground': '#1f2937',
+    'editorLineNumber.foreground': '#9ca3af',
+    'editorLineNumber.activeForeground': '#111827',
+    'editor.lineHighlightBackground': '#f3f4f6',
+    'editor.selectionBackground': '#e5e7eb',
+    'editorGutter.background': '#ffffff',
   },
 });
 

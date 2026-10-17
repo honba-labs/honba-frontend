@@ -1247,26 +1247,26 @@
 }
 
 .shortlist-btn-primary {
-  background: var(--accent-primary);
-  color: #ffffff;
+  background: var(--btn-primary-bg, var(--theme-blue, var(--accent-primary)));
+  color: var(--btn-primary-text, #ffffff);
 }
 
 .shortlist-btn-primary:hover {
-  background: var(--accent-primary-hover);
+  background: var(--btn-primary-bg-hover, var(--theme-dark-blue, var(--accent-primary-hover)));
 }
 
 .shortlist-btn-secondary {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-medium);
-  color: var(--text-primary);
+  background: var(--btn-secondary-bg, var(--theme-surface, var(--bg-surface)));
+  border: 1px solid var(--btn-secondary-border, var(--theme-border, var(--border-medium)));
+  color: var(--btn-secondary-text, var(--theme-text, var(--text-primary)));
 }
 
 .shortlist-btn-secondary:hover {
-  background: var(--bg-surface-hover);
+  background: var(--btn-secondary-bg-hover, var(--theme-surface-hover, var(--bg-surface-hover)));
 }
 
 .shortlist-btn-danger {
-  color: var(--bearish);
+  color: var(--btn-danger-bg, var(--theme-red, var(--bearish)));
 }
 
 .kbd-shortcut {
@@ -1771,5 +1771,62 @@
 .oac-widget .oac-mobile__bar,
 .oac-widget .oac-mobile__footer {
   display: none !important;
+}
+
+/* ================= REACTFLOW CANVAS CONTROLS ================= */
+.react-flow__controls {
+  display: flex !important;
+  flex-direction: column !important;
+  background: var(--flow-controls-bg, var(--theme-surface-elevated, var(--bg-surface-elevated))) !important;
+  border: 1px solid var(--flow-controls-border, var(--theme-border, var(--border-medium))) !important;
+  border-radius: var(--radius-md, 6px) !important;
+  box-shadow: var(--shadow-md, 0 4px 14px rgba(0, 0, 0, 0.4)) !important;
+  overflow: hidden !important;
+}
+
+.react-flow__controls-button {
+  background: var(--flow-controls-btn-bg, var(--theme-surface-elevated, var(--bg-surface-elevated))) !important;
+  border: none !important;
+  border-bottom: 1px solid var(--flow-controls-border, var(--theme-border, var(--border-subtle))) !important;
+  color: var(--flow-controls-btn-color, var(--theme-text, var(--text-primary))) !important;
+  fill: var(--flow-controls-btn-color, var(--theme-text, var(--text-primary))) !important;
+  width: 28px !important;
+  height: 28px !important;
+  padding: 6px !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all var(--transition-fast) !important;
+}
+
+.react-flow__controls-button:last-child {
+  border-bottom: none !important;
+}
+
+.react-flow__controls-button:hover {
+  background: var(--flow-controls-btn-bg-hover, var(--theme-surface-hover, var(--bg-surface-hover))) !important;
+  color: var(--flow-controls-btn-color-hover, var(--theme-blue, var(--accent-primary))) !important;
+  fill: var(--flow-controls-btn-color-hover, var(--theme-blue, var(--accent-primary))) !important;
+}
+
+.react-flow__controls-button svg {
+  max-width: 14px !important;
+  max-height: 14px !important;
+  fill: currentColor !important;
+  stroke: currentColor !important;
+}
+
+.react-flow__controls-button svg path {
+  fill: currentColor !important;
+}
+
+/* ReactFlow MiniMap */
+.react-flow__minimap {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: var(--radius-md, 6px) !important;
+  box-shadow: var(--shadow-sm) !important;
 }
 

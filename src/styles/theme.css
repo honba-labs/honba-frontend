@@ -1,44 +1,57 @@
 /**
  * Honba Design System Tokens
- * Highly refined dark and light themes, typography stacks, and layout view modes.
+ * 
+ * Architecture:
+ * 1. Theme-Specific Foundational Colors (Theme Primitives):
+ *    --theme-red, --theme-dark-red
+ *    --theme-blue, --theme-dark-blue, --theme-light-blue
+ *    --theme-green, --theme-dark-green
+ *    --theme-amber, --theme-purple, --theme-cyan, --theme-gold
+ *    --theme-bg, --theme-surface, --theme-surface-elevated, --theme-surface-hover, --theme-surface-active
+ *    --theme-border-subtle, --theme-border, --theme-border-strong, --theme-border-focus
+ *    --theme-text, --theme-text-secondary, --theme-text-muted, --theme-text-disabled
+ * 
+ * 2. Component Customization Tokens (Inheriting by default from Theme Primitives):
+ *    Each component (Buttons, Inputs, Topbar, Flow Nodes, Drawers, AI Column, Editor, Badges)
+ *    defines its own customization tokens, which default to inheriting from the theme primitives.
+ *    Any theme or localized component scope can override individual component tokens directly.
+ * 
+ * 3. Backward-Compatible Global Semantic Aliases:
+ *    --bg-app, --bg-surface, --accent-primary, --bullish, --bearish, etc.
  */
 
+/* =========================================================================
+ * 1. Default Foundation Primitives (Default / Dark)
+ * ========================================================================= */
 :root,
-[data-theme='honba-dark'],
 [data-theme='dark'] {
-  /* Default: Honba Dark */
-  --bg-app: #131722;
-  --bg-surface: #1e222d;
-  --bg-surface-elevated: #2a2e39;
-  --bg-surface-hover: #242934;
-  --bg-surface-active: #2f3442;
+  --theme-red: #f23645;
+  --theme-dark-red: #cc2a37;
+  --theme-blue: #2962ff;
+  --theme-dark-blue: #1e53e5;
+  --theme-light-blue: #38bdf8;
+  --theme-green: #089981;
+  --theme-dark-green: #07836f;
+  --theme-amber: #f59e0b;
+  --theme-purple: #8b5cf6;
+  --theme-cyan: #2ac3de;
+  --theme-gold: #f7a600;
 
-  --border-subtle: #2a2e39;
-  --border-medium: #363a45;
-  --border-strong: #434651;
-  --border-focus: #2962ff;
-  --border-table-row: rgba(255, 255, 255, 0.04);
+  --theme-bg: #131722;
+  --theme-surface: #1e222d;
+  --theme-surface-elevated: #2a2e39;
+  --theme-surface-hover: #242934;
+  --theme-surface-active: #2f3442;
 
-  --text-primary: #d1d4dc;
-  --text-secondary: #787b86;
-  --text-muted: #5d606b;
-  --text-disabled: #434651;
+  --theme-border-subtle: #2a2e39;
+  --theme-border: #363a45;
+  --theme-border-strong: #434651;
+  --theme-border-focus: var(--theme-blue);
 
-  --accent-primary: #2962ff;
-  --accent-primary-hover: #1e53e5;
-  --accent-subtle: rgba(41, 98, 255, 0.15);
-  --accent-gold: #f7a600;
-  --accent-gold-subtle: rgba(247, 166, 0, 0.15);
-
-  --bullish: #089981;
-  --bullish-hover: #07836f;
-  --bullish-subtle: rgba(8, 153, 129, 0.14);
-  --bullish-flash: rgba(8, 153, 129, 0.45);
-
-  --bearish: #f23645;
-  --bearish-hover: #cc2a37;
-  --bearish-subtle: rgba(242, 54, 69, 0.14);
-  --bearish-flash: rgba(242, 54, 69, 0.45);
+  --theme-text: #d1d4dc;
+  --theme-text-secondary: #787b86;
+  --theme-text-muted: #5d606b;
+  --theme-text-disabled: #434651;
 
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
   --shadow-md: 0 4px 14px 0 rgba(0, 0, 0, 0.5);
@@ -60,171 +73,352 @@
   --transition-normal: 180ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* =========================================================================
+ * 2. Theme Primitives by Palette
+ * ========================================================================= */
+
+/* Honba Shibui Dark (Japanese Slate Default) */
+[data-theme='honba-dark'] {
+  --theme-red: #f43f5e;
+  --theme-dark-red: #e11d48;
+  --theme-blue: #38bdf8;
+  --theme-dark-blue: #0284c7;
+  --theme-light-blue: #7dd3fc;
+  --theme-green: #10b981;
+  --theme-dark-green: #059669;
+  --theme-amber: #f59e0b;
+  --theme-purple: #a855f7;
+  --theme-cyan: #06b6d4;
+  --theme-gold: #fbbf24;
+
+  --theme-bg: #090d14;
+  --theme-surface: #101622;
+  --theme-surface-elevated: #182030;
+  --theme-surface-hover: #1f293d;
+  --theme-surface-active: #27344d;
+
+  --theme-border-subtle: #1e293b;
+  --theme-border: #2e3d56;
+  --theme-border-strong: #3e5070;
+  --theme-border-focus: var(--theme-blue);
+
+  --theme-text: #f8fafc;
+  --theme-text-secondary: #94a3b8;
+  --theme-text-muted: #64748b;
+  --theme-text-disabled: #475569;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 14px 0 rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 12px 32px 0 rgba(0, 0, 0, 0.8);
+}
+
 /* Honba Clean Light */
 [data-theme='honba-light'],
 [data-theme='light'] {
-  --bg-app: #ffffff;
-  --bg-surface: #f0f3fa;
-  --bg-surface-elevated: #ffffff;
-  --bg-surface-hover: #e8ecf4;
-  --bg-surface-active: #dfe3ee;
+  --theme-red: #f23645;
+  --theme-dark-red: #cc2a37;
+  --theme-blue: #2962ff;
+  --theme-dark-blue: #1e53e5;
+  --theme-light-blue: #0284c7;
+  --theme-green: #089981;
+  --theme-dark-green: #07836f;
+  --theme-amber: #d97706;
+  --theme-purple: #7c3aed;
+  --theme-cyan: #0891b2;
+  --theme-gold: #d97706;
 
-  --border-subtle: #e0e3eb;
-  --border-medium: #d1d4dc;
-  --border-strong: #b2b5be;
-  --border-focus: #2962ff;
-  --border-table-row: rgba(0, 0, 0, 0.035);
+  --theme-bg: #ffffff;
+  --theme-surface: #f0f3fa;
+  --theme-surface-elevated: #ffffff;
+  --theme-surface-hover: #e8ecf4;
+  --theme-surface-active: #dfe3ee;
 
-  --text-primary: #131722;
-  --text-secondary: #787b86;
-  --text-muted: #9598a1;
-  --text-disabled: #b2b5be;
+  --theme-border-subtle: #e0e3eb;
+  --theme-border: #d1d4dc;
+  --theme-border-strong: #b2b5be;
+  --theme-border-focus: var(--theme-blue);
 
-  --accent-primary: #2962ff;
-  --accent-primary-hover: #1e53e5;
-  --accent-subtle: rgba(41, 98, 255, 0.1);
-  --accent-gold: #d97706;
-  --accent-gold-subtle: rgba(217, 119, 6, 0.12);
-
-  --bullish: #089981;
-  --bullish-hover: #07836f;
-  --bullish-subtle: rgba(8, 153, 129, 0.12);
-  --bullish-flash: rgba(8, 153, 129, 0.35);
-
-  --bearish: #f23645;
-  --bearish-hover: #cc2a37;
-  --bearish-subtle: rgba(242, 54, 69, 0.12);
-  --bearish-flash: rgba(242, 54, 69, 0.35);
+  --theme-text: #131722;
+  --theme-text-secondary: #787b86;
+  --theme-text-muted: #9598a1;
+  --theme-text-disabled: #b2b5be;
 
   --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.08);
   --shadow-md: 0 4px 12px 0 rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 10px 25px -3px rgba(0, 0, 0, 0.15);
 }
 
-/* Honba Shibui Dark (Japanese Slate) */
-[data-theme='honba-dark'] {
-  --bg-app: #090d14;
-  --bg-surface: #101622;
-  --bg-surface-elevated: #182030;
-  --bg-surface-hover: #1f293d;
-  --bg-surface-active: #27344d;
-
-  --border-subtle: #1e293b;
-  --border-medium: #2e3d56;
-  --border-strong: #3e5070;
-  --border-focus: #38bdf8;
-  --border-table-row: rgba(255, 255, 255, 0.04);
-
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --text-disabled: #475569;
-
-  --accent-primary: #38bdf8;
-  --accent-primary-hover: #0ea5e9;
-  --accent-subtle: rgba(56, 189, 248, 0.14);
-
-  --bullish: #10b981;
-  --bullish-subtle: rgba(16, 185, 129, 0.14);
-  --bearish: #f43f5e;
-  --bearish-subtle: rgba(244, 63, 94, 0.14);
-}
-
 /* Tokyo Midnight (OLED Pitch Black) */
 [data-theme='tokyo-midnight'] {
-  --bg-app: #000000;
-  --bg-surface: #0a0e14;
-  --bg-surface-elevated: #121822;
-  --bg-surface-hover: #18212e;
-  --bg-surface-active: #212c3e;
+  --theme-red: #ff1744;
+  --theme-dark-red: #d50000;
+  --theme-blue: #00f2fe;
+  --theme-dark-blue: #0077b6;
+  --theme-light-blue: #38bdf8;
+  --theme-green: #00e676;
+  --theme-dark-green: #00c853;
+  --theme-amber: #ffab00;
+  --theme-purple: #b388ff;
+  --theme-cyan: #00f2fe;
+  --theme-gold: #ffd600;
 
-  --border-subtle: #1a2230;
-  --border-medium: #253347;
-  --border-strong: #354763;
-  --border-focus: #00f2fe;
-  --border-table-row: rgba(255, 255, 255, 0.04);
+  --theme-bg: #000000;
+  --theme-surface: #0a0e14;
+  --theme-surface-elevated: #121822;
+  --theme-surface-hover: #18212e;
+  --theme-surface-active: #212c3e;
 
-  --text-primary: #ffffff;
-  --text-secondary: #8da4be;
-  --text-muted: #576d88;
+  --theme-border-subtle: #1a2230;
+  --theme-border: #253347;
+  --theme-border-strong: #354763;
+  --theme-border-focus: var(--theme-blue);
 
-  --accent-primary: #00f2fe;
-  --accent-primary-hover: #4facfe;
-  --accent-subtle: rgba(0, 242, 254, 0.14);
-
-  --bullish: #00e676;
-  --bullish-subtle: rgba(0, 230, 118, 0.14);
-  --bearish: #ff1744;
-  --bearish-subtle: rgba(255, 23, 68, 0.14);
+  --theme-text: #ffffff;
+  --theme-text-secondary: #8da4be;
+  --theme-text-muted: #576d88;
+  --theme-text-disabled: #354763;
 }
 
 /* Kyoto Mist (Indigo Calm) */
 [data-theme='kyoto-mist'] {
-  --bg-app: #0b1120;
-  --bg-surface: #131c31;
-  --bg-surface-elevated: #1c2742;
-  --bg-surface-hover: #263456;
-  --bg-surface-active: #31426c;
+  --theme-red: #fb7185;
+  --theme-dark-red: #f43f5e;
+  --theme-blue: #60a5fa;
+  --theme-dark-blue: #3b82f6;
+  --theme-light-blue: #93c5fd;
+  --theme-green: #34d399;
+  --theme-dark-green: #10b981;
+  --theme-amber: #fbbf24;
+  --theme-purple: #c084fc;
+  --theme-cyan: #38bdf8;
+  --theme-gold: #f59e0b;
 
-  --border-subtle: #233150;
-  --border-medium: #32446d;
-  --border-strong: #465d91;
-  --border-focus: #60a5fa;
-  --border-table-row: rgba(255, 255, 255, 0.04);
+  --theme-bg: #0b1120;
+  --theme-surface: #131c31;
+  --theme-surface-elevated: #1c2742;
+  --theme-surface-hover: #263456;
+  --theme-surface-active: #31426c;
 
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  --theme-border-subtle: #233150;
+  --theme-border: #32446d;
+  --theme-border-strong: #465d91;
+  --theme-border-focus: var(--theme-blue);
 
-  --accent-primary: #60a5fa;
-  --accent-primary-hover: #3b82f6;
-  --accent-subtle: rgba(96, 165, 250, 0.15);
-
-  --bullish: #34d399;
-  --bearish: #fb7185;
+  --theme-text: #f1f5f9;
+  --theme-text-secondary: #94a3b8;
+  --theme-text-muted: #64748b;
+  --theme-text-disabled: #465d91;
 }
 
 /* Arbkit Proof-Ledger Theme (Warm Paper & Ink) */
 [data-theme='arbkit-ledger'] {
-  --bg-app: #f3efe5;
-  --bg-surface: #eae4d3;
-  --bg-surface-elevated: #ffffff;
-  --bg-surface-hover: #e2dbca;
-  --bg-surface-active: #d7d0bf;
+  --theme-red: #9a4d2f;
+  --theme-dark-red: #7d3e25;
+  --theme-blue: #315a78;
+  --theme-dark-blue: #26465e;
+  --theme-light-blue: #4a7c9f;
+  --theme-green: #2f6d43;
+  --theme-dark-green: #255836;
+  --theme-amber: #c27d38;
+  --theme-purple: #6b4c7d;
+  --theme-cyan: #3d798e;
+  --theme-gold: #9a4d2f;
 
-  --border-subtle: #d7d0c0;
-  --border-medium: #c2baa8;
-  --border-strong: #aaa291;
-  --border-focus: #315a78;
-  --border-table-row: rgba(0, 0, 0, 0.05);
+  --theme-bg: #f3efe5;
+  --theme-surface: #eae4d3;
+  --theme-surface-elevated: #ffffff;
+  --theme-surface-hover: #e2dbca;
+  --theme-surface-active: #d7d0bf;
 
-  --text-primary: #171814;
-  --text-secondary: #5d5b52;
-  --text-muted: #807c70;
-  --text-disabled: #aaa291;
+  --theme-border-subtle: #d7d0c0;
+  --theme-border: #c2baa8;
+  --theme-border-strong: #aaa291;
+  --theme-border-focus: var(--theme-blue);
 
-  --accent-primary: #315a78;
-  --accent-primary-hover: #26465e;
-  --accent-subtle: rgba(49, 90, 120, 0.12);
-  --accent-gold: #9a4d2f;
-  --accent-gold-subtle: rgba(154, 77, 47, 0.12);
-
-  --bullish: #2f6d43;
-  --bullish-hover: #255836;
-  --bullish-subtle: #dbe7d9;
-  --bullish-flash: rgba(47, 109, 67, 0.35);
-
-  --bearish: #9a4d2f;
-  --bearish-hover: #7d3e25;
-  --bearish-subtle: rgba(154, 77, 47, 0.14);
-  --bearish-flash: rgba(154, 77, 47, 0.35);
+  --theme-text: #171814;
+  --theme-text-secondary: #5d5b52;
+  --theme-text-muted: #807c70;
+  --theme-text-disabled: #aaa291;
 
   --shadow-sm: 0 1px 2px 0 rgba(23, 24, 20, 0.06);
   --shadow-md: 0 4px 12px 0 rgba(23, 24, 20, 0.08);
   --shadow-lg: 0 12px 28px -4px rgba(23, 24, 20, 0.12);
 }
 
-/* Typography presets */
+/* =========================================================================
+ * 3. Component Customization Tokens (Defaulting to Theme Primitives)
+ * Each component defines its styles via component variables that inherit
+ * directly from the foundational theme colors.
+ * ========================================================================= */
+:root {
+  /* Navigation & Topbar */
+  --topbar-bg: var(--theme-surface);
+  --topbar-border: var(--theme-border);
+  --topbar-brand-color: var(--theme-blue);
+  --topbar-nav-active-bg: var(--theme-surface-hover);
+  --topbar-nav-active-text: var(--theme-text);
+
+  /* Buttons */
+  --btn-primary-bg: var(--theme-blue);
+  --btn-primary-bg-hover: var(--theme-dark-blue);
+  --btn-primary-text: #ffffff;
+  --btn-secondary-bg: var(--theme-surface);
+  --btn-secondary-bg-hover: var(--theme-surface-hover);
+  --btn-secondary-border: var(--theme-border);
+  --btn-secondary-text: var(--theme-text);
+  --btn-danger-bg: var(--theme-red);
+  --btn-danger-bg-hover: var(--theme-dark-red);
+  --btn-danger-text: #ffffff;
+  --btn-success-bg: var(--theme-green);
+  --btn-success-bg-hover: var(--theme-dark-green);
+  --btn-success-text: #ffffff;
+
+  /* Inputs & Form Controls */
+  --input-bg: var(--theme-surface-elevated);
+  --input-border: var(--theme-border-subtle);
+  --input-border-hover: var(--theme-border);
+  --input-border-focus: var(--theme-blue);
+  --input-text: var(--theme-text);
+  --input-placeholder: var(--theme-text-muted);
+
+  /* Cards, Overlays & Drawers */
+  --card-bg: var(--theme-surface);
+  --card-border: var(--theme-border-subtle);
+  --card-header-bg: var(--theme-surface-elevated);
+  --drawer-bg: var(--theme-surface);
+  --drawer-border: var(--theme-border-subtle);
+  --drawer-tab-active-border: var(--theme-blue);
+  --drawer-tab-active-text: var(--theme-blue);
+
+  /* AlgoDesigner Node Flow Elements */
+  --node-bg: var(--theme-surface);
+  --node-border: var(--theme-border);
+  --node-border-selected: var(--theme-blue);
+  --node-border-error: var(--theme-red);
+  --node-header-bg: var(--theme-surface-elevated);
+
+  /* Flow Category Accents (Defaulting to Theme Colors) */
+  --node-accent-data: var(--theme-blue);
+  --node-accent-data-bg: rgba(41, 98, 255, 0.12);
+  --node-accent-indicator: var(--theme-purple);
+  --node-accent-indicator-bg: rgba(139, 92, 246, 0.12);
+  --node-accent-logic: var(--theme-amber);
+  --node-accent-logic-bg: rgba(245, 158, 11, 0.12);
+  --node-accent-execution: var(--theme-green);
+  --node-accent-execution-bg: rgba(8, 153, 129, 0.12);
+  --node-accent-risk: var(--theme-dark-blue);
+  --node-accent-risk-bg: rgba(30, 83, 229, 0.15);
+
+  /* Flow Node Ports */
+  --node-port-series: var(--theme-cyan);
+  --node-port-bool: var(--theme-amber);
+  --node-port-size: var(--theme-purple);
+  --node-port-order: var(--theme-green);
+
+  /* Flow Canvas Controls (Zoom In/Out, Fit View, Lock) */
+  --flow-controls-bg: var(--theme-surface-elevated);
+  --flow-controls-border: var(--theme-border);
+  --flow-controls-btn-bg: var(--theme-surface-elevated);
+  --flow-controls-btn-bg-hover: var(--theme-surface-hover);
+  --flow-controls-btn-color: var(--theme-text);
+  --flow-controls-btn-color-hover: var(--theme-blue);
+
+  /* AI Co-Pilot Column */
+  --ai-panel-bg: var(--theme-surface);
+  --ai-panel-border: var(--theme-border-subtle);
+  --ai-badge-bg: var(--theme-surface-hover);
+  --ai-prompt-btn-bg: var(--theme-blue);
+  --ai-prompt-btn-hover: var(--theme-dark-blue);
+
+  /* Code & Monaco Editor Pane */
+  --editor-bg: var(--theme-bg);
+  --editor-border: var(--theme-border-subtle);
+  --editor-gutter-bg: var(--theme-bg);
+  --editor-line-highlight: var(--theme-surface);
+  --editor-selection-bg: var(--theme-surface-elevated);
+
+  /* Charts & Telemetry */
+  --chart-grid: var(--theme-border-subtle);
+  --chart-crosshair: var(--theme-text-muted);
+  --chart-candle-up: var(--theme-green);
+  --chart-candle-down: var(--theme-red);
+  --chart-accent: var(--theme-blue);
+
+  /* =========================================================================
+   * 4. Global Semantic Compatibility Layer
+   * ========================================================================= */
+  --bg-app: var(--theme-bg);
+  --bg-surface: var(--theme-surface);
+  --bg-surface-elevated: var(--theme-surface-elevated);
+  --bg-surface-hover: var(--theme-surface-hover);
+  --bg-surface-active: var(--theme-surface-active);
+  --bg-secondary: var(--theme-surface-elevated);
+
+  --border-subtle: var(--theme-border-subtle);
+  --border-medium: var(--theme-border);
+  --border-strong: var(--theme-border-strong);
+  --border-focus: var(--theme-border-focus);
+  --border-color: var(--border-subtle);
+  --border-table-row: rgba(255, 255, 255, 0.04);
+
+  --text-primary: var(--theme-text);
+  --text-secondary: var(--theme-text-secondary);
+  --text-muted: var(--theme-text-muted);
+  --text-disabled: var(--theme-text-disabled);
+
+  --accent-primary: var(--theme-blue);
+  --accent-primary-hover: var(--theme-dark-blue);
+  --accent-subtle: rgba(41, 98, 255, 0.15);
+  --accent-gold: var(--theme-gold);
+  --accent-gold-subtle: rgba(247, 166, 0, 0.15);
+
+  --bullish: var(--theme-green);
+  --bullish-hover: var(--theme-dark-green);
+  --bullish-subtle: rgba(8, 153, 129, 0.14);
+  --bullish-flash: rgba(8, 153, 129, 0.45);
+
+  --bearish: var(--theme-red);
+  --bearish-hover: var(--theme-dark-red);
+  --bearish-subtle: rgba(242, 54, 69, 0.14);
+  --bearish-flash: rgba(242, 54, 69, 0.45);
+}
+
+/* Light Mode Overrides for Transparency / Row Borders */
+[data-theme='honba-light'],
+[data-theme='light'] {
+  --border-table-row: rgba(0, 0, 0, 0.035);
+  --accent-subtle: rgba(41, 98, 255, 0.1);
+  --accent-gold-subtle: rgba(217, 119, 6, 0.12);
+  --bullish-subtle: rgba(8, 153, 129, 0.12);
+  --bullish-flash: rgba(8, 153, 129, 0.35);
+  --bearish-subtle: rgba(242, 54, 69, 0.12);
+  --bearish-flash: rgba(242, 54, 69, 0.35);
+  --node-accent-data-bg: rgba(41, 98, 255, 0.08);
+  --node-accent-indicator-bg: rgba(124, 58, 237, 0.08);
+  --node-accent-logic-bg: rgba(217, 119, 6, 0.08);
+  --node-accent-execution-bg: rgba(8, 153, 129, 0.08);
+  --node-accent-risk-bg: rgba(30, 83, 229, 0.08);
+}
+
+/* Arbkit Ledger Row Border Override */
+[data-theme='arbkit-ledger'] {
+  --border-table-row: rgba(0, 0, 0, 0.05);
+  --accent-subtle: rgba(49, 90, 120, 0.12);
+  --accent-gold-subtle: rgba(154, 77, 47, 0.12);
+  --bullish-subtle: #dbe7d9;
+  --bullish-flash: rgba(47, 109, 67, 0.35);
+  --bearish-subtle: rgba(154, 77, 47, 0.14);
+  --bearish-flash: rgba(154, 77, 47, 0.35);
+  --node-accent-data-bg: rgba(49, 90, 120, 0.1);
+  --node-accent-indicator-bg: rgba(107, 76, 125, 0.1);
+  --node-accent-logic-bg: rgba(194, 125, 56, 0.1);
+  --node-accent-execution-bg: rgba(47, 109, 67, 0.1);
+  --node-accent-risk-bg: rgba(38, 70, 94, 0.1);
+}
+
+/* =========================================================================
+ * 5. Typography Presets
+ * ========================================================================= */
 [data-typography='honba-sans'] {
   --font-family-sans: -apple-system, BlinkMacSystemFont, 'Trebuchet MS', Roboto, Ubuntu, sans-serif;
   --font-family-mono: 'JetBrains Mono', 'Fira Code', monospace;
@@ -245,7 +439,6 @@
   --font-family-mono: 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace;
 }
 
-/* Arbkit Proof-Ledger Typography Preset */
 [data-typography='arbkit-ledger'] {
   --font-family-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-family-mono: 'IBM Plex Mono', 'JetBrains Mono', monospace;

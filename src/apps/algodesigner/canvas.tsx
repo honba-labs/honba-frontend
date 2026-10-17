@@ -50,7 +50,7 @@ function DesignerCanvasInner({ graph, onError, client }: CanvasProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { screenToFlowPosition, setCenter } = useReactFlow();
 
-  const [paletteOpen, setPaletteOpen] = useState(true);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [versionModalOpen, setVersionModalOpen] = useState(false);
 
@@ -311,31 +311,30 @@ function DesignerCanvasInner({ graph, onError, client }: CanvasProps) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-      {/* Top Toolbar */}
+      {/* Top Action Bar */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '6px 12px',
-          background: 'var(--bg-surface, #1e222d)',
-          borderBottom: '1px solid var(--border-subtle, #2a2e39)',
+          background: 'var(--bg-surface)',
+          borderBottom: '1px solid var(--border-subtle)',
           fontSize: 12,
-          flexWrap: 'wrap',
+          flexShrink: 0,
           gap: 8,
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <button
             type="button"
-            className="shortlist-btn"
+            className={paletteOpen ? 'shortlist-btn shortlist-btn-primary' : 'shortlist-btn'}
             onClick={() => setPaletteOpen(!paletteOpen)}
-            title={paletteOpen ? 'Hide Node Palette' : 'Show Node Palette'}
-            style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 4 }}
+            title={paletteOpen ? 'Close Node Palette' : 'Open Node Palette to add nodes'}
+            style={{ padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 6 }}
           >
             <Layers size={13} />
-            <span>Palette</span>
-            {paletteOpen ? <ChevronLeft size={12} /> : <ChevronRight size={12} />}
+            <span>+ Add Nodes</span>
           </button>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -343,9 +342,7 @@ function DesignerCanvasInner({ graph, onError, client }: CanvasProps) {
             <input
               type="text"
               value={graph.name}
-              onChange={(e) => {
-                void store.setName(e.target.value);
-              }}
+              onChange={(e) => void store.setName(e.target.value)}
               style={{
                 background: 'transparent',
                 border: '1px solid transparent',
@@ -356,8 +353,8 @@ function DesignerCanvasInner({ graph, onError, client }: CanvasProps) {
                 fontSize: 12,
               }}
               onFocus={(e) => {
-                e.currentTarget.style.borderColor = 'var(--accent-primary, #2962ff)';
-                e.currentTarget.style.background = 'var(--bg-surface-elevated, #2a2e39)';
+                e.currentTarget.style.borderColor = 'var(--accent-primary)';
+                e.currentTarget.style.background = 'var(--bg-surface-elevated)';
               }}
               onBlur={(e) => {
                 e.currentTarget.style.borderColor = 'transparent';
@@ -365,6 +362,10 @@ function DesignerCanvasInner({ graph, onError, client }: CanvasProps) {
               }}
             />
           </div>
+
+          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+            ({graph.nodes.length} nodes, {(graph.edges ?? []).length} edges)
+          </span>
 
           {store.isModified ? (
             <span style={{ fontSize: 10, color: 'var(--accent-gold, #f7a600)', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -379,89 +380,6 @@ function DesignerCanvasInner({ graph, onError, client }: CanvasProps) {
 
         {/* Action Controls Group */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {/* Phase 5.1: In-Canvas Verify Action */}
-          <button
-            type="button"
-            className="shortlist-btn"
-            onClick={() => void store.verifyNow(activeClient)}
-            style={{
-              padding: '4px 8px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-              color: store.verify.ok ? 'var(--bullish, #089981)' : store.verify.issues.length > 0 ? 'var(--bearish, #f23645)' : 'inherit',
-            }}
-            title="Verify strategy graph structure and port types"
-          >
-            <CheckCircle2 size={12} />
-            <span>
-              {store.verify.ok ? 'Verified ✓' : store.verify.issues.length > 0 ? `${store.verify.issues.length} Defect(s)` : 'Verify'}
-            </span>
-          </button>
-
-          {/* Phase 5.2: In-Canvas Run Action */}
-          <button
-            type="button"
-            className="shortlist-btn"
-            onClick={() => void store.runNow(activeClient, { seed: 42 })}
-            disabled={store.run.status === 'running' || store.run.status === 'pending'}
-            style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 4 }}
-            title="Run event-driven backtest"
-          >
-            <Play size={12} style={{ color: 'var(--bullish, #089981)' }} />
-            <span>{store.run.status === 'running' || store.run.status === 'pending' ? 'Running...' : 'Run'}</span>
-          </button>
-
-          {/* Phase 6.1: Export Strategy JSON */}
-          <button
-            type="button"
-            className="shortlist-btn"
-            onClick={handleExportJson}
-            title="Export strategy graph as JSON"
-            style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 4 }}
-          >
-            <Download size={12} />
-            <span>Export</span>
-          </button>
-
-          {/* Phase 6.1: Import / Replace JSON */}
-          <button
-            type="button"
-            className="shortlist-btn"
-            onClick={() => setImportModalOpen(true)}
-            title="Replace strategy graph from JSON"
-            style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 4 }}
-          >
-            <Upload size={12} />
-            <span>Import</span>
-          </button>
-
-          {/* Phase 6.2: Snapshot Manager */}
-          <button
-            type="button"
-            className="shortlist-btn"
-            onClick={() => setVersionModalOpen(true)}
-            title="View and restore version snapshots"
-            style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 4 }}
-          >
-            <History size={12} />
-            <span>Versions ({store.versions.length})</span>
-          </button>
-
-          <button
-            type="button"
-            className="shortlist-btn"
-            onClick={() => {
-              void store.snapshotVersion();
-              store.markSaved();
-            }}
-            title="Snapshot version (Ctrl+S)"
-            style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 4 }}
-          >
-            <Save size={12} />
-            <span>Save</span>
-          </button>
-
           {store.selectedNodeId || store.selectedEdgeId ? (
             <button
               type="button"
@@ -474,15 +392,45 @@ function DesignerCanvasInner({ graph, onError, client }: CanvasProps) {
               <span>Delete</span>
             </button>
           ) : null}
+
+          <button
+            type="button"
+            className="shortlist-btn"
+            onClick={() => setImportModalOpen(true)}
+            title="Import strategy graph from JSON"
+            style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 4 }}
+          >
+            <Upload size={12} />
+            <span>Import JSON</span>
+          </button>
+
+          <button
+            type="button"
+            className="shortlist-btn"
+            onClick={handleExportJson}
+            title="Export strategy graph as JSON"
+            style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 4 }}
+          >
+            <Download size={12} />
+            <span>Export JSON</span>
+          </button>
+
+          <button
+            type="button"
+            className="shortlist-btn"
+            onClick={() => setVersionModalOpen(true)}
+            title="View and restore version snapshots"
+            style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 4 }}
+          >
+            <History size={12} />
+            <span>Versions ({store.versions.length})</span>
+          </button>
         </div>
       </div>
 
       {/* Main Visual Workspace */}
-      <div style={{ display: 'flex', flex: 1, minHeight: 0, position: 'relative' }}>
-        {/* Left Node Palette */}
-        {paletteOpen ? <NodePalette onDragStart={handleDragStart} onAdd={handleAddFromPalette} /> : null}
-
-        {/* Canvas Area */}
+      <div style={{ display: 'flex', flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden' }}>
+        {/* Canvas Area: takes 100% of workspace width */}
         <div ref={reactFlowWrapper} style={{ flex: 1, minWidth: 0, height: '100%', position: 'relative' }}>
           <ReactFlow
             nodes={nodes}
@@ -510,22 +458,65 @@ function DesignerCanvasInner({ graph, onError, client }: CanvasProps) {
               animated: true,
             }}
           >
-            <Background gap={16} size={1} color="var(--border-subtle, #2a2e39)" />
+            <Background gap={16} size={1} color="var(--border-subtle)" />
             <MiniMap
               nodeStrokeWidth={3}
               pannable
               zoomable
               style={{
-                background: 'var(--bg-surface, #1e222d)',
-                border: '1px solid var(--border-subtle, #2a2e39)',
+                background: 'var(--bg-surface)',
+                border: '1px solid var(--border-subtle)',
               }}
             />
-            <Controls style={{ background: 'var(--bg-surface, #1e222d)' }} />
+            <Controls />
           </ReactFlow>
         </div>
 
-        {/* Right Modular Inspector Drawer */}
-        <NodeInspector />
+        {/* Floating Left Node Palette Drawer */}
+        {paletteOpen ? (
+          <div
+            style={{
+              position: 'absolute',
+              left: 10,
+              top: 10,
+              bottom: 10,
+              width: 260,
+              zIndex: 20,
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--border-subtle)',
+              boxShadow: 'var(--shadow-lg)',
+              overflow: 'hidden',
+              background: 'var(--bg-surface)',
+            }}
+          >
+            <NodePalette
+              onDragStart={handleDragStart}
+              onAdd={handleAddFromPalette}
+              onClose={() => setPaletteOpen(false)}
+            />
+          </div>
+        ) : null}
+
+        {/* Floating Right Modular Inspector Drawer: ONLY visible when an element is selected */}
+        {store.selectedNodeId || store.selectedEdgeId ? (
+          <div
+            style={{
+              position: 'absolute',
+              right: 10,
+              top: 10,
+              bottom: 10,
+              width: 300,
+              zIndex: 20,
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--border-subtle)',
+              boxShadow: 'var(--shadow-lg)',
+              overflow: 'hidden',
+              background: 'var(--bg-surface)',
+            }}
+          >
+            <NodeInspector />
+          </div>
+        ) : null}
       </div>
 
       {/* Phase 6.1: Replace / Import Strategy Modal */}

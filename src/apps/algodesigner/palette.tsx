@@ -12,6 +12,7 @@ import {
   ShoppingCart,
   Sliders,
   TrendingUp,
+  X,
 } from 'lucide-react';
 
 import { catalogue } from '../../core/graph/catalogue';
@@ -151,9 +152,10 @@ const STATIC_TEMPLATES: NodeTemplate[] = [
 interface NodePaletteProps {
   onDragStart: (event: React.DragEvent, template: NodeTemplate) => void;
   onAdd: (template: NodeTemplate) => void;
+  onClose?: () => void;
 }
 
-export const NodePalette: React.FC<NodePaletteProps> = ({ onDragStart, onAdd }) => {
+export const NodePalette: React.FC<NodePaletteProps> = ({ onDragStart, onAdd, onClose }) => {
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('all');
 
@@ -212,7 +214,7 @@ export const NodePalette: React.FC<NodePaletteProps> = ({ onDragStart, onAdd }) 
   return (
     <aside
       style={{
-        width: 250,
+        width: '100%',
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
@@ -224,11 +226,24 @@ export const NodePalette: React.FC<NodePaletteProps> = ({ onDragStart, onAdd }) 
     >
       {/* Header */}
       <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border-subtle, #2a2e39)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-          <Layers size={14} style={{ color: 'var(--accent-primary, #2962ff)' }} />
-          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Nodes</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Layers size={14} style={{ color: 'var(--accent-primary, #2962ff)' }} />
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Nodes</span>
+          </div>
+          {onClose ? (
+            <button
+              type="button"
+              onClick={onClose}
+              className="shortlist-btn"
+              style={{ padding: '2px 5px', fontSize: 11 }}
+              title="Close palette"
+            >
+              <X size={12} />
+            </button>
+          ) : null}
         </div>
-        <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: 0 }}>
+        <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '2px 0 0' }}>
           Drag to canvas or click to add
         </p>
 

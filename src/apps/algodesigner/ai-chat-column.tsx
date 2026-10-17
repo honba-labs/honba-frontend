@@ -66,8 +66,8 @@ function CodeDiff({ before, after }: { before: string; after: string }) {
   const bg: Record<string, string> = { add: 'rgba(63, 185, 80, 0.12)', del: 'rgba(248, 81, 73, 0.12)', same: 'transparent' };
   const fg: Record<string, string> = { add: '#3fb950', del: '#ff7b72', same: 'var(--text-secondary)' };
   return (
-    <div style={{ border: '1px solid var(--border-color, #30363d)', borderRadius: 6, overflow: 'hidden' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 8px', fontSize: 10, background: 'rgba(0,0,0,0.3)', color: 'var(--text-muted)' }}>
+    <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 6, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 8px', fontSize: 10, background: 'var(--bg-surface-elevated)', color: 'var(--text-muted)' }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <FileCode size={11} /> Unified code diff
         </span>
@@ -113,7 +113,7 @@ export const AiChatColumn: React.FC<AiChatColumnProps> = ({ messages, currentCod
 
   return (
     <div style={{ padding: 12, display: 'flex', flexDirection: 'column', height: '100%', gap: 10, minHeight: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color, #30363d)', paddingBottom: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ width: 26, height: 26, borderRadius: 6, background: 'rgba(56, 189, 248, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#38bdf8' }}>
             <Bot size={16} />
@@ -267,7 +267,7 @@ export const AiChatColumn: React.FC<AiChatColumnProps> = ({ messages, currentCod
         ) : null}
       </div>
 
-      <div style={{ display: 'flex', gap: 8, paddingTop: 8, borderTop: '1px solid var(--border-color, #30363d)' }}>
+      <div style={{ display: 'flex', gap: 8, paddingTop: 8, borderTop: '1px solid var(--border-subtle)' }}>
         <input
           aria-label="assistant prompt"
           value={draft}
@@ -279,11 +279,11 @@ export const AiChatColumn: React.FC<AiChatColumnProps> = ({ messages, currentCod
               submit(draft);
             }
           }}
-          style={{ flex: 1, background: 'var(--bg-secondary, #0d1117)', border: '1px solid var(--border-color, #30363d)', borderRadius: 6, padding: '6px 10px', color: 'var(--text-primary)', fontSize: 12 }}
+          style={{ flex: 1, background: 'var(--input-bg, var(--bg-surface-elevated))', border: '1px solid var(--input-border, var(--border-subtle))', borderRadius: 6, padding: '6px 10px', color: 'var(--input-text, var(--text-primary))', fontSize: 12 }}
         />
         <button type="button" className="shortlist-btn shortlist-btn-primary" onClick={() => submit(draft)} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Send size={14} />
-          <span>Propose</span>
+          <span>Send</span>
         </button>
       </div>
     </div>

@@ -76,7 +76,7 @@ export const Splitter: React.FC<SplitterProps> = ({ onDelta, orientation = 'vert
         width: orientation === 'vertical' ? 5 : '100%',
         height: orientation === 'vertical' ? '100%' : 5,
         cursor: orientation === 'vertical' ? 'col-resize' : 'row-resize',
-        background: 'var(--border-subtle, #2a2e39)',
+        background: 'var(--border-subtle)',
         touchAction: 'none',
       }}
     />
@@ -106,7 +106,7 @@ export const Pane: React.FC<PaneProps> = ({ id, title, icon, actions, focused, o
         minWidth: 0,
         minHeight: 0,
         height: '100%',
-        background: 'var(--bg-app, #131722)',
+        background: 'var(--bg-app)',
         overflow: 'hidden',
       }}
     >
@@ -117,8 +117,8 @@ export const Pane: React.FC<PaneProps> = ({ id, title, icon, actions, focused, o
           justifyContent: 'space-between',
           gap: 8,
           padding: '4px 8px',
-          borderBottom: '1px solid var(--border-subtle, #2a2e39)',
-          background: 'var(--bg-surface, #1e222d)',
+          borderBottom: '1px solid var(--border-subtle)',
+          background: 'var(--bg-surface)',
           fontSize: 11,
           color: 'var(--text-secondary)',
           flex: '0 0 auto',

@@ -26,18 +26,18 @@ export interface BaseHonbaNodeProps {
 }
 
 const PORT_COLORS: Record<PortKind, string> = {
-  series: '#38bdf8', // Cyan
-  bool: '#eab308',   // Amber
-  size: '#a855f7',   // Purple
-  order: '#22c55e',  // Green
+  series: 'var(--node-port-series, #38bdf8)',
+  bool: 'var(--node-port-bool, #eab308)',
+  size: 'var(--node-port-size, #a855f7)',
+  order: 'var(--node-port-order, #22c55e)',
 };
 
 const CATEGORY_ACCENTS: Record<NodeCategory, { border: string; bg: string }> = {
-  data: { border: '#3b82f6', bg: 'rgba(59, 130, 246, 0.12)' },
-  indicator: { border: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.12)' },
-  logic: { border: '#f59e0b', bg: 'rgba(245, 158, 11, 0.12)' },
-  execution: { border: '#10b981', bg: 'rgba(16, 185, 129, 0.12)' },
-  risk: { border: '#6366f1', bg: 'rgba(99, 102, 241, 0.12)' },
+  data: { border: 'var(--node-accent-data, #3b82f6)', bg: 'var(--node-accent-data-bg, rgba(41, 98, 255, 0.12))' },
+  indicator: { border: 'var(--node-accent-indicator, #8b5cf6)', bg: 'var(--node-accent-indicator-bg, rgba(139, 92, 246, 0.12))' },
+  logic: { border: 'var(--node-accent-logic, #f59e0b)', bg: 'var(--node-accent-logic-bg, rgba(245, 158, 11, 0.12))' },
+  execution: { border: 'var(--node-accent-execution, #10b981)', bg: 'var(--node-accent-execution-bg, rgba(8, 153, 129, 0.12))' },
+  risk: { border: 'var(--node-accent-risk, #1e53e5)', bg: 'var(--node-accent-risk-bg, rgba(30, 83, 229, 0.15))' },
 };
 
 export const BaseHonbaNode: React.FC<BaseHonbaNodeProps> = ({
@@ -60,12 +60,12 @@ export const BaseHonbaNode: React.FC<BaseHonbaNodeProps> = ({
   return (
     <div
       style={{
-        background: 'var(--bg-surface, #1e222d)',
+        background: 'var(--node-bg, var(--theme-surface, #1e222d))',
         border: selected
-          ? '1px solid var(--accent-primary, #2962ff)'
+          ? '1px solid var(--node-border-selected, var(--theme-blue, #2962ff))'
           : hasIssues
-            ? '1px solid var(--bearish, #f23645)'
-            : '1px solid var(--border-medium, #363a45)',
+            ? '1px solid var(--node-border-error, var(--theme-red, #f23645))'
+            : '1px solid var(--node-border, var(--theme-border, #363a45))',
         borderLeft: `4px solid ${borderAccent}`,
         borderRadius: 'var(--radius-md, 6px)',
         minWidth: 190,

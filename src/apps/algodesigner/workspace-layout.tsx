@@ -263,7 +263,10 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({ client, onNoti
           <button
             type="button"
             className="shortlist-btn"
-            onClick={() => void store.verifyNow(client)}
+            onClick={() => {
+              void store.verifyNow(client);
+              store.setDrawer(true, 'verify');
+            }}
             title="Verify the strategy graph structure and ports"
             style={{
               display: 'flex',
@@ -278,7 +281,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({ client, onNoti
           </button>
           <button
             type="button"
-            className="shortlist-btn"
+            className={layout.assistantOpen ? 'shortlist-btn shortlist-btn-primary' : 'shortlist-btn'}
             onClick={() => store.togglePane('assistant')}
             aria-pressed={layout.assistantOpen}
             title="Toggle the AI Co-Pilot column"
@@ -289,21 +292,21 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({ client, onNoti
           </button>
           <button
             type="button"
-            className="shortlist-btn"
+            className={layout.drawerOpen ? 'shortlist-btn shortlist-btn-primary' : 'shortlist-btn'}
             onClick={() => store.setDrawer(!layout.drawerOpen, layout.drawerTab)}
             aria-pressed={layout.drawerOpen}
-            title="Toggle the diagnostics drawer"
+            title="Toggle the Diagnostics drawer (Verify, Run, Sweeps, Ops, Results)"
             style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px' }}
           >
             <PanelBottom size={12} />
-            <span>Panels</span>
+            <span>Diagnostics</span>
           </button>
           <button
             type="button"
-            className="shortlist-btn shortlist-btn-primary"
+            className="shortlist-btn"
             onClick={() => handleSimulate()}
             title="Open the Simulator with this strategy"
-            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px' }}
+            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', color: 'var(--accent-primary)' }}
           >
             <Play size={12} />
             <span>Simulate →</span>
@@ -467,9 +470,9 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({ client, onNoti
       {layout.drawerOpen ? (
         <section
           aria-label="Diagnostics drawer"
-          style={{ flex: '0 0 auto', height: 300, display: 'flex', flexDirection: 'column', borderTop: '1px solid var(--border-subtle, #2a2e39)', background: 'var(--bg-app, #131722)' }}
+          style={{ flex: '0 0 auto', height: 300, display: 'flex', flexDirection: 'column', borderTop: '1px solid var(--drawer-border, var(--border-subtle))', background: 'var(--drawer-bg, var(--bg-app))' }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderBottom: '1px solid var(--border-subtle, #2a2e39)', background: 'var(--bg-surface, #1e222d)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderBottom: '1px solid var(--drawer-border, var(--border-subtle))', background: 'var(--drawer-header-bg, var(--bg-surface))' }}>
             {(Object.keys(DRAWER_LABELS) as DrawerTab[]).map((tab) => (
               <button
                 key={tab}
