@@ -27,6 +27,7 @@ import { STRATEGY_TEMPLATES } from '../../core/designer/strategy-templates';
 import { mapNodeLines, nodeAtLine, spansToMarkers, verifyIssuesToMarkers } from '../../core/designer/diagnostics';
 import type { EditorReveal } from './monaco-python-editor';
 import { graphHashSync, type GraphNode } from '../../core/graph/model';
+import { graphIssues } from '../../core/graph/validation';
 import { cataloguelookup } from '../../core/graph/catalogue';
 import { stashHandoff, simulatorHandoffUrl } from '../../core/designer/handoff';
 import { useOpsStore } from '../../core/designer/ops-state';
@@ -277,8 +278,10 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({ client, onNoti
             <span>Co-Pilot</span>
           </button>
           {(() => {
-            const hasIssues = store.verify.issues.length > 0;
-            const isClean = store.verify.ok && !hasIssues;
+            const structuralIssues = graphIssues(store.graph);
+            const verifyIssues = store.verify?.issues ?? [];
+            const errorCount = structuralIssues.length + verifyIssues.length;
+            const isClean = errorCount === 0;
 
             return (
               <button
@@ -286,33 +289,29 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({ client, onNoti
                 className={layout.drawerOpen ? 'shortlist-btn shortlist-btn-primary' : 'shortlist-btn'}
                 onClick={() => {
                   void store.verifyNow(client);
-                  store.setDrawer(!layout.drawerOpen, hasIssues ? 'verify' : layout.drawerTab);
+                  store.setDrawer(!layout.drawerOpen, isClean ? layout.drawerTab : 'verify');
                 }}
                 aria-pressed={layout.drawerOpen}
                 title={
                   isClean
-                    ? 'Strategy verified clean (0 defects) — Click to open verification drawer'
-                    : hasIssues
-                    ? `${store.verify.issues.length} defect(s) detected — Click to inspect diagnostics`
-                    : 'Verify strategy structure and inspect diagnostics'
+                    ? 'Strategy verified clean (0 defects) — Click to inspect verification drawer'
+                    : `${errorCount} defect(s) detected — Click to inspect diagnostics`
                 }
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: 5,
                   padding: '4px 8px',
-                  color: isClean ? 'var(--bullish, #089981)' : hasIssues ? 'var(--bearish, #f23645)' : undefined,
+                  color: isClean ? 'var(--bullish, #089981)' : 'var(--bearish, #f23645)',
                 }}
               >
                 {isClean ? (
                   <ShieldCheck size={12} style={{ color: 'var(--bullish, #089981)' }} />
-                ) : hasIssues ? (
-                  <AlertTriangle size={12} style={{ color: 'var(--bearish, #f23645)' }} />
                 ) : (
-                  <ShieldCheck size={12} />
+                  <AlertTriangle size={12} style={{ color: 'var(--bearish, #f23645)' }} />
                 )}
                 <span>{isClean ? 'Verified' : 'Diagnostics'}</span>
-                {hasIssues ? (
+                {!isClean ? (
                   <span
                     style={{
                       background: 'var(--bearish, #f23645)',
@@ -324,7 +323,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({ client, onNoti
                       lineHeight: '12px',
                     }}
                   >
-                    {store.verify.issues.length}
+                    {errorCount}
                   </span>
                 ) : null}
               </button>
