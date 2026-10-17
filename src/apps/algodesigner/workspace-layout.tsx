@@ -276,53 +276,60 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({ client, onNoti
             <Bot size={12} />
             <span>Co-Pilot</span>
           </button>
-          <button
-            type="button"
-            className={layout.drawerOpen ? 'shortlist-btn shortlist-btn-primary' : 'shortlist-btn'}
-            onClick={() => {
-              void store.verifyNow(client);
-              store.setDrawer(!layout.drawerOpen, store.verify.issues.length > 0 ? 'verify' : layout.drawerTab);
-            }}
-            aria-pressed={layout.drawerOpen}
-            title={
-              store.verify.ok
-                ? 'Diagnostics (verified clean) — Click to toggle drawer'
-                : store.verify.issues.length > 0
-                ? `${store.verify.issues.length} defect(s) detected — Click to inspect diagnostics`
-                : 'Toggle Diagnostics drawer (Verify, Run, Sweeps, Ops, Results)'
-            }
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 5,
-              padding: '4px 8px',
-              color: store.verify.issues.length > 0 ? 'var(--bearish, #f23645)' : undefined,
-            }}
-          >
-            {store.verify.issues.length > 0 ? (
-              <AlertTriangle size={12} style={{ color: 'var(--bearish, #f23645)' }} />
-            ) : (
-              <PanelBottom size={12} style={{ color: store.verify.ok ? 'var(--bullish, #089981)' : undefined }} />
-            )}
-            <span>Diagnostics</span>
-            {store.verify.issues.length > 0 ? (
-              <span
+          {(() => {
+            const hasIssues = store.verify.issues.length > 0;
+            const isClean = store.verify.ok && !hasIssues;
+
+            return (
+              <button
+                type="button"
+                className={layout.drawerOpen ? 'shortlist-btn shortlist-btn-primary' : 'shortlist-btn'}
+                onClick={() => {
+                  void store.verifyNow(client);
+                  store.setDrawer(!layout.drawerOpen, hasIssues ? 'verify' : layout.drawerTab);
+                }}
+                aria-pressed={layout.drawerOpen}
+                title={
+                  isClean
+                    ? 'Strategy verified clean (0 defects) — Click to open verification drawer'
+                    : hasIssues
+                    ? `${store.verify.issues.length} defect(s) detected — Click to inspect diagnostics`
+                    : 'Verify strategy structure and inspect diagnostics'
+                }
                 style={{
-                  background: 'var(--bearish, #f23645)',
-                  color: '#ffffff',
-                  borderRadius: 10,
-                  fontSize: 10,
-                  fontWeight: 700,
-                  padding: '1px 5px',
-                  lineHeight: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  padding: '4px 8px',
+                  color: isClean ? 'var(--bullish, #089981)' : hasIssues ? 'var(--bearish, #f23645)' : undefined,
                 }}
               >
-                {store.verify.issues.length}
-              </span>
-            ) : store.verify.ok ? (
-              <span style={{ fontSize: 10, color: 'var(--bullish, #089981)' }}>✓</span>
-            ) : null}
-          </button>
+                {isClean ? (
+                  <ShieldCheck size={12} style={{ color: 'var(--bullish, #089981)' }} />
+                ) : hasIssues ? (
+                  <AlertTriangle size={12} style={{ color: 'var(--bearish, #f23645)' }} />
+                ) : (
+                  <ShieldCheck size={12} />
+                )}
+                <span>{isClean ? 'Verified' : 'Diagnostics'}</span>
+                {hasIssues ? (
+                  <span
+                    style={{
+                      background: 'var(--bearish, #f23645)',
+                      color: '#ffffff',
+                      borderRadius: 10,
+                      fontSize: 10,
+                      fontWeight: 700,
+                      padding: '1px 5px',
+                      lineHeight: '12px',
+                    }}
+                  >
+                    {store.verify.issues.length}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })()}
           {focus ? (
             <button
               type="button"
