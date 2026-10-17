@@ -36,6 +36,7 @@ import { honbaNodeTypes } from './nodes/HonbaNodes';
 import { honbaEdgeTypes } from './edges/HonbaInsertableEdge';
 import { NodePalette, type NodeTemplate } from './palette';
 import { NodeInspector } from './inspector';
+import { StrategyNameEditor } from './strategy-name-editor';
 
 interface CanvasProps {
   graph: StrategyGraphShape;
@@ -337,31 +338,11 @@ function DesignerCanvasInner({ graph, onError, client }: CanvasProps) {
             <span>+ Add Nodes</span>
           </button>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ color: 'var(--text-secondary)' }}>Strategy:</span>
-            <input
-              type="text"
-              value={graph.name}
-              onChange={(e) => void store.setName(e.target.value)}
-              style={{
-                background: 'transparent',
-                border: '1px solid transparent',
-                borderRadius: 'var(--radius-sm, 4px)',
-                padding: '2px 6px',
-                color: 'var(--text-primary)',
-                fontWeight: 600,
-                fontSize: 12,
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.borderColor = 'var(--accent-primary)';
-                e.currentTarget.style.background = 'var(--bg-surface-elevated)';
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.borderColor = 'transparent';
-                e.currentTarget.style.background = 'transparent';
-              }}
-            />
-          </div>
+          <StrategyNameEditor
+            name={graph.name}
+            onChange={(next) => void store.setName(next)}
+            prefix="Strategy:"
+          />
 
           <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
             ({graph.nodes.length} nodes, {(graph.edges ?? []).length} edges)
@@ -425,6 +406,70 @@ function DesignerCanvasInner({ graph, onError, client }: CanvasProps) {
             <History size={12} />
             <span>Versions ({store.versions.length})</span>
           </button>
+
+          {/* Prominent, slightly oversized Simulate (play) button */}
+          {(() => {
+            const structuralIssues = graphIssues(graph);
+            const verifyIssues = store.verify?.issues ?? [];
+            const errorCount = structuralIssues.length + verifyIssues.length;
+            const canSimulate = errorCount === 0;
+
+            return (
+              <button
+                type="button"
+                disabled={!canSimulate}
+                onClick={() => {
+                  if (!canSimulate) {
+                    store.setDrawer(true, 'verify');
+                    return;
+                  }
+                  window.location.href = `/simulator.html?strategy=${encodeURIComponent(graph.name)}&source=designer`;
+                }}
+                title={
+                  canSimulate
+                    ? `Launch quantitative simulation for ${graph.name} (strategy is verified clean)`
+                    : `Cannot simulate: ${errorCount} error(s) detected. Click to inspect diagnostics.`
+                }
+                style={{
+                  height: 32,
+                  padding: '0 16px',
+                  fontSize: 12.5,
+                  fontWeight: 700,
+                  borderRadius: 16,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  marginLeft: 6,
+                  cursor: canSimulate ? 'pointer' : 'not-allowed',
+                  background: canSimulate ? 'var(--bullish, #089981)' : 'var(--bg-surface-elevated, #2a2e39)',
+                  color: canSimulate ? '#ffffff' : 'var(--text-disabled, #787b86)',
+                  border: canSimulate ? '1px solid var(--bullish-hover, #07836f)' : '1px solid var(--border-subtle, #363a45)',
+                  boxShadow: canSimulate ? '0 2px 10px rgba(8, 153, 129, 0.4)' : 'none',
+                  opacity: canSimulate ? 1 : 0.6,
+                  transition: 'all var(--transition-fast, 120ms ease)',
+                  userSelect: 'none',
+                }}
+              >
+                <Play size={14} fill={canSimulate ? 'currentColor' : 'none'} />
+                <span>Simulate</span>
+                {!canSimulate ? (
+                  <span
+                    style={{
+                      background: 'var(--bearish, #f23645)',
+                      color: '#ffffff',
+                      borderRadius: 10,
+                      fontSize: 10,
+                      fontWeight: 700,
+                      padding: '1px 6px',
+                      marginLeft: 2,
+                    }}
+                  >
+                    {errorCount}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })()}
         </div>
       </div>
 

@@ -205,7 +205,10 @@ export interface DesignerState {
 
   markSaved: () => void;
   /** Phase 5: persist the current graph+code to localStorage and (best-effort) the profile API. */
-  saveStrategy: (client?: HonbaClient) => Promise<void>;
+  saveStrategy: (
+    client?: HonbaClient,
+    meta?: Partial<Pick<SavedStrategyManifest, 'id' | 'name' | 'version' | 'category' | 'description' | 'tags' | 'author'>>,
+  ) => Promise<void>;
   /** Phase 5: open a strategy graph from the library, resetting editor/sync state. */
   openStrategy: (graph: StrategyGraphShape) => Promise<void>;
   /** Phase 5: duplicate a strategy under a fresh id without touching the original. */
@@ -664,14 +667,23 @@ export const useDesignerStore = create<DesignerState>((set, get) => {
 
     markSaved: () => set({ isModified: false }),
 
-    saveStrategy: async (client) => {
-      const { graph, code } = get();
+    saveStrategy: async (client, meta) => {
+      let { graph, code } = get();
+      if (meta?.name && meta.name !== graph.name) {
+        await get().setName(meta.name);
+        graph = get().graph;
+        code = get().code;
+      }
       set({ saveState: 'saving' });
-      const id = slugify(graph.name);
+      const id = meta?.id ?? slugify(graph.name);
       const existing = get().savedStrategies.find((entry) => entry.id === id);
       const manifest = toSavedManifest(graph, code, {
         id,
-        ...(existing ? { category: existing.category, version: existing.version, author: existing.author } : {}),
+        category: meta?.category ?? existing?.category ?? 'custom',
+        version: meta?.version ?? existing?.version ?? '1.0.0',
+        description: meta?.description ?? existing?.description ?? '',
+        tags: meta?.tags ?? existing?.tags ?? [],
+        author: meta?.author ?? existing?.author ?? 'local',
       });
       const list = upsertSaved(get().savedStrategies, manifest);
       persistSaved(list);

@@ -37,6 +37,8 @@ import { ParamsPanel } from './params-panel';
 import { LibraryDrawer } from './library-drawer';
 import { AiChatColumn } from './ai-chat-column';
 import { Pane, Splitter } from './split-pane';
+import { StrategyNameEditor } from './strategy-name-editor';
+import { SaveToLibraryModal } from './save-to-library-modal';
 
 /**
  * Four-pane Algo Designer workspace (Phase 1, HBD-2026-DES-004).
@@ -96,6 +98,7 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({ client, onNoti
     [store.code, store.graph],
   );
   const [reveal, setReveal] = useState<EditorReveal | null>(null);
+  const [saveModalOpen, setSaveModalOpen] = useState(false);
   useEffect(() => {
     const id = store.selectedNodeId;
     if (!id) return;
@@ -216,16 +219,17 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({ client, onNoti
             <Workflow size={14} />
             Algo Designer
           </span>
-          <span style={{ color: 'var(--text-secondary)' }}>
-            {store.graph.name}
-            {store.isModified ? (
-              <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--accent-gold, #f7a600)' }}>● Unsaved</span>
-            ) : (
-              <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--text-muted)' }}>
-                <CheckCircle2 size={10} style={{ color: 'var(--bullish, #089981)' }} /> Saved
-              </span>
-            )}
-          </span>
+          <StrategyNameEditor
+            name={store.graph.name}
+            onChange={(next) => void store.setName(next)}
+          />
+          {store.isModified ? (
+            <span style={{ marginLeft: 4, fontSize: 10, color: 'var(--accent-gold, #f7a600)' }}>● Unsaved</span>
+          ) : (
+            <span style={{ marginLeft: 4, fontSize: 10, color: 'var(--text-muted)' }}>
+              <CheckCircle2 size={10} style={{ color: 'var(--bullish, #089981)' }} /> Saved
+            </span>
+          )}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -243,12 +247,12 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({ client, onNoti
           <button
             type="button"
             className="shortlist-btn"
-            onClick={handleSave}
-            title="Save this strategy to the library (Ctrl+S)"
+            onClick={() => setSaveModalOpen(true)}
+            title="Save strategy to library with details, category, tags, or clone as copy"
             style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px' }}
           >
             <Save size={12} />
-            <span>{SAVE_LABEL[store.saveState]}</span>
+            <span>Save to Library</span>
           </button>
           <button
             type="button"
@@ -528,6 +532,21 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({ client, onNoti
             {layout.drawerTab === 'results' ? <ResultsPanel response={store.run.response} /> : null}
           </div>
         </section>
+      ) : null}
+
+      {/* Save to Library Modal */}
+      {saveModalOpen ? (
+        <SaveToLibraryModal
+          initialName={store.graph.name}
+          initialCategory={store.savedStrategies.find((s) => s.name === store.graph.name)?.category ?? 'custom'}
+          initialDescription={store.savedStrategies.find((s) => s.name === store.graph.name)?.description ?? ''}
+          initialTags={store.savedStrategies.find((s) => s.name === store.graph.name)?.tags ?? []}
+          onSave={async (details) => {
+            await store.saveStrategy(client, details);
+            setNotice(`Strategy '${details.name}.py' saved to library.`);
+          }}
+          onClose={() => setSaveModalOpen(false)}
+        />
       ) : null}
     </div>
   );
