@@ -228,12 +228,18 @@ export interface EquityDrawdownChartProps {
   equitySeries?: number[];
   curve?: Array<[number, number]>;
   metrics?: BacktestMetrics | null;
+  /** Optional index-aligned benchmark equity, drawn as a muted overlay (Phase 8). */
+  benchmark?: number[] | null;
+  /** Label for the benchmark overlay (e.g. `NIFTY 50`). */
+  benchmarkLabel?: string;
 }
 
 export const EquityDrawdownChart: React.FC<EquityDrawdownChartProps> = ({
   equitySeries,
   curve,
   metrics,
+  benchmark,
+  benchmarkLabel,
 }) => {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
@@ -270,8 +276,12 @@ export const EquityDrawdownChart: React.FC<EquityDrawdownChartProps> = ({
   const eqHeight = 140;
   const ddHeight = 70;
 
-  const minEq = Math.min(...series);
-  const maxEq = Math.max(...series);
+  // The benchmark shares the equity axis, so it is folded into the scale only
+  // when it is present and index-aligned with the equity series.
+  const overlay = benchmark && benchmark.length === series.length ? benchmark : null;
+  const scaleSeries = overlay ? [...series, ...overlay] : series;
+  const minEq = Math.min(...scaleSeries);
+  const maxEq = Math.max(...scaleSeries);
   const eqRange = maxEq - minEq || 1;
   const maxDd = Math.max(...drawdowns, 0.01);
 
@@ -295,6 +305,16 @@ export const EquityDrawdownChart: React.FC<EquityDrawdownChartProps> = ({
     const lastX = eqPoints[eqPoints.length - 1].x;
     return `${eqPath} L ${lastX.toFixed(1)} ${eqHeight - 10} L ${firstX.toFixed(1)} ${eqHeight - 10} Z`;
   }, [eqPath, eqPoints]);
+
+  // Benchmark overlay: the same index → x mapping and the shared equity y-scale.
+  const overlayPath = useMemo(() => {
+    if (!overlay) return '';
+    return overlay.reduce((acc, val, idx) => {
+      const x = (idx / (series.length - 1 || 1)) * (width - 40) + 20;
+      const y = eqHeight - 20 - ((val - minEq) / eqRange) * (eqHeight - 40);
+      return `${acc} ${idx === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+    }, '');
+  }, [overlay, series.length, minEq, eqRange, width, eqHeight]);
 
   // Points mapping for Underwater Drawdown
   const ddPoints = useMemo(() => {
@@ -363,6 +383,9 @@ export const EquityDrawdownChart: React.FC<EquityDrawdownChartProps> = ({
               -{activeDd?.dd.toFixed(2)}%
             </strong>
           </span>
+          {overlayPath ? (
+            <span style={{ color: 'var(--text-muted)' }}>╌ {benchmarkLabel ?? 'Benchmark'}</span>
+          ) : null}
         </div>
       </div>
 
@@ -390,6 +413,16 @@ export const EquityDrawdownChart: React.FC<EquityDrawdownChartProps> = ({
 
         {/* Equity Area & Path */}
         <path d={eqArea} fill="url(#eqGrad)" />
+        {overlayPath ? (
+          <path
+            d={overlayPath}
+            fill="none"
+            stroke="var(--text-muted, #787b86)"
+            strokeWidth="1.5"
+            strokeDasharray="4 3"
+            strokeLinecap="round"
+          />
+        ) : null}
         <path d={eqPath} fill="none" stroke="var(--bullish, #089981)" strokeWidth="2" strokeLinecap="round" />
 
         {/* Drawdown Section Divider */}

@@ -10,6 +10,7 @@ import { themeEngine } from '../core/theme-engine';
 import { AppShell } from '../layouts/app-shell';
 import { HonbaClient } from '../core/api/generated/client';
 import { getAppMetadata } from '../core/apps';
+import { designerHandoffUrl, stashDesignerHandoff } from '../core/designer/handoff';
 import { SimulationControls } from './simulator/components/simulation-controls';
 import { SimulatorChart } from './simulator/components/interactive-chart';
 import { ResultsPanel } from './simulator/components/results-panel';
@@ -92,15 +93,24 @@ const Simulator: React.FC = () => {
           <aside style={{ width: 320, minWidth: 260, borderRight: '1px solid var(--border-subtle)', minHeight: 0, overflowY: 'auto' }}>
             <SimulationControls
               onRun={() => void store.execute(client)}
-              onSweeps={() => setNotice('Parameter sweeps open in the Designer optimisation engine (Phase 8).')}
+              onSweeps={() => {
+                // The optimisation loop closes in the Designer: hand the active
+                // graph over and open its sweeps drawer (Phase 8).
+                const stashed = stashDesignerHandoff(store.strategy, 'sweeps');
+                if (!stashed) {
+                  setNotice('The session store is unavailable, so the strategy could not be handed to the Designer.');
+                  return;
+                }
+                window.location.href = designerHandoffUrl('sweeps');
+              }}
             />
           </aside>
           <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
             <div style={{ flex: 1, minHeight: 0, borderBottom: '1px solid var(--border-subtle)' }}>
               <SimulatorChart client={client} />
             </div>
-            <div style={{ flex: '0 0 42%', minHeight: 0 }}>
-              <ResultsPanel />
+            <div style={{ flex: '0 0 46%', minHeight: 0 }}>
+              <ResultsPanel client={client} />
             </div>
           </div>
         </section>

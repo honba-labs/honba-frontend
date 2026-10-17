@@ -1,15 +1,31 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { AlertTriangle, BarChart3, CheckCircle2, Loader2 } from 'lucide-react';
 
+import { pairTrades } from '../../../core/simulator/trade-pairing';
+import {
+  benchmarkInstrumentId,
+  deriveRibbonMetrics,
+  equitySeries,
+  monthlyHeatmap,
+  type AnalyticsInput,
+} from '../../../core/simulator/analytics';
+import type { HonbaClient } from '../../../core/api/generated/client';
 import { useSimulatorStore } from '../store/simulator-store';
+import { MetricsRibbon } from './metrics-ribbon';
+import { SimulatorEquityCard } from './equity-curve-card';
+import { TradeJournalTable } from './trade-journal-table';
+import { MonthlyHeatmap } from './monthly-heatmap';
+import { ValidationBadges } from './validation-badges';
+import { RunLogDrawer } from './run-log-drawer';
 
 /**
- * Run results surface (Phase 6).
+ * Run results surface (Phase 6 → Phase 8).
  *
- * Deliberately modest: the metrics grid from `BacktestMetrics`, the run status,
- * the request payload actually sent, and the progress log. The interactive
- * chart with trade markers lives beside this panel (Phase 7); equity curves,
- * the trade journal table and heatmaps are Phase 8.
+ * The metrics ribbon, realised-equity card, trade journal, monthly heatmap,
+ * validation block and run log all read from the same derived round trips, so
+ * the panel's numbers and the chart's markers share one source of truth.
+ * Sortino and slippage are the two things the contract cannot supply; both are
+ * shown as an explicit absence, never a fabricated figure (risk R5).
  */
 
 const cardStyle: React.CSSProperties = {
@@ -19,11 +35,8 @@ const cardStyle: React.CSSProperties = {
   background: 'var(--bg-surface-elevated)',
 };
 
-function metric(value: number | null | undefined, format: (v: number) => string): string {
-  return value === null || value === undefined || !Number.isFinite(value) ? '—' : format(value);
-}
-
-const pct = (value: number) => `${value >= 0 ? '+' : ''}${(value * 100).toFixed(2)}%`;
+const TABS = ['Overview', 'Journal', 'Heatmap', 'Validation', 'Log'] as const;
+type Tab = (typeof TABS)[number];
 
 function StatusPill({ status }: { status: string }) {
   const map: Record<string, { color: string; label: string }> = {
@@ -42,12 +55,29 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
-export const ResultsPanel: React.FC = () => {
-  const { run, lastPlan } = useSimulatorStore();
+export interface ResultsPanelProps {
+  client?: HonbaClient | null;
+}
+
+export const ResultsPanel: React.FC<ResultsPanelProps> = ({ client }) => {
+  const { run, journal, lastPlan, controls, strategyName } = useSimulatorStore();
+  const [tab, setTab] = useState<Tab>('Overview');
   const metrics = run.response?.metrics ?? null;
 
+  const pairing = useMemo(() => pairTrades(journal.trades), [journal.trades]);
+  const window = lastPlan?.range ?? null;
+  const analytics: AnalyticsInput = useMemo(
+    () => ({ metrics, trips: pairing.trips, window, initialCapital: controls.capital }),
+    [metrics, pairing.trips, window, controls.capital],
+  );
+  const ribbon = useMemo(() => deriveRibbonMetrics(analytics), [analytics]);
+  const equity = useMemo(() => equitySeries(analytics), [analytics]);
+  const heatmap = useMemo(() => monthlyHeatmap(analytics), [analytics]);
+  const hasJournal = journal.status === 'ready' && journal.trades.length > 0;
+  const benchmarkId = benchmarkInstrumentId(controls.benchmark);
+
   return (
-    <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 12, height: '100%', overflowY: 'auto' }}>
+    <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10, height: '100%', overflowY: 'auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>Results</span>
         <StatusPill status={run.status} />
@@ -63,30 +93,78 @@ export const ResultsPanel: React.FC = () => {
         </div>
       ) : null}
 
-      {run.status === 'idle' ? (
+      {metrics ? (
+        <>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {TABS.map((name) => (
+              <button
+                key={name}
+                type="button"
+                className={tab === name ? 'shortlist-btn shortlist-btn-primary' : 'shortlist-btn'}
+                onClick={() => setTab(name)}
+                style={{ padding: '3px 10px', fontSize: 11 }}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+
+          {tab === 'Overview' ? (
+            <>
+              <MetricsRibbon metrics={ribbon} />
+              <div style={cardStyle}>
+                <SimulatorEquityCard
+                  client={client}
+                  equity={equity}
+                  input={analytics}
+                  benchmarkName={controls.benchmark}
+                  barSpec={controls.timeframe}
+                  metrics={metrics}
+                  runId={run.runId}
+                />
+              </div>
+            </>
+          ) : null}
+
+          {tab === 'Journal' ? (
+            <div style={cardStyle}>
+              <TradeJournalTable trips={pairing.trips} exportName={`${strategyName}-${run.runId ?? 'run'}`} />
+              {!hasJournal ? (
+                <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)' }}>
+                  The run journal has not loaded (route absent, empty, or still loading), so the table reflects the fills available.
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {tab === 'Heatmap' ? (
+            <div style={cardStyle}>
+              <MonthlyHeatmap heatmap={heatmap} wireTotalReturn={metrics.total_return} />
+            </div>
+          ) : null}
+
+          {tab === 'Validation' ? (
+            <div style={cardStyle}>
+              <ValidationBadges validation={run.response?.validation ?? null} assumptions={run.response?.assumptions} />
+            </div>
+          ) : null}
+
+          {tab === 'Log' ? <RunLogDrawer client={client} runId={run.runId} status={run.status} pollLines={run.logs} /> : null}
+        </>
+      ) : run.status === 'idle' ? (
         <div style={{ ...cardStyle, textAlign: 'center', color: 'var(--text-muted)', fontSize: 12, padding: '40px 12px' }}>
           <BarChart3 size={22} style={{ opacity: 0.5, marginBottom: 8 }} />
           <div>No results yet.</div>
           <div style={{ marginTop: 4 }}>Configure the controls and run a backtest.</div>
         </div>
-      ) : null}
-
-      {metrics ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
-          {[
-            { label: 'Total Return', value: metric(metrics.total_return, pct) },
-            { label: 'Net PnL', value: metric(metrics.net_pnl, (v) => v.toFixed(2)) },
-            { label: 'Sharpe', value: metric(metrics.sharpe, (v) => v.toFixed(2)) },
-            { label: 'Max Drawdown', value: metric(metrics.max_drawdown, (v) => `${(v * 100).toFixed(2)}%`) },
-            { label: 'Trades', value: metric(metrics.trades, (v) => String(v)) },
-            { label: 'Run', value: run.runId ?? '—' },
-          ].map((item) => (
-            <div key={item.label} style={cardStyle}>
-              <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.4, color: 'var(--text-muted)' }}>{item.label}</div>
-              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginTop: 2 }}>{item.value}</div>
-            </div>
-          ))}
+      ) : (
+        <div style={cardStyle}>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Waiting for the run to complete…</div>
         </div>
+      )}
+
+      {tab === 'Log' && run.logs.length > 0 && !metrics ? (
+        <RunLogDrawer client={client} runId={run.runId} status={run.status} pollLines={run.logs} defaultOpen />
       ) : null}
 
       {lastPlan ? (
@@ -106,24 +184,16 @@ export const ResultsPanel: React.FC = () => {
           >
             {JSON.stringify(lastPlan.request, null, 2)}
           </pre>
+          {benchmarkId ? (
+            <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)' }}>
+              Benchmark overlay ({controls.benchmark} → {benchmarkId}) is attempted from the bar store; it appears only when real bars exist.
+            </div>
+          ) : null}
           {lastPlan.notModelled.length > 0 ? (
             <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)' }}>
               Not sent — the run contract has no field for {lastPlan.notModelled.join(' and ')} yet (pending a versioned HB field; see risk R5).
             </div>
           ) : null}
-        </div>
-      ) : null}
-
-      {run.logs.length > 0 ? (
-        <div style={cardStyle}>
-          <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.4, color: 'var(--text-muted)', marginBottom: 6 }}>
-            Progress log
-          </div>
-          <div style={{ fontFamily: 'var(--font-family-mono, monospace)', fontSize: 11, color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: 3 }}>
-            {run.logs.map((line, index) => (
-              <span key={`${index}-${line}`}>{line}</span>
-            ))}
-          </div>
         </div>
       ) : null}
     </div>

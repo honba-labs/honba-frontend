@@ -59,3 +59,66 @@ export function defaultSessionStorage(): LayoutStorage | null {
   }
   return null;
 }
+
+/**
+ * Simulator -> Designer hand-off (Phase 8, the optimisation loop).
+ *
+ * `[Parameter Sweeps]` opens the Designer's sweeps drawer. The URL carries only
+ * the target drawer; the active graph (so the sweep ranges match the run) travels
+ * in `sessionStorage`, mirroring the forward hand-off above.
+ */
+
+export const DESIGNER_HANDOFF_KEY = 'honba.simulator.designer-handoff';
+
+export type DesignerDrawer = 'verify' | 'run' | 'sweeps' | 'ops' | 'results';
+
+export interface DesignerHandoff {
+  name: string;
+  graph: StrategyGraphShape;
+  source: 'simulator';
+  drawer?: DesignerDrawer;
+  timestamp: number;
+}
+
+export function designerHandoffUrl(drawer: DesignerDrawer = 'sweeps'): string {
+  return `/algodesigner.html?drawer=${encodeURIComponent(drawer)}&source=simulator`;
+}
+
+/** Best-effort sessionStorage write; returns whether the graph was stashed. */
+export function stashDesignerHandoff(
+  graph: StrategyGraphShape,
+  drawer: DesignerDrawer = 'sweeps',
+  storage: LayoutStorage | null = defaultSessionStorage(),
+): boolean {
+  if (!storage) return false;
+  try {
+    const payload: DesignerHandoff = { name: graph.name, graph, source: 'simulator', drawer, timestamp: Date.now() };
+    storage.setItem(DESIGNER_HANDOFF_KEY, JSON.stringify(payload));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function takeDesignerHandoff(storage: LayoutStorage | null = defaultSessionStorage()): DesignerHandoff | null {
+  if (!storage) return null;
+  try {
+    const raw = storage.getItem(DESIGNER_HANDOFF_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as DesignerHandoff;
+    if (!parsed || typeof parsed !== 'object' || !parsed.graph || !Array.isArray(parsed.graph.nodes)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function clearDesignerHandoff(storage: LayoutStorage | null = defaultSessionStorage()): void {
+  if (!storage) return;
+  try {
+    // The store has no `removeItem`; an empty value parses to `null` in `take`.
+    storage.setItem(DESIGNER_HANDOFF_KEY, '');
+  } catch {
+    /* best-effort */
+  }
+}
