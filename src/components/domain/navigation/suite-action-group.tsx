@@ -47,7 +47,7 @@ export const SuiteActionGroup: React.FC<SuiteActionGroupProps> = ({
         <a
           href={`/simulator.html?symbol=${encSym}`}
           className="inst-action-btn inst-btn-secondary"
-          title={`Run Nautilus tick-level backtest for ${symbol}`}
+          title={`Run tick-level backtest simulation for ${symbol}`}
         >
           <Play size={13} />
           <span>Backtest</span>
@@ -134,7 +134,7 @@ export const SuiteActionGroup: React.FC<SuiteActionGroupProps> = ({
             borderRadius: 'var(--radius-xs, 4px)',
             whiteSpace: 'nowrap',
           }}
-          title={`Tick-level Nautilus backtest simulation for ${symbol}`}
+          title={`Tick-level backtest simulation for ${symbol}`}
         >
           <Play size={11} style={{ marginRight: 4, flexShrink: 0 }} />
           <span>Backtest</span>

@@ -43,7 +43,7 @@ export const FloatingActionBar: React.FC = () => {
           size="sm"
           onClick={handleOpenSim}
           icon={<Play size={12} />}
-          title="Open in Nautilus Simulator"
+          title="Open in Simulator"
         >
           Simulate
         </HbButton>

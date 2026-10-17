@@ -51,14 +51,14 @@ export const HONBA_APPS = [
   {
     id: 'simulator',
     name: 'Simulator',
-    tagline: 'Nautilus Event-driven Tick Backtester',
+    tagline: 'Event-driven Tick Backtester & Execution Engine',
     url: '/simulator.html',
     icon: 'play-circle',
   },
   {
     id: 'researcher',
     name: 'Researcher',
-    tagline: 'Jesse AI Hypothesis & Robustness Lab',
+    tagline: 'AI Hypothesis, Quant Research & Robustness Lab',
     url: '/researcher.html',
     icon: 'book-open',
   },
