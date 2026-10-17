@@ -2,6 +2,7 @@ import React, { Suspense, lazy, useState } from 'react';
 
 import { CodePane } from './panels';
 import type { EditorMarker } from '../../core/designer/diagnostics';
+import type { EditorReveal } from './monaco-python-editor';
 
 /**
  * Python code editor pane (Phase 2, HBD-2026-DES-004).
@@ -19,10 +20,14 @@ export interface CodeEditorPaneProps {
   value: string;
   onChange: (value: string) => void;
   markers?: EditorMarker[];
-  /** Code -> flow recognition status (wired in Phase 3; defaults to idle). */
+  /** Code -> flow recognition status (Phase 3). */
   syncStatus?: SyncStatus;
   /** Short graph hash to display, if known. */
   hash?: string;
+  /** Canvas -> editor navigation request (Phase 3). */
+  reveal?: EditorReveal | null;
+  /** Editor -> canvas navigation: click on a node declaration line. */
+  onLineClick?: (line: number) => void;
 }
 
 interface BoundaryState {
@@ -48,7 +53,7 @@ const SYNC_LABEL: Record<SyncStatus, { text: string; color: string }> = {
   invalid: { text: 'Last valid graph held', color: 'var(--bearish, #f23645)' },
 };
 
-export const CodeEditorPane: React.FC<CodeEditorPaneProps> = ({ value, onChange, markers, syncStatus = 'idle', hash }) => {
+export const CodeEditorPane: React.FC<CodeEditorPaneProps> = ({ value, onChange, markers, syncStatus = 'idle', hash, reveal, onLineClick }) => {
   const [cursor, setCursor] = useState<{ line: number; column: number }>({ line: 1, column: 1 });
   const errorCount = (markers ?? []).filter((m) => m.severity === 'error').length;
   const sync = SYNC_LABEL[syncStatus];
@@ -59,7 +64,7 @@ export const CodeEditorPane: React.FC<CodeEditorPaneProps> = ({ value, onChange,
       <div style={{ flex: 1, minHeight: 0 }}>
         <EditorErrorBoundary fallback={fallback}>
           <Suspense fallback={fallback}>
-            <MonacoPythonEditor value={value} onChange={onChange} markers={markers} onCursorChange={setCursor} />
+            <MonacoPythonEditor value={value} onChange={onChange} markers={markers} onCursorChange={setCursor} reveal={reveal} onLineClick={onLineClick} />
           </Suspense>
         </EditorErrorBoundary>
       </div>

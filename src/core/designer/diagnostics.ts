@@ -47,6 +47,18 @@ export function mapNodeLines(source: string, nodeIds: string[]): Record<string, 
 }
 
 /**
+ * Reverse lookup for click-to-focus: the node whose `.node(...)` declaration is
+ * on `line`, or `null`. Only exact declaration lines resolve, so moving the
+ * cursor through generated code does not spuriously change the canvas selection.
+ */
+export function nodeAtLine(sourceLines: Record<string, number>, line: number): string | null {
+  for (const [nodeId, nodeLineNumber] of Object.entries(sourceLines)) {
+    if (nodeLineNumber === line) return nodeId;
+  }
+  return null;
+}
+
+/**
  * Map verifier issues to editor markers.
  *
  * Issues carry a `lineno` when the store could locate the node in the generated

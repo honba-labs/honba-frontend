@@ -24,7 +24,22 @@ import {
   type UniverseShape,
 } from '../graph/model';
 import { graphIssues, nodePorts } from '../graph/validation';
-import { nodeLine } from './diagnostics';
+import { mapNodeLines, nodeLine } from './diagnostics';
+import {
+  createSyncScheduler,
+  recognizeGeneratedSource,
+  type CodeSpan,
+  type RecognitionResult,
+  type Recognizer,
+  type SyncScheduler,
+} from './code-to-graph';
+import {
+  assistantContext,
+  hasAssistantPropose,
+  runSummary,
+  toAssistantMessage,
+  type AssistantRunSummary,
+} from './assistant';
 import {
   DEFAULT_LAYOUT,
   layoutWithFocusToggled,
@@ -51,6 +66,24 @@ export interface RunState {
   status: 'idle' | 'pending' | 'running' | 'completed' | 'failed';
   runId: string | null;
   response: BacktestResponse | null;
+  error: string | null;
+}
+
+/**
+ * Code -> flow synchronisation slice (Phase 3).
+ *
+ * `graph` continues to hold the last valid DAG, so the canvas never clears while
+ * the editor is mid-edit; `spans`/`codeOnly` describe what the recogniser could
+ * not capture and are surfaced as editor markers and a canvas badge.
+ */
+export interface SyncState {
+  status: 'idle' | 'pending' | 'synced' | 'invalid';
+  codeOnly: boolean;
+  spans: CodeSpan[];
+  /** Node id -> generated-source line, for editor <-> canvas navigation. */
+  sourceLines: Record<string, number>;
+  /** The source the current `graph` was recognised from. */
+  lastSource: string | null;
   error: string | null;
 }
 
@@ -110,7 +143,13 @@ export interface DesignerState {
   codeEdited: boolean;
   verify: VerifyState;
   run: RunState;
+  /** Phase 3 code <-> flow sync state. */
+  sync: SyncState;
+  /** Pluggable recogniser: client-side fast path by default, remote if configured. */
+  recognizer: Recognizer;
   assistant: AssistantMessage[];
+  /** Phase 4 co-pilot request status, drives the typing indicator. */
+  assistantStatus: 'idle' | 'thinking';
   versions: DesignerVersion[];
   layout: DesignerLayout;
 
@@ -157,6 +196,13 @@ export interface DesignerState {
 
   markSaved: () => void;
   setCode: (code: string) => void;
+  setRecognizer: (recognizer: Recognizer) => void;
+  /** Queue a debounced recognition of `source` (called by the editor). */
+  requestSync: (source: string) => void;
+  /** Run recognition immediately, bypassing the debounce (tests / explicit sync). */
+  syncNow: (source: string) => void;
+  /** Apply a recognition result; exported for tests. */
+  applyRecognition: (result: RecognitionResult, source: string) => void;
   snapshotVersion: () => Promise<void>;
   restoreVersion: (hash: string) => Promise<void>;
   exportStrategyJson: () => string;
@@ -166,6 +212,7 @@ export interface DesignerState {
   addAssistantMessage: (msg: AssistantMessage) => void;
   proposeAI: (prompt: string, client?: HonbaClient) => Promise<void>;
   applyProposal: (messageIndex: number) => Promise<void>;
+  discardProposal: (messageIndex: number) => void;
   applySweepParams: (params: Record<string, unknown>) => Promise<void>;
   resetAssistant: () => void;
 }
@@ -173,6 +220,25 @@ export interface DesignerState {
 async function buildCode(graph: StrategyGraphShape): Promise<string> {
   const hash = await graphHash(graph);
   return generateCode(graph, hash);
+}
+
+/**
+ * State patch for a canvas-side edit: the graph is authoritative, so the code is
+ * regenerated and the sync slice is reset to a clean, editor-independent state
+ * (Phase 3). Recomputing `sourceLines` keeps editor <-> canvas navigation honest
+ * after the generated code changes underneath.
+ */
+async function regenerated(graph: StrategyGraphShape): Promise<Partial<DesignerState>> {
+  const code = await buildCode(graph);
+  const sync: SyncState = {
+    status: 'synced',
+    codeOnly: false,
+    spans: [],
+    sourceLines: mapNodeLines(code, graph.nodes.map((n) => n.id)),
+    lastSource: code,
+    error: null,
+  };
+  return { code, codeEdited: false, sync };
 }
 
 export function defaultGraph(): StrategyGraphShape {
@@ -227,6 +293,21 @@ function toManifest(graph: StrategyGraphShape): StrategyManifest {
 
 export const useDesignerStore = create<DesignerState>((set, get) => {
   const graph = defaultGraph();
+
+  const scheduler: SyncScheduler = createSyncScheduler({
+    recognize: (source, signal) => get().recognizer(source, signal),
+    onPending: () => set({ sync: { ...get().sync, status: 'pending', error: null } }),
+    onResult: (result, source) => get().applyRecognition(result, source),
+    onError: (error) =>
+      set({
+        sync: {
+          ...get().sync,
+          status: 'invalid',
+          error: error instanceof Error ? error.message : String(error),
+        },
+      }),
+  });
+
   return {
     tab: 'canvas',
     graph,
@@ -238,7 +319,10 @@ export const useDesignerStore = create<DesignerState>((set, get) => {
     codeEdited: false,
     verify: { ok: false, issues: [], ir: null },
     run: { status: 'idle', runId: null, response: null, error: null },
+    sync: { status: 'idle', codeOnly: false, spans: [], sourceLines: {}, lastSource: null, error: null },
+    recognizer: recognizeGeneratedSource,
     assistant: [],
+    assistantStatus: 'idle',
     versions: [],
     layout: loadLayout(),
 
@@ -284,7 +368,7 @@ export const useDesignerStore = create<DesignerState>((set, get) => {
     setName: async (name) => {
       const { graph } = get();
       const next: StrategyGraphShape = { ...graph, name };
-      set({ graph: next, isModified: true, codeEdited: false, code: await buildCode(next) });
+      set({ graph: next, isModified: true, ...(await regenerated(next)) });
     },
 
     setGraph: async (next) => {
@@ -304,8 +388,7 @@ export const useDesignerStore = create<DesignerState>((set, get) => {
         selectedNodeId: null,
         selectedEdgeId: null,
         isModified: false,
-        codeEdited: false,
-        code: await buildCode(next),
+        ...(await regenerated(next)),
       });
     },
 
@@ -324,7 +407,7 @@ export const useDesignerStore = create<DesignerState>((set, get) => {
           node.id === nodeId ? { ...node, params: { ...(node.params ?? {}), ...params } } : node,
         ),
       };
-      set({ graph: next, isModified: true, codeEdited: false, code: await buildCode(next) });
+      set({ graph: next, isModified: true, ...(await regenerated(next)) });
     },
 
     updateNodeLabel: async (nodeId, label) => {
@@ -333,7 +416,7 @@ export const useDesignerStore = create<DesignerState>((set, get) => {
         ...graph,
         nodes: graph.nodes.map((node) => (node.id === nodeId ? { ...node, label } : node)),
       };
-      set({ graph: next, isModified: true, codeEdited: false, code: await buildCode(next) });
+      set({ graph: next, isModified: true, ...(await regenerated(next)) });
     },
 
     updateNodeIndicator: async (nodeId, indicator) => {
@@ -357,25 +440,25 @@ export const useDesignerStore = create<DesignerState>((set, get) => {
             : node,
         ),
       };
-      set({ graph: next, isModified: true, codeEdited: false, code: await buildCode(next) });
+      set({ graph: next, isModified: true, ...(await regenerated(next)) });
     },
 
     updateUniverse: async (universe) => {
       const { graph } = get();
       const next: StrategyGraphShape = { ...graph, universe };
-      set({ graph: next, isModified: true, codeEdited: false, code: await buildCode(next) });
+      set({ graph: next, isModified: true, ...(await regenerated(next)) });
     },
 
     updateDrivingTimeframe: async (driving_timeframe) => {
       const { graph } = get();
       const next: StrategyGraphShape = { ...graph, driving_timeframe };
-      set({ graph: next, isModified: true, codeEdited: false, code: await buildCode(next) });
+      set({ graph: next, isModified: true, ...(await regenerated(next)) });
     },
 
     updateWarmupBars: async (warmup_bars) => {
       const { graph } = get();
       const next: StrategyGraphShape = { ...graph, warmup_bars };
-      set({ graph: next, isModified: true, codeEdited: false, code: await buildCode(next) });
+      set({ graph: next, isModified: true, ...(await regenerated(next)) });
     },
 
     addNode: async (node, position) => {
@@ -398,8 +481,7 @@ export const useDesignerStore = create<DesignerState>((set, get) => {
         selectedNodeId: uniqueId,
         selectedEdgeId: null,
         isModified: true,
-        codeEdited: false,
-        code: await buildCode(nextGraph),
+        ...(await regenerated(nextGraph)),
       });
     },
 
@@ -415,8 +497,7 @@ export const useDesignerStore = create<DesignerState>((set, get) => {
         positions: nextPositions,
         selectedNodeId: selectedNodeId === nodeId ? null : selectedNodeId,
         isModified: true,
-        codeEdited: false,
-        code: await buildCode(nextGraph),
+        ...(await regenerated(nextGraph)),
       });
     },
 
@@ -428,8 +509,7 @@ export const useDesignerStore = create<DesignerState>((set, get) => {
         graph: nextGraph,
         selectedEdgeId: selectedEdgeId === edgeId ? null : selectedEdgeId,
         isModified: true,
-        codeEdited: false,
-        code: await buildCode(nextGraph),
+        ...(await regenerated(nextGraph)),
       });
     },
 
@@ -500,8 +580,7 @@ export const useDesignerStore = create<DesignerState>((set, get) => {
         selectedNodeId: uniqueId,
         selectedEdgeId: null,
         isModified: true,
-        codeEdited: false,
-        code: await buildCode(nextGraph),
+        ...(await regenerated(nextGraph)),
       });
     },
 
@@ -583,14 +662,81 @@ export const useDesignerStore = create<DesignerState>((set, get) => {
         graph: nextGraph,
         selectedEdgeId: edgeId,
         isModified: true,
-        codeEdited: false,
-        code: await buildCode(nextGraph),
+        ...(await regenerated(nextGraph)),
       });
     },
 
     markSaved: () => set({ isModified: false }),
 
-    setCode: (code) => set({ code, codeEdited: true }),
+    setCode: (code) => {
+      set({ code, codeEdited: true });
+      scheduler.schedule(code);
+    },
+
+    setRecognizer: (recognizer) => {
+      scheduler.cancel();
+      set({ recognizer });
+    },
+
+    requestSync: (source) => scheduler.schedule(source),
+
+    syncNow: (source) => {
+      scheduler.cancel();
+      set({ sync: { ...get().sync, status: 'pending', error: null } });
+      void Promise.resolve(get().recognizer(source)).then(
+        (result) => get().applyRecognition(result, source),
+        (error: unknown) =>
+          set({
+            sync: { ...get().sync, status: 'invalid', error: error instanceof Error ? error.message : String(error) },
+          }),
+      );
+    },
+
+    applyRecognition: (result, source) => {
+      // Conflict policy: if the code has moved on since this recognition was
+      // queued (a canvas edit regenerated it), the newer source wins.
+      if (get().code && get().code !== source) return;
+
+      const current = get().graph;
+      const sourceLines = mapNodeLines(source, result.graph ? result.graph.nodes.map((n) => n.id) : current.nodes.map((n) => n.id));
+      const status: SyncState['status'] = result.graph ? 'synced' : 'invalid';
+      const base: SyncState = {
+        status,
+        codeOnly: result.codeOnly,
+        spans: result.spans,
+        sourceLines,
+        lastSource: source,
+        error: null,
+      };
+
+      if (!result.graph || canonicalJson(result.graph) === canonicalJson(current)) {
+        set({ sync: base });
+        return;
+      }
+
+      // Recognised a different graph: adopt it without regenerating code (the
+      // editor is the source of truth here), preserving node positions by id and
+      // auto-placing any newly recognised nodes.
+      const currentPositions = get().positions;
+      const positions: Record<string, { x: number; y: number }> = {};
+      result.graph.nodes.forEach((node, index) => {
+        positions[node.id] =
+          currentPositions[node.id] ??
+          DEFAULT_NODE_POSITIONS[node.id] ?? {
+            x: 80 + (index % 4) * 240,
+            y: 80 + Math.floor(index / 4) * 160,
+          };
+      });
+      const selectedNodeId = get().selectedNodeId;
+      set({
+        graph: result.graph,
+        positions,
+        selectedNodeId: selectedNodeId && result.graph.nodes.some((n) => n.id === selectedNodeId) ? selectedNodeId : null,
+        isModified: true,
+        codeEdited: true,
+        sync: base,
+      });
+    },
 
     snapshotVersion: async () => {
       const { graph, versions } = get();
@@ -667,8 +813,43 @@ export const useDesignerStore = create<DesignerState>((set, get) => {
     addAssistantMessage: (msg) =>
       set((state) => ({ assistant: [...state.assistant, msg] })),
 
-    proposeAI: async (prompt: string) => {
-      const { graph } = get();
+    proposeAI: async (prompt: string, client) => {
+      const state = get();
+      const { graph } = state;
+
+      // Preferred path: the backend assistant (P4). Feature-detected on the
+      // generated client, routed through the verifier HB-side; the local
+      // keyword engine below remains as the offline/no-backend fallback.
+      const propose = hasAssistantPropose(client) ? client.postAssistantPropose : undefined;
+      if (propose) {
+        const lastRun: AssistantRunSummary | null = runSummary(state.run.response);
+        set({ assistantStatus: 'thinking' });
+        try {
+          const envelope = await propose({
+            graph,
+            source: state.code,
+            prompt,
+            context: assistantContext({ graph, source: state.code, run: lastRun, messages: state.assistant }),
+          });
+          if (envelope.data) {
+            const msg = toAssistantMessage(envelope.data);
+            set((s) => ({ assistant: [...s.assistant, msg] }));
+            return;
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          set((s) => ({
+            assistant: [
+              ...s.assistant,
+              { kind: 'validation_error', message: `Co-pilot request failed: ${message}`, blocked: true, timestamp: Date.now() },
+            ],
+          }));
+          return;
+        } finally {
+          set({ assistantStatus: 'idle' });
+        }
+      }
+
       const lower = prompt.toLowerCase();
 
       // Validation error trigger for safety demonstration
@@ -689,7 +870,7 @@ export const useDesignerStore = create<DesignerState>((set, get) => {
           blocked: true,
           timestamp: Date.now(),
         };
-        set((state) => ({ assistant: [...state.assistant, msg] }));
+        set((state) => ({ assistant: [...state.assistant, msg], assistantStatus: 'idle' }));
         return;
       }
 
@@ -738,7 +919,7 @@ export const useDesignerStore = create<DesignerState>((set, get) => {
           blocked: false,
           timestamp: Date.now(),
         };
-        set((state) => ({ assistant: [...state.assistant, msg] }));
+        set((state) => ({ assistant: [...state.assistant, msg], assistantStatus: 'idle' }));
         return;
       }
 
@@ -787,7 +968,7 @@ export const useDesignerStore = create<DesignerState>((set, get) => {
           blocked: false,
           timestamp: Date.now(),
         };
-        set((state) => ({ assistant: [...state.assistant, msg] }));
+        set((state) => ({ assistant: [...state.assistant, msg], assistantStatus: 'idle' }));
         return;
       }
 
@@ -820,7 +1001,7 @@ export const useDesignerStore = create<DesignerState>((set, get) => {
           blocked: false,
           timestamp: Date.now(),
         };
-        set((state) => ({ assistant: [...state.assistant, msg] }));
+        set((state) => ({ assistant: [...state.assistant, msg], assistantStatus: 'idle' }));
         return;
       }
 
@@ -831,7 +1012,7 @@ export const useDesignerStore = create<DesignerState>((set, get) => {
         blocked: false,
         timestamp: Date.now(),
       };
-      set((state) => ({ assistant: [...state.assistant, msg] }));
+      set((state) => ({ assistant: [...state.assistant, msg], assistantStatus: 'idle' }));
     },
 
     applyProposal: async (index) => {
@@ -840,8 +1021,26 @@ export const useDesignerStore = create<DesignerState>((set, get) => {
       if (!msg || !msg.graph || msg.blocked) return;
       await snapshotVersion();
       await setGraph(msg.graph);
-      set({ tab: 'canvas' });
+      set((state) => ({
+        tab: 'canvas',
+        assistant: [
+          ...state.assistant,
+          { kind: 'discussion', message: `Applied candidate #${index + 1} to the canvas; graph and code regenerated.`, blocked: false, timestamp: Date.now() },
+        ],
+      }));
     },
+
+    discardProposal: (index) =>
+      set((state) => {
+        const msg = state.assistant[index];
+        if (!msg) return {};
+        return {
+          assistant: [
+            ...state.assistant,
+            { kind: 'discussion' as const, message: `Discarded candidate #${index + 1}; the canvas is unchanged.`, blocked: false, timestamp: Date.now() },
+          ],
+        };
+      }),
 
     applySweepParams: async (params) => {
       const { graph } = get();
@@ -869,8 +1068,7 @@ export const useDesignerStore = create<DesignerState>((set, get) => {
       set({
         graph: nextGraph,
         isModified: true,
-        codeEdited: false,
-        code: await buildCode(nextGraph),
+        ...(await regenerated(nextGraph)),
         tab: 'canvas',
       });
     },

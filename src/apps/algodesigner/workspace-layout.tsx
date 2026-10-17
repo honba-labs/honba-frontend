@@ -1,8 +1,9 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bot,
   Braces,
   CheckCircle2,
+  GitCompare,
   Layers,
   Maximize2,
   PanelBottom,
@@ -20,17 +21,19 @@ import {
   type DesignerPane,
   type DrawerTab,
 } from '../../core/designer/store';
-import { verifyIssuesToMarkers } from '../../core/designer/diagnostics';
+import { mapNodeLines, nodeAtLine, spansToMarkers, verifyIssuesToMarkers } from '../../core/designer/diagnostics';
+import type { EditorReveal } from './monaco-python-editor';
 import { graphHashSync, type GraphNode } from '../../core/graph/model';
 import { cataloguelookup } from '../../core/graph/catalogue';
 import { stashHandoff, simulatorHandoffUrl } from '../../core/designer/handoff';
 import { useOpsStore } from '../../core/designer/ops-state';
-import { AssistantPanel, OpsPanel, ResultsPanel, RunPanel, VerifyPanel } from './panels';
+import { OpsPanel, ResultsPanel, RunPanel, VerifyPanel } from './panels';
 import { SweepsPanel } from './sweeps-panel';
 import { DesignerCanvas } from './canvas';
 import { CodeEditorPane } from './code-editor-pane';
 import { ParamsPanel } from './params-panel';
 import { LibraryDrawer } from './library-drawer';
+import { AiChatColumn } from './ai-chat-column';
 import { Pane, Splitter } from './split-pane';
 
 /**
@@ -50,6 +53,14 @@ const DRAWER_LABELS: Record<DrawerTab, string> = {
   results: 'Results',
 };
 
+/** Canvas badge text/colour for the code -> flow sync status (Phase 3). */
+const SYNC_BADGE: Record<'idle' | 'pending' | 'synced' | 'invalid', { text: string; color: string }> = {
+  idle: { text: 'Flow: idle', color: 'var(--text-muted)' },
+  pending: { text: 'Pending valid syntax…', color: 'var(--accent-gold, #f7a600)' },
+  synced: { text: 'Graph synced (clean)', color: 'var(--bullish, #089981)' },
+  invalid: { text: 'Last valid graph held', color: 'var(--bearish, #f23645)' },
+};
+
 export interface WorkspaceLayoutProps {
   client: HonbaClient;
   onNotice?: (message: string) => void;
@@ -63,7 +74,32 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({ client, onNoti
   const [paramsOpen, setParamsOpen] = useState(false);
 
   const hash = useMemo(() => graphHashSync(store.graph), [store.graph]);
-  const markers = useMemo(() => verifyIssuesToMarkers(store.verify, store.code), [store.verify, store.code]);
+  const markers = useMemo(
+    () => [...verifyIssuesToMarkers(store.verify, store.code), ...spansToMarkers(store.sync.spans)],
+    [store.verify, store.code, store.sync.spans],
+  );
+  // Node <-> line map for navigation, derived from the live code so it stays
+  // correct after canvas edits (the recogniser's copy may be older).
+  const sourceLines = useMemo(
+    () => mapNodeLines(store.code, store.graph.nodes.map((node) => node.id)),
+    [store.code, store.graph],
+  );
+  const [reveal, setReveal] = useState<EditorReveal | null>(null);
+  useEffect(() => {
+    const id = store.selectedNodeId;
+    if (!id) return;
+    const line = sourceLines[id];
+    if (!line) return;
+    setReveal((prev) => ({ line, nonce: (prev?.nonce ?? 0) + 1 }));
+  }, [store.selectedNodeId, sourceLines]);
+
+  const handleLineClick = useCallback(
+    (line: number) => {
+      const nodeId = nodeAtLine(sourceLines, line);
+      if (nodeId) store.selectNode(nodeId);
+    },
+    [sourceLines, store],
+  );
 
   const setNotice = useCallback((message: string) => onNotice?.(message), [onNotice]);
 
@@ -300,7 +336,9 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({ client, onNoti
                       onChange={store.setCode}
                       markers={markers}
                       hash={hash}
-                      syncStatus={store.codeEdited ? 'pending' : 'idle'}
+                      syncStatus={store.sync.status}
+                      reveal={reveal}
+                      onLineClick={handleLineClick}
                     />
                   </div>
                   {paramsOpen ? (
@@ -319,7 +357,23 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({ client, onNoti
           <>
             {showSplitters && codeVisible ? <Splitter ariaLabel="Resize code and canvas panes" onDelta={adjustRatio} /> : null}
             <div style={{ flexGrow: focus ? 1 : canvasWeight, flexBasis: 0, minWidth: 0, height: '100%' }}>
-              <Pane id="canvas" title="Strategy Flow" icon={<Workflow size={12} />} focused={isFocused('canvas')} onToggleFocus={store.toggleFocus}>
+              <Pane
+                id="canvas"
+                title="Strategy Flow"
+                icon={<Workflow size={12} />}
+                focused={isFocused('canvas')}
+                onToggleFocus={store.toggleFocus}
+                actions={
+                  <span
+                    data-testid="canvas-sync-badge"
+                    title="Code → flow recognition status"
+                    style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: SYNC_BADGE[store.sync.status].color }}
+                  >
+                    <GitCompare size={11} />
+                    <span>{store.sync.codeOnly && store.sync.status !== 'synced' ? 'code_only spans present' : SYNC_BADGE[store.sync.status].text}</span>
+                  </span>
+                }
+              >
                 <DesignerCanvas
                   graph={store.graph}
                   client={client}
@@ -348,10 +402,13 @@ export const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({ client, onNoti
                 onToggleFocus={store.toggleFocus}
                 onClose={focus ? undefined : store.togglePane}
               >
-                <AssistantPanel
+                <AiChatColumn
                   messages={store.assistant}
+                  currentCode={store.code}
+                  status={store.assistantStatus}
                   onPropose={(text) => void store.proposeAI(text, client)}
-                  onApplyProposal={(idx) => void store.applyProposal(idx)}
+                  onApply={(idx) => void store.applyProposal(idx)}
+                  onDiscard={store.discardProposal}
                   onClear={store.resetAssistant}
                 />
               </Pane>

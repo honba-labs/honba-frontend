@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { defaultGraph } from './store';
-import { mapNodeLines, nodeLine, spansToMarkers, verifyIssuesToMarkers } from './diagnostics';
+import { mapNodeLines, nodeAtLine, nodeLine, spansToMarkers, verifyIssuesToMarkers } from './diagnostics';
 import { generateCode } from '../graph/codegen';
 import { graphHashSync } from '../graph/model';
 
@@ -57,5 +57,12 @@ describe('editor diagnostics mapping (Phase 2/3)', () => {
 
   it('defaults a zero/unknown span line to 1', () => {
     expect(spansToMarkers([{ start_line: 0 }])[0].line).toBe(1);
+  });
+
+  it('resolves a node from a declaration line and null elsewhere (Phase 3 navigation)', () => {
+    const map = mapNodeLines(code, defaultGraph().nodes.map((n) => n.id));
+    const fastLine = map.f as number;
+    expect(nodeAtLine(map, fastLine)).toBe('f');
+    expect(nodeAtLine(map, 1)).toBeNull();
   });
 });
