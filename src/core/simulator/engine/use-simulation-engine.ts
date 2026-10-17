@@ -31,21 +31,24 @@ export function useSimulationEngine(
     });
   }, [controller]);
 
-  // Initialize or re-initialize when bars or strategy changes
+  const lastInitKey = useRef<string>('');
+  const initKey = `${symbol}|${exchange}|${bars.length}|${bars[0]?.time ?? 0}|${bars[bars.length - 1]?.time ?? 0}|${initialCapital}|${accountId}`;
+
+  // Initialize or re-initialize when underlying dataset or instrument actually changes
   useEffect(() => {
-    if (bars.length > 0) {
+    if (bars.length > 0 && lastInitKey.current !== initKey) {
+      lastInitKey.current = initKey;
       controller.init([...bars], strategy, symbol, exchange, initialCapital, accountId);
       setVisibleBars([...bars]);
     }
-  }, [bars, strategy, symbol, exchange, initialCapital, accountId]);
+  }, [initKey, bars, strategy, symbol, exchange, initialCapital, accountId, controller]);
 
   const play = useCallback(() => controller.play(), [controller]);
   const pause = useCallback(() => controller.pause(), [controller]);
   const step = useCallback(() => controller.step(), [controller]);
   const reset = useCallback(() => {
     controller.reset();
-    setVisibleBars(bars.length > 0 ? [bars[0]] : []);
-  }, [controller, bars]);
+  }, [controller]);
   const instant = useCallback(() => controller.instantRunToEnd(), [controller]);
   const setSpeed = useCallback((speed: number) => controller.setSpeed(speed), [controller]);
   const scrub = useCallback((index: number) => controller.jumpToBar(index), [controller]);

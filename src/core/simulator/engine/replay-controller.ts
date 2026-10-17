@@ -113,6 +113,8 @@ export class ReplayController {
       this.reset();
     }
     this.status = 'playing';
+    // Immediately emit first tick/bar so the chart responds without delay
+    this.advanceTick();
     this.startTimer();
     this.notifyState();
   }
@@ -138,6 +140,9 @@ export class ReplayController {
     this.roundTrips = [];
     this.lastConfluence = null;
     this.activeSignals = [];
+    this.status = 'paused';
+    const firstBar = this.bars.length > 0 ? [this.bars[0]] : [];
+    this.callbacks.onBarChange?.(0, firstBar);
     this.notifyState();
   }
 
@@ -147,6 +152,7 @@ export class ReplayController {
       this.pause();
     }
     this.advanceTick();
+    this.notifyState();
   }
 
   public jumpToBar(targetIndex: number) {
@@ -155,6 +161,8 @@ export class ReplayController {
     this.currentBarIndex = bounded;
     this.currentTickPhase = 3; // end of bar
     this.evaluateCurrentBar();
+    const visibleBars = this.bars.slice(0, bounded + 1);
+    this.callbacks.onBarChange?.(bounded, visibleBars);
     this.notifyState();
   }
 
@@ -174,7 +182,9 @@ export class ReplayController {
       this.evaluateCurrentBar();
     }
 
+    this.currentBarIndex = this.bars.length - 1;
     this.status = 'completed';
+    this.callbacks.onBarChange?.(this.bars.length - 1, [...this.bars]);
     this.notifyState();
   }
 
@@ -250,11 +260,24 @@ export class ReplayController {
     // Callbacks
     this.callbacks.onTick?.(tick);
 
+    // Dynamic forming candle for real-time intra-bar animation
+    const currentHigh = Math.max(bar.open, tickPrice, this.currentTickPhase > 1 ? bar.high : tickPrice);
+    const currentLow = Math.min(bar.open, tickPrice, this.currentTickPhase > 0 ? bar.low : tickPrice);
+    const formingBar: ChartBar = {
+      time: bar.time,
+      open: bar.open,
+      high: currentHigh,
+      low: currentLow,
+      close: tickPrice,
+      volume: Math.max(1, Math.round(bar.volume * ((this.currentTickPhase + 1) / 4))),
+    };
+
+    const visibleBars = [...this.bars.slice(0, this.currentBarIndex), formingBar];
+    this.callbacks.onBarChange?.(this.currentBarIndex, visibleBars);
+
     // Evaluate strategy on candle close phase
     if (this.currentTickPhase === 3) {
       this.evaluateCurrentBar();
-      const visibleBars = this.bars.slice(0, this.currentBarIndex + 1);
-      this.callbacks.onBarChange?.(this.currentBarIndex, visibleBars);
     }
 
     // Advance phase or next bar

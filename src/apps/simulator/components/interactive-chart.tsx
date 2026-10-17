@@ -141,6 +141,7 @@ export interface InteractiveChartProps {
   seriesKey?: string;
   showVolume?: boolean;
   showVwap?: boolean;
+  isReplaying?: boolean;
 }
 
 export const InteractiveChart: React.FC<InteractiveChartProps> = ({
@@ -151,6 +152,7 @@ export const InteractiveChart: React.FC<InteractiveChartProps> = ({
   seriesKey,
   showVolume = true,
   showVwap = true,
+  isReplaying = false,
 }) => {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<Chart | null>(null);
@@ -316,15 +318,31 @@ export const InteractiveChart: React.FC<InteractiveChartProps> = ({
     );
 
     const key = seriesKey ?? `${bars.length}:${bars[0]?.time ?? 0}`;
-    if (bars.length > 0 && anchored.current !== key) {
-      anchored.current = key;
-      const visible = Math.min(bars.length, 180);
-      chart.setVisibleLogicalRange({
-        from: bars.length - visible,
-        to: bars.length - 1 + Math.max(1, Math.round(visible * 0.04)),
-      });
+    const lastIndex = bars.length - 1;
+    if (lastIndex >= 0) {
+      if (isReplaying) {
+        // In simulation / replay mode: continuously follow leading edge with proper runway
+        const windowBars = Math.min(Math.max(bars.length, 40), 100);
+        chart.setVisibleLogicalRange({
+          from: Math.max(0, lastIndex - windowBars + 1),
+          to: Math.max(lastIndex + 4, windowBars - 1),
+        });
+      } else if (anchored.current !== key) {
+        anchored.current = key;
+        const visible = Math.min(bars.length, 180);
+        chart.setVisibleLogicalRange({
+          from: Math.max(0, bars.length - visible),
+          to: bars.length - 1 + Math.max(1, Math.round(visible * 0.04)),
+        });
+      }
     }
-  }, [ready, bars, seriesKey]);
+  }, [ready, bars, seriesKey, isReplaying]);
+
+  useEffect(() => {
+    if (!isReplaying) {
+      anchored.current = null;
+    }
+  }, [isReplaying]);
 
   // Markers are positioned by time, so they are re-set whenever the data or the
   // pairing changes.
@@ -457,6 +475,7 @@ export interface SimulatorChartProps {
   engineTrips?: readonly RoundTrip[];
   multiTimeframe?: boolean;
   secondaryTimeframe?: string;
+  isReplaying?: boolean;
 }
 
 /**
@@ -471,6 +490,7 @@ export const SimulatorChart: React.FC<SimulatorChartProps> = ({
   engineTrips,
   multiTimeframe = false,
   secondaryTimeframe = '1h',
+  isReplaying = false,
 }) => {
   const strategy = useSimulatorStore((state) => state.strategy);
   const controls = useSimulatorStore((state) => state.controls);
@@ -483,6 +503,9 @@ export const SimulatorChart: React.FC<SimulatorChartProps> = ({
   const instrumentId = universeFor(controls);
   const { start, end } = useMemo(() => resolveRange(controls), [controls]);
   const timeframe = controls.timeframe;
+
+  const onBarsLoadedRef = useRef(onBarsLoaded);
+  onBarsLoadedRef.current = onBarsLoaded;
 
   // Bar loading is keyed to the selection, not the run: the chart is useful
   // before anything has been simulated. A cancelled load (selection changed)
@@ -499,7 +522,7 @@ export const SimulatorChart: React.FC<SimulatorChartProps> = ({
       (state) => {
         if (active) {
           setBarsState(state);
-          onBarsLoaded?.(state.bars);
+          onBarsLoadedRef.current?.(state.bars);
         }
       },
     );
@@ -507,7 +530,7 @@ export const SimulatorChart: React.FC<SimulatorChartProps> = ({
       active = false;
       controller.abort();
     };
-  }, [client, instrumentId, start, end, timeframe, onBarsLoaded]);
+  }, [client, instrumentId, start, end, timeframe]);
 
   // Indicator specs are resolved against the loaded registry (the tier import is
   // async), so the chart and the strategy agree on parameters.
@@ -592,6 +615,7 @@ export const SimulatorChart: React.FC<SimulatorChartProps> = ({
           secondaryTimeframe={secondaryTimeframe}
           instrumentId={instrumentId}
           primaryTimeframe={timeframe}
+          isReplaying={isReplaying}
         />
       </div>
 

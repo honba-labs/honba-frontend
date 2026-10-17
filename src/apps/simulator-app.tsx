@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ExternalLink } from 'lucide-react';
 
@@ -35,6 +35,10 @@ const Simulator: React.FC = () => {
   const client = useMemo(() => new HonbaClient({}), []);
   const [notice, setNotice] = useState<string | null>(null);
   const [loadedBars, setLoadedBars] = useState<readonly ChartBar[]>([]);
+
+  const handleBarsLoaded = useCallback((bars: readonly ChartBar[]) => {
+    setLoadedBars(bars);
+  }, []);
 
   const [selectedAccountId, setSelectedAccountId] = useState('acc-sandbox-primary');
   const [multiTimeframe, setMultiTimeframe] = useState(false);
@@ -213,11 +217,12 @@ const Simulator: React.FC = () => {
             <div style={{ flex: '1 1 55%', minHeight: 260, borderBottom: '1px solid var(--border-subtle, #2a2e39)' }}>
               <SimulatorChart
                 client={client}
-                onBarsLoaded={(bars) => setLoadedBars(bars)}
+                onBarsLoaded={handleBarsLoaded}
                 engineVisibleBars={engine.visibleBars}
                 engineTrips={engine.engineState.roundTrips}
                 multiTimeframe={multiTimeframe}
                 secondaryTimeframe={secondaryTimeframe}
+                isReplaying={engine.engineState.status !== 'idle'}
               />
             </div>
 

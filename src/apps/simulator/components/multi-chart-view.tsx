@@ -15,6 +15,7 @@ export interface MultiChartViewProps {
   secondaryTimeframe: string;
   instrumentId: string;
   primaryTimeframe: string;
+  isReplaying?: boolean;
 }
 
 export const MultiChartView: React.FC<MultiChartViewProps> = ({
@@ -27,6 +28,7 @@ export const MultiChartView: React.FC<MultiChartViewProps> = ({
   secondaryTimeframe,
   instrumentId,
   primaryTimeframe,
+  isReplaying,
 }) => {
   // Resample higher timeframe bars
   const secondaryBars = useMemo(() => {
@@ -43,6 +45,7 @@ export const MultiChartView: React.FC<MultiChartViewProps> = ({
           markers={markers}
           trips={trips}
           seriesKey={seriesKey}
+          isReplaying={isReplaying}
         />
       </div>
     );
@@ -84,6 +87,7 @@ export const MultiChartView: React.FC<MultiChartViewProps> = ({
             markers={markers}
             trips={trips}
             seriesKey={`${seriesKey}|primary`}
+            isReplaying={isReplaying}
           />
         </div>
       </div>
@@ -113,6 +117,7 @@ export const MultiChartView: React.FC<MultiChartViewProps> = ({
             trips={trips}
             seriesKey={`${seriesKey}|secondary|${secondaryTimeframe}`}
             showVolume={false}
+            isReplaying={isReplaying}
           />
         </div>
       </div>
