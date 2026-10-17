@@ -7,8 +7,10 @@ import type { BacktestRequest } from '../types/generated/domain';
  * rules are pinned to the Rust resolver in `crates/honba-api/src/run_resolve.rs`:
  * `strategy`, `universe`, `start`, `end` and a non-zero `seed` are **required**;
  * dates are `YYYY-MM-DD`; `bar_spec` is `<n><s|m|h|d|w|mo>`; `fill_model` is one
- * of the four server spellings; and the request denies unknown fields — so
- * commission/slippage cannot be fabricated client-side (risk R5, §8.2).
+ * of the four server spellings. `commission_per_fill` and `slippage_bps` are
+ * transmitted directly (Phase 6 contract gap closed); the request denies unknown
+ * fields, so any control without a wire field is surfaced in `notModelled`, never
+ * fabricated (risk R5).
  */
 
 export type PeriodPreset = '1M' | '3M' | '6M' | '1Y' | 'Custom';
@@ -27,6 +29,10 @@ export const DEFAULT_SEED = 42;
 export const DEFAULT_FILL_MODEL = 'bar_fill';
 /** `DEFAULT_BAR_SPEC` in `honba-api`. */
 export const DEFAULT_TIMEFRAME = '1d';
+/** `MAX_COMMISSION_PER_FILL` in `honba-api` (flat cost per fill). */
+export const MAX_COMMISSION_PER_FILL = 1e9;
+/** `MAX_SLIPPAGE_BPS` in `honba-api`. */
+export const MAX_SLIPPAGE_BPS = 10_000;
 
 export interface SimulatorControls {
   symbol: string;
@@ -36,9 +42,9 @@ export interface SimulatorControls {
   /** Bar specification, e.g. `5m`. */
   timeframe: string;
   capital: number;
-  /** Per-trade commission in the quote currency. Not transmitted (contract gap, R5). */
+  /** Flat commission charged per fill, in the quote currency (`commission_per_fill`). */
   commission: number;
-  /** Slippage in basis points. Not transmitted (contract gap, R5). */
+  /** Slippage applied to every fill, in basis points and adverse to the side (`slippage_bps`). */
   slippage: number;
   fillModel: string;
   /** Inclusive window, used only when `period === 'Custom'`. */
@@ -108,6 +114,14 @@ function requiredString(value: string | null | undefined): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+/** A non-negative, finite rate within `0..=max`, or a readable complaint. */
+function rateIssue(label: string, value: number, max: number): string | null {
+  if (!Number.isFinite(value) || value < 0 || value > max) {
+    return `${label} must be a number between 0 and ${max}.`;
+  }
+  return null;
+}
+
 /** Human-readable control problems; empty means the run request can be built. */
 export function controlIssues(controls: SimulatorControls, now: Date = new Date()): string[] {
   const issues: string[] = [];
@@ -121,6 +135,10 @@ export function controlIssues(controls: SimulatorControls, now: Date = new Date(
   if (!FILL_MODELS.includes(controls.fillModel)) {
     issues.push(`Unknown fill model ${JSON.stringify(controls.fillModel)}.`);
   }
+  const commission = rateIssue('Commission', controls.commission, MAX_COMMISSION_PER_FILL);
+  if (commission) issues.push(commission);
+  const slippage = rateIssue('Slippage', controls.slippage, MAX_SLIPPAGE_BPS);
+  if (slippage) issues.push(slippage);
   if (controls.period === 'Custom') {
     const { start, end } = resolveRange(controls, now);
     if (!DATE_RE.test(start) || !DATE_RE.test(end)) {
@@ -144,7 +162,7 @@ export interface SimulationRequestOptions {
 export interface SimulationRequestPlan {
   request: BacktestRequest;
   range: { start: string; end: string };
-  /** Controls deliberately not transmitted because the wire contract has no field (R5). */
+  /** Controls with no wire field, deliberately not transmitted (R5). Empty while commission/slippage are carried. */
   notModelled: string[];
   /** Non-empty when the panel is incomplete; `request` is then best-effort. */
   issues: string[];
@@ -152,8 +170,10 @@ export interface SimulationRequestPlan {
 
 /**
  * Map the control panel to a `BacktestRequest`. Commission and slippage are
- * surfaced in `notModelled` rather than fabricated, because `BacktestRequest`
- * is `deny_unknown_fields` and carries neither (§8.2, risk R5).
+ * transmitted as `commission_per_fill` (flat cost per fill) and `slippage_bps`
+ * (adverse, in basis points), the fields `honba-api` resolves in Phase 6; any
+ * control with no wire field is reported in `notModelled`, never fabricated
+ * (§8.2, risk R5).
  */
 export function toBacktestRequest(
   controls: SimulatorControls,
@@ -161,13 +181,6 @@ export function toBacktestRequest(
 ): SimulationRequestPlan {
   const now = options.now ?? new Date();
   const range = resolveRange(controls, now);
-  const notModelled: string[] = [];
-  if (controls.commission > 0) {
-    notModelled.push(`commission ${controls.commission}`);
-  }
-  if (controls.slippage > 0) {
-    notModelled.push(`slippage ${controls.slippage}bps`);
-  }
 
   const request: BacktestRequest = {
     strategy: options.strategy,
@@ -178,7 +191,9 @@ export function toBacktestRequest(
     fill_model: controls.fillModel || null,
     initial_capital: controls.capital,
     seed: options.seed ?? DEFAULT_SEED,
+    commission_per_fill: controls.commission > 0 ? controls.commission : undefined,
+    slippage_bps: controls.slippage > 0 ? controls.slippage : undefined,
   };
 
-  return { request, range, notModelled, issues: controlIssues(controls, now) };
+  return { request, range, notModelled: [], issues: controlIssues(controls, now) };
 }

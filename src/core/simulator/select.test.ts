@@ -35,7 +35,7 @@ function handoffOf(graph: StrategyGraphShape): SimulatorHandoff {
 describe('simulator selection — hand-off decode', () => {
   it('adopts the sessionStorage graph when the slug matches', () => {
     const selection = resolveSelection({
-      query: '?strategy=sma_cross&source=designer',
+      query: '?strategy=sma_crossover&source=designer',
       handoff: handoffOf(TEMPLATE),
     });
     expect(selection.origin).toBe('designer');

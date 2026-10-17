@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   DEFAULT_CONTROLS,
+  MAX_SLIPPAGE_BPS,
   controlIssues,
   minusMonths,
   presetRange,
@@ -54,6 +55,13 @@ describe('simulator controls — validation', () => {
     );
   });
 
+  it('rejects a commission or slippage the server resolver would refuse', () => {
+    const issues = controlIssues(controls({ commission: -1, slippage: MAX_SLIPPAGE_BPS + 1 }), NOW);
+    expect(issues.some((i) => /commission/i.test(i))).toBe(true);
+    expect(issues.some((i) => /slippage/i.test(i))).toBe(true);
+    expect(controlIssues(controls({ commission: Number.NaN }), NOW).some((i) => /commission/i.test(i))).toBe(true);
+  });
+
   it('accepts the default panel', () => {
     expect(controlIssues(controls(), NOW)).toEqual([]);
   });
@@ -80,11 +88,12 @@ describe('simulator controls — request mapping', () => {
     expect(plan.issues).toEqual([]);
   });
 
-  it('surfaces commission and slippage as not-modelled instead of fabricating fields (R5)', () => {
+  it('transmits commission and slippage as the versioned request fields (R5)', () => {
     const plan = toBacktestRequest(controls({ commission: 20, slippage: 5 }), { strategy: 'sma', now: NOW });
-    expect(plan.notModelled).toEqual(['commission 20', 'slippage 5bps']);
-    expect(plan.request).not.toHaveProperty('commission');
-    expect(plan.request).not.toHaveProperty('slippage');
+    expect(plan.request.commission_per_fill).toBe(20);
+    expect(plan.request.slippage_bps).toBe(5);
+    expect(plan.notModelled).toEqual([]);
+    expect(plan.issues).toEqual([]);
   });
 
   it('honours an explicit universe and a caller seed', () => {

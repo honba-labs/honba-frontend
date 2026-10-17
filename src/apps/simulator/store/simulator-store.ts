@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { takeHandoff, type SimulatorHandoff } from '../../../core/designer/handoff';
 import { loadSaved, slugify, type SavedStrategyManifest } from '../../../core/designer/library-store';
 import type { StrategyGraphShape } from '../../../core/graph/model';
+import { compileStrategy } from '../../../core/designer/compile';
 import { DEFAULT_CONTROLS, toBacktestRequest, type SimulatorControls, type SimulationRequestPlan } from '../../../core/simulator/controls';
 import { loadPersisted, persistSelection } from '../../../core/simulator/persistence';
 import { initialRunState, runBacktest, type RunClient, type RunOptions, type SimRunState } from '../../../core/simulator/run';
@@ -115,6 +116,7 @@ export function createSimulatorStore() {
     },
 
     execute: async (client, options) => {
+      const { strategy } = get();
       const plan = get().plan();
       set({ lastPlan: plan });
       if (plan.issues.length > 0) {
@@ -128,8 +130,25 @@ export function createSimulatorStore() {
         });
         return;
       }
-      set({ run: { ...initialRunState(), status: 'running', logs: [] } });
-      const final = await runBacktest(client, plan.request, {
+      set({ run: { ...initialRunState(), status: 'running', logs: ['Compiling the strategy…'] } });
+
+      // Compile-before-run: a run resolves `strategy` against the compiled-session
+      // catalogue or the registered Rust strategies, so the graph is registered
+      // first and the run is submitted with the compiled id (§8.2 contract gap).
+      const compiled = await compileStrategy(client, strategy, { signal: options?.signal });
+      if (compiled.error) {
+        set({
+          run: {
+            ...initialRunState(),
+            status: 'failed',
+            error: `Compile failed: ${compiled.error}`,
+            logs: [`Compile failed: ${compiled.error}`],
+          },
+        });
+        return;
+      }
+
+      const final = await runBacktest(client, { ...plan.request, strategy: compiled.strategyId }, {
         ...options,
         onUpdate: (state) => set({ run: state }),
       });

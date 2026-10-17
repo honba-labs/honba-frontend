@@ -3,14 +3,7 @@ import type { EdgeChange, NodeChange } from '@xyflow/react';
 
 import type { HonbaClient } from '../api/generated/client';
 import type { AssistantKind, AssistantMessage, GraphDiffSummary } from './assistant-types';
-import type {
-  BacktestResponse,
-  BarAggregation,
-  CompiledStrategy,
-  StrategyManifest,
-  SweepResponse,
-  TimeframeSpec,
-} from '../types/generated/domain';
+import type { BacktestResponse, CompiledStrategy, SweepResponse } from '../types/generated/domain';
 import { generateCode } from '../graph/codegen';
 import { catalogue } from '../graph/catalogue';
 import {
@@ -25,6 +18,8 @@ import {
 } from '../graph/model';
 import { graphIssues, nodePorts } from '../graph/validation';
 import { mapNodeLines, nodeLine } from './diagnostics';
+import { compileStrategy } from './compile';
+import { toManifest } from './manifest';
 import {
   createSyncScheduler,
   recognizeGeneratedSource,
@@ -287,31 +282,6 @@ export function defaultGraph(): StrategyGraphShape {
       { id: 'e4', from_node: 's', from_port: 'value', to_node: 'c', to_port: 'right' },
       { id: 'e5', from_node: 'c', from_port: 'signal', to_node: 'o', to_port: 'signal' },
     ],
-  };
-}
-
-function toManifest(graph: StrategyGraphShape): StrategyManifest {
-  const explicit = (graph.universe.explicit ?? []).map((entry) => ({
-    symbol: entry.symbol,
-    exchange: entry.exchange,
-  }));
-  const universe = graph.universe.named ? { named: graph.universe.named } : { explicit };
-  const driving_timeframe: TimeframeSpec = {
-    aggregation: graph.driving_timeframe.aggregation as BarAggregation,
-    interval: graph.driving_timeframe.interval,
-  };
-  return {
-    api_version: '1.0.0',
-    name: graph.name,
-    source_hash: graphHashSync(graph),
-    universe,
-    subscriptions: {
-      instruments: explicit,
-      quotes: graph.subscriptions?.quotes ?? false,
-      trades: graph.subscriptions?.trades ?? false,
-    },
-    driving_timeframe,
-    warmup_bars: graph.warmup_bars,
   };
 }
 
@@ -868,8 +838,16 @@ export const useDesignerStore = create<DesignerState>((set, get) => {
       const { graph } = get();
       set({ run: { status: 'pending', runId: null, response: null, error: null } });
       try {
+        // Compile-before-run: a run resolves `strategy` against the compiled-session
+        // catalogue or the registered Rust strategies (ADR 0017 decision 6), so the
+        // graph is registered first and the run submitted with the compiled id.
+        const compiled = await compileStrategy(client, graph);
+        if (compiled.error) {
+          set({ run: { status: 'failed', runId: null, response: null, error: `compile: ${compiled.error}` } });
+          return;
+        }
         const envelope = await client.postBacktests({
-          strategy: graph.name,
+          strategy: compiled.strategyId,
           universe: graph.universe.named ?? graph.universe.explicit?.map((e) => `${e.symbol}.${e.exchange}`).join(',') ?? '',
           seed: request.seed,
         });

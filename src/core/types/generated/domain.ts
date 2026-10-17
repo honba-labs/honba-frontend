@@ -29,10 +29,12 @@ export interface BacktestMetrics {
 
 export interface BacktestRequest {
   bar_spec?: string | null;
+  commission_per_fill?: number | null;
   end?: string | null;
   fill_model?: string | null;
   initial_capital?: number | null;
   seed?: number | null;
+  slippage_bps?: number | null;
   start?: string | null;
   strategy?: string | null;
   universe?: string | null;

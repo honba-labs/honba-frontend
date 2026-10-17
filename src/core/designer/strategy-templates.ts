@@ -1,4 +1,3 @@
-import { defaultGraph } from './store';
 import type { StrategyTemplate } from './library-store';
 
 /**
@@ -11,16 +10,45 @@ import type { StrategyTemplate } from './library-store';
  * returns the compiled-session catalogue, not the registry).
  *
  * Every template must pass `validateGraph` — universe node present, ports
- * type-consistent — so the Verify button is green on open.
+ * type-consistent — so the Verify button is green on open, and must round-trip
+ * through the Phase 3 recogniser.
+ *
+ * The run engine executes only the three registered Rust strategies
+ * (`sma_crossover`, `buy_and_hold`, `rsi_reversal`). The first template is named
+ * `sma_crossover` to match one of them, so the Simulator's default selection
+ * backtests end to end; the rest run only once a Rust implementation carries
+ * their name (owner: `honba`).
  */
 export const STRATEGY_TEMPLATES: StrategyTemplate[] = [
   {
     id: 'sma_crossover',
-    name: 'sma_cross',
+    name: 'sma_crossover',
     category: 'momentum/trend',
-    description: 'Classic dual moving-average crossover: go long when the fast SMA crosses above the slow SMA.',
-    tags: ['trend', 'sma', 'crossover'],
-    graph: defaultGraph(),
+    description:
+      'Dual moving-average crossover, mirroring the registered Rust `sma_crossover` (fast 3 / slow 8). This is the one built-in whose name matches a run-engine strategy, so it backtests end to end (Phase 6).',
+    tags: ['trend', 'sma', 'crossover', 'runnable'],
+    graph: {
+      schema_version: 1,
+      name: 'sma_crossover',
+      universe: { explicit: [{ symbol: 'TCS', exchange: 'NSE' }] },
+      driving_timeframe: { interval: 1, aggregation: 'day' },
+      warmup_bars: 8,
+      subscriptions: { quotes: false, trades: false },
+      nodes: [
+        { id: 'n1', type: 'universe', label: 'Universe' },
+        { id: 'f', type: 'indicator', indicator: 'sma', label: 'Fast SMA', params: { period: 3 } },
+        { id: 's', type: 'indicator', indicator: 'sma', label: 'Slow SMA', params: { period: 8 } },
+        { id: 'c', type: 'condition', label: 'Cross', params: { op: 'crosses_above' } },
+        { id: 'o', type: 'order', label: 'Entry Long', params: { side: 'buy', quantity: 10 } },
+      ],
+      edges: [
+        { id: 'e1', from_node: 'n1', from_port: 'bars', to_node: 'f', to_port: 'input' },
+        { id: 'e2', from_node: 'n1', from_port: 'bars', to_node: 's', to_port: 'input' },
+        { id: 'e3', from_node: 'f', from_port: 'value', to_node: 'c', to_port: 'left' },
+        { id: 'e4', from_node: 's', from_port: 'value', to_node: 'c', to_port: 'right' },
+        { id: 'e5', from_node: 'c', from_port: 'signal', to_node: 'o', to_port: 'signal' },
+      ],
+    },
   },
   {
     id: 'rsi_mean_reversion',

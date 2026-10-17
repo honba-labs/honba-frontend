@@ -14,8 +14,10 @@ import { useSimulatorStore } from '../store/simulator-store';
  * Simulation controls (Phase 6).
  *
  * Symbol selection reuses the Workbench's shared symbol-search modal. Commission
- * and slippage are captured but flagged as not transmitted, because the run
- * contract carries neither (risk R5) — they are never fabricated onto the wire.
+ * (flat, per fill) and slippage (adverse, basis points) are transmitted as the
+ * `commission_per_fill` / `slippage_bps` request fields `honba-api` resolves in
+ * Phase 6; any control without a wire field is surfaced as not modelled rather
+ * than fabricated (risk R5).
  */
 export interface SimulationControlsProps {
   onRun: () => void;
@@ -161,7 +163,7 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({ onRun, o
 
       <div style={{ display: 'flex', gap: 8 }}>
         <div style={{ flex: 1 }}>
-          <NumberField label="Commission" value={controls.commission} onChange={(commission) => setControls({ commission })} />
+          <NumberField label="Commission / fill" value={controls.commission} onChange={(commission) => setControls({ commission })} />
         </div>
         <div style={{ flex: 1 }}>
           <NumberField label="Slippage" value={controls.slippage} onChange={(slippage) => setControls({ slippage })} suffix="bps" />

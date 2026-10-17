@@ -1,4 +1,5 @@
 import type { BacktestRequest, BacktestResponse, RunStatus } from '../types/generated/domain';
+import type { StrategyCompiler } from '../designer/compile';
 
 /**
  * Backtest run state (Phase 6).
@@ -73,9 +74,15 @@ export function applyRunError(state: SimRunState, error: unknown): SimRunState {
 }
 
 /** The slice of the generated client the polling loop needs (narrow for mocking). */
-export interface RunClient {
-  postBacktests(body: BacktestRequest, signal?: AbortSignal): Promise<{ data?: BacktestResponse | null }>;
-  getBacktestsById(id: string, signal?: AbortSignal): Promise<{ data?: BacktestResponse | null }>;
+export interface RunClient extends StrategyCompiler {
+  postBacktests(
+    body: BacktestRequest,
+    signal?: AbortSignal,
+  ): Promise<{ data?: BacktestResponse | null }>;
+  getBacktestsById(
+    id: string,
+    signal?: AbortSignal,
+  ): Promise<{ data?: BacktestResponse | null }>;
 }
 
 export interface RunOptions {

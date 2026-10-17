@@ -66,4 +66,42 @@ describe('simulator store', () => {
     expect(store.getState().run.status).toBe('failed');
     expect(client.postBacktests).not.toHaveBeenCalled();
   });
+
+  it('compiles the strategy first and submits the run with the compiled id', async () => {
+    const store = createSimulatorStore();
+    store.getState().hydrate({ query: `?strategy=${TEMPLATE.name}&source=designer`, handoff: handoff() });
+    const postStrategies = vi.fn(() => Promise.resolve({ data: { id: 'sha256:compiled', ir: {} } }));
+    const postBacktests = vi.fn(() => Promise.resolve({ data: { run_id: 'run-2', status: 'completed' } }));
+    const client = {
+      postStrategies,
+      postBacktests,
+      getBacktestsById: vi.fn(),
+    } as unknown as RunClient;
+
+    await store.getState().execute(client, { sleep: () => Promise.resolve() });
+
+    expect(postStrategies).toHaveBeenCalledTimes(1);
+    expect(postBacktests).toHaveBeenCalledWith(
+      expect.objectContaining({ strategy: 'sha256:compiled' }),
+      undefined,
+    );
+    expect(store.getState().run.status).toBe('completed');
+  });
+
+  it('surfaces a compile failure and does not submit a run', async () => {
+    const store = createSimulatorStore();
+    store.getState().hydrate({ query: `?strategy=${TEMPLATE.name}&source=designer`, handoff: handoff() });
+    const postBacktests = vi.fn();
+    const client = {
+      postStrategies: vi.fn(() => Promise.reject(new Error('POST /strategies failed with 422'))),
+      postBacktests,
+      getBacktestsById: vi.fn(),
+    } as unknown as RunClient;
+
+    await store.getState().execute(client);
+
+    expect(store.getState().run.status).toBe('failed');
+    expect(store.getState().run.error).toContain('Compile failed');
+    expect(postBacktests).not.toHaveBeenCalled();
+  });
 });
