@@ -35,6 +35,7 @@ const Simulator: React.FC = () => {
   const client = useMemo(() => new HonbaClient({}), []);
   const [notice, setNotice] = useState<string | null>(null);
   const [loadedBars, setLoadedBars] = useState<readonly ChartBar[]>([]);
+  const [, setThemeKey] = useState(0);
 
   const handleBarsLoaded = useCallback((bars: readonly ChartBar[]) => {
     setLoadedBars(bars);
@@ -51,6 +52,9 @@ const Simulator: React.FC = () => {
   useEffect(() => {
     themeEngine.applyToDOM();
     store.hydrate();
+    return themeEngine.subscribe(() => {
+      setThemeKey((k) => k + 1);
+    });
   }, []);
 
   const appMeta = getAppMetadata('simulator');
@@ -67,7 +71,16 @@ const Simulator: React.FC = () => {
 
   return (
     <AppShell currentAppId="simulator">
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      <main
+        style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0,
+          background: 'var(--bg-app)',
+          color: 'var(--text-primary)',
+        }}
+      >
         {/* Top Header Bar */}
         <div
           style={{
@@ -76,8 +89,8 @@ const Simulator: React.FC = () => {
             justifyContent: 'space-between',
             gap: 12,
             padding: '8px 16px',
-            borderBottom: '1px solid var(--border-subtle, #2a2e39)',
-            background: 'var(--bg-surface-elevated, #1e222d)',
+            borderBottom: '1px solid var(--border-subtle)',
+            background: 'var(--bg-surface-elevated)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, minWidth: 0 }}>
@@ -92,7 +105,7 @@ const Simulator: React.FC = () => {
               }}
             >
               {appMeta.tagline} · Strategy:{' '}
-              <strong style={{ color: 'var(--accent-primary, #4f8cff)' }}>{store.strategyName}</strong>
+              <strong style={{ color: 'var(--accent-primary)' }}>{store.strategyName}</strong>
             </span>
           </div>
 
@@ -102,7 +115,8 @@ const Simulator: React.FC = () => {
                 fontSize: 11,
                 padding: '3px 8px',
                 borderRadius: 4,
-                background: 'rgba(255, 255, 255, 0.05)',
+                background: 'var(--bg-surface)',
+                border: '1px solid var(--border-subtle)',
                 color: 'var(--text-secondary)',
                 fontFamily: 'var(--font-family-mono, monospace)',
               }}
@@ -153,10 +167,10 @@ const Simulator: React.FC = () => {
             style={{
               width: 310,
               minWidth: 260,
-              borderRight: '1px solid var(--border-subtle, #2a2e39)',
+              borderRight: '1px solid var(--border-subtle)',
               minHeight: 0,
               overflowY: 'auto',
-              background: 'var(--bg-canvas, #131722)',
+              background: 'var(--bg-surface)',
             }}
           >
             <SimulationControls
@@ -214,7 +228,7 @@ const Simulator: React.FC = () => {
             />
 
             {/* Synchronized Multi-Chart */}
-            <div style={{ flex: '1 1 55%', minHeight: 260, borderBottom: '1px solid var(--border-subtle, #2a2e39)' }}>
+            <div style={{ flex: '1 1 55%', minHeight: 260, borderBottom: '1px solid var(--border-subtle)' }}>
               <SimulatorChart
                 client={client}
                 onBarsLoaded={handleBarsLoaded}
@@ -234,8 +248,8 @@ const Simulator: React.FC = () => {
                   alignItems: 'center',
                   gap: 2,
                   padding: '0 8px',
-                  borderBottom: '1px solid var(--border-subtle, #2a2e39)',
-                  background: 'var(--bg-surface-elevated, #1e222d)',
+                  borderBottom: '1px solid var(--border-subtle)',
+                  background: 'var(--bg-surface-elevated)',
                 }}
               >
                 <DockTab active={dockView === 'bench'} onClick={() => setDockView('bench')} label="Replay Bench" />
@@ -278,10 +292,10 @@ const DockTab: React.FC<{ active: boolean; onClick: () => void; label: string; b
       padding: '8px 12px',
       fontSize: 11,
       fontWeight: active ? 600 : 400,
-      color: active ? 'var(--accent-primary, #4f8cff)' : 'var(--text-muted)',
+      color: active ? 'var(--accent-primary)' : 'var(--text-muted)',
       background: 'transparent',
       border: 'none',
-      borderBottom: `2px solid ${active ? 'var(--accent-primary, #4f8cff)' : 'transparent'}`,
+      borderBottom: `2px solid ${active ? 'var(--accent-primary)' : 'transparent'}`,
       cursor: 'pointer',
     }}
   >
@@ -293,7 +307,7 @@ const DockTab: React.FC<{ active: boolean; onClick: () => void; label: string; b
           padding: '1px 5px',
           borderRadius: 3,
           background: 'rgba(79, 140, 255, 0.15)',
-          color: 'var(--accent-primary, #4f8cff)',
+          color: 'var(--accent-primary)',
         }}
       >
         {badge}

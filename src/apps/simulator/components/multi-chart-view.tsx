@@ -59,20 +59,20 @@ export const MultiChartView: React.FC<MultiChartViewProps> = ({
         display: 'grid',
         gridTemplateColumns: '1fr 1fr',
         gap: 2,
-        background: 'var(--border-subtle, #2a2e39)',
+        background: 'var(--border-subtle)',
         position: 'relative',
       }}
     >
       {/* Primary Driving Timeframe Chart */}
-      <div style={{ position: 'relative', height: '100%', background: 'var(--bg-canvas, #131722)', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ position: 'relative', height: '100%', background: 'var(--bg-app)', display: 'flex', flexDirection: 'column' }}>
         <div
           style={{
             padding: '3px 8px',
             fontSize: 10,
             fontWeight: 600,
-            color: 'var(--accent-primary, #4f8cff)',
-            background: 'var(--bg-surface-elevated, #1e222d)',
-            borderBottom: '1px solid var(--border-subtle, #2a2e39)',
+            color: 'var(--accent-primary)',
+            background: 'var(--bg-surface-elevated)',
+            borderBottom: '1px solid var(--border-subtle)',
             display: 'flex',
             justifyContent: 'space-between',
           }}
@@ -93,15 +93,15 @@ export const MultiChartView: React.FC<MultiChartViewProps> = ({
       </div>
 
       {/* Secondary Higher Timeframe Chart */}
-      <div style={{ position: 'relative', height: '100%', background: 'var(--bg-canvas, #131722)', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ position: 'relative', height: '100%', background: 'var(--bg-app)', display: 'flex', flexDirection: 'column' }}>
         <div
           style={{
             padding: '3px 8px',
             fontSize: 10,
             fontWeight: 600,
-            color: 'var(--accent-gold, #f7a600)',
-            background: 'var(--bg-surface-elevated, #1e222d)',
-            borderBottom: '1px solid var(--border-subtle, #2a2e39)',
+            color: 'var(--accent-gold)',
+            background: 'var(--bg-surface-elevated)',
+            borderBottom: '1px solid var(--border-subtle)',
             display: 'flex',
             justifyContent: 'space-between',
           }}

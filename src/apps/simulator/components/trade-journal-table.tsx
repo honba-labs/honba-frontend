@@ -123,8 +123,8 @@ export const TradeJournalTable: React.FC<TradeJournalTableProps> = ({ trips, exp
             padding: '4px 8px',
             fontSize: 12,
             borderRadius: 6,
-            border: '1px solid var(--border-subtle, #2a2e39)',
-            background: 'var(--bg-surface, #1e222d)',
+            border: '1px solid var(--border-subtle)',
+            background: 'var(--bg-surface)',
             color: 'var(--text-primary)',
           }}
         />
@@ -145,10 +145,10 @@ export const TradeJournalTable: React.FC<TradeJournalTableProps> = ({ trips, exp
         </button>
       </div>
 
-      <div style={{ overflow: 'auto', minHeight: 0, border: '1px solid var(--border-subtle, #2a2e39)', borderRadius: 6 }}>
+      <div style={{ overflow: 'auto', minHeight: 0, border: '1px solid var(--border-subtle)', borderRadius: 6 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
           <thead>
-            <tr style={{ background: 'var(--bg-surface, #1e222d)', color: 'var(--text-secondary)', textAlign: 'left', position: 'sticky', top: 0 }}>
+            <tr style={{ background: 'var(--bg-surface)', color: 'var(--text-secondary)', textAlign: 'left', position: 'sticky', top: 0 }}>
               {COLUMNS.map((column) => (
                 <th key={column.key} style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>
                   {column.sortable ? (

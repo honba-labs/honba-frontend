@@ -287,7 +287,7 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({
         </select>
       </label>
 
-      <div style={{ ...fieldStyle, border: '1px solid var(--border-subtle, #2a2e39)', padding: 8, borderRadius: 6, background: 'rgba(255,255,255,0.02)' }}>
+      <div style={{ ...fieldStyle, border: '1px solid var(--border-subtle)', padding: 8, borderRadius: 6, background: 'var(--bg-surface-elevated)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: multiTf ? 6 : 0 }}>
           <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-primary)' }}>Multi-Chart Sync</span>
           <input

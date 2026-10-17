@@ -48,16 +48,16 @@ export const ReplayToolbar: React.FC<ReplayToolbarProps> = ({
 
   const pnlColor =
     engineState.unrealizedPnl > 0
-      ? 'var(--bullish, #089981)'
+      ? 'var(--bullish)'
       : engineState.unrealizedPnl < 0
-      ? 'var(--bearish, #f23645)'
+      ? 'var(--bearish)'
       : 'var(--text-muted)';
 
   const realizedColor =
     engineState.realizedPnl > 0
-      ? 'var(--bullish, #089981)'
+      ? 'var(--bullish)'
       : engineState.realizedPnl < 0
-      ? 'var(--bearish, #f23645)'
+      ? 'var(--bearish)'
       : 'var(--text-muted)';
 
   return (
@@ -65,8 +65,8 @@ export const ReplayToolbar: React.FC<ReplayToolbarProps> = ({
       style={{
         display: 'flex',
         flexDirection: 'column',
-        background: 'var(--bg-surface-elevated, #1e222d)',
-        borderBottom: '1px solid var(--border-subtle, #2a2e39)',
+        background: 'var(--bg-surface)',
+        borderBottom: '1px solid var(--border-subtle)',
         padding: '6px 12px',
         gap: 6,
       }}
@@ -121,7 +121,7 @@ export const ReplayToolbar: React.FC<ReplayToolbarProps> = ({
           <button
             type="button"
             className="shortlist-btn"
-            style={{ fontSize: 11, padding: '4px 8px', color: 'var(--accent-gold, #f7a600)' }}
+            style={{ fontSize: 11, padding: '4px 8px', color: 'var(--accent-gold)' }}
             title="Fast simulate entire dataset to the end"
             onClick={onInstant}
             disabled={!hasBars}
@@ -177,20 +177,20 @@ export const ReplayToolbar: React.FC<ReplayToolbarProps> = ({
                   fontWeight: 600,
                   background: sig.active
                     ? sig.indication === 'bullish'
-                      ? 'rgba(8, 153, 129, 0.2)'
-                      : 'rgba(242, 54, 69, 0.2)'
-                    : 'rgba(255, 255, 255, 0.05)',
+                      ? 'var(--bullish-subtle, rgba(8, 153, 129, 0.2))'
+                      : 'var(--bearish-subtle, rgba(242, 54, 69, 0.2))'
+                    : 'var(--bg-surface-elevated)',
                   color: sig.active
                     ? sig.indication === 'bullish'
-                      ? 'var(--bullish, #089981)'
-                      : 'var(--bearish, #f23645)'
+                      ? 'var(--bullish)'
+                      : 'var(--bearish)'
                     : 'var(--text-muted)',
                   border: `1px solid ${
                     sig.active
                       ? sig.indication === 'bullish'
                         ? 'rgba(8, 153, 129, 0.4)'
                         : 'rgba(242, 54, 69, 0.4)'
-                      : 'transparent'
+                      : 'var(--border-subtle)'
                   }`,
                 }}
                 title={sig.details}
@@ -209,9 +209,9 @@ export const ReplayToolbar: React.FC<ReplayToolbarProps> = ({
                 borderRadius: 4,
                 background:
                   engineState.lastConfluence.action === 'buy'
-                    ? 'var(--bullish, #089981)'
+                    ? 'var(--bullish)'
                     : engineState.lastConfluence.action === 'sell'
-                    ? 'var(--bearish, #f23645)'
+                    ? 'var(--bearish)'
                     : 'transparent',
                 color: engineState.lastConfluence.action !== 'hold' ? '#fff' : 'var(--text-muted)',
               }}
@@ -229,8 +229,8 @@ export const ReplayToolbar: React.FC<ReplayToolbarProps> = ({
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 4,
-                background: 'rgba(41, 98, 255, 0.15)',
-                color: 'var(--accent-primary, #4f8cff)',
+                background: 'var(--accent-subtle)',
+                color: 'var(--accent-primary)',
                 padding: '2px 8px',
                 borderRadius: 4,
                 fontWeight: 600,

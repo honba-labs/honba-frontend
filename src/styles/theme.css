@@ -348,6 +348,7 @@
    * 4. Global Semantic Compatibility Layer
    * ========================================================================= */
   --bg-app: var(--theme-bg);
+  --bg-canvas: var(--theme-bg);
   --bg-surface: var(--theme-surface);
   --bg-surface-elevated: var(--theme-surface-elevated);
   --bg-surface-hover: var(--theme-surface-hover);

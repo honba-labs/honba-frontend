@@ -4,10 +4,19 @@ import { themeEngine } from '../theme-engine';
 function resolveColor(varName: string, fallback: string): string {
   if (typeof document === 'undefined') return fallback;
   try {
-    const rawName = varName.replace(/^var\(/, '').replace(/\)$/, '').trim();
+    let raw = varName.replace(/^var\(/, '').replace(/\)$/, '').trim();
     const style = getComputedStyle(document.documentElement);
-    const val = style.getPropertyValue(rawName).trim();
-    if (val) return val;
+    let depth = 0;
+    while (raw && depth < 6) {
+      const val = style.getPropertyValue(raw).trim();
+      if (!val) break;
+      if (val.startsWith('var(')) {
+        raw = val.replace(/^var\(/, '').replace(/\)$/, '').trim();
+        depth++;
+      } else {
+        return val;
+      }
+    }
     return fallback;
   } catch {
     return fallback;

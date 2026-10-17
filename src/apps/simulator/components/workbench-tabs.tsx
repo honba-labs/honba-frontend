@@ -26,10 +26,11 @@ export interface WorkbenchTabsProps {
 }
 
 const cardStyle: React.CSSProperties = {
-  border: '1px solid var(--border-subtle, #2a2e39)',
+  border: '1px solid var(--border-subtle)',
   borderRadius: 6,
   padding: '10px 14px',
-  background: 'var(--bg-surface-elevated, #1e222d)',
+  background: 'var(--bg-surface)',
+  color: 'var(--text-primary)',
 };
 
 export const WorkbenchTabs: React.FC<WorkbenchTabsProps> = ({ engineState, onClearPortfolio }) => {
@@ -74,16 +75,16 @@ export const WorkbenchTabs: React.FC<WorkbenchTabsProps> = ({ engineState, onCle
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, background: 'var(--bg-canvas, #131722)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, background: 'var(--bg-app)', color: 'var(--text-primary)' }}>
       {/* Navigation Bar */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          borderBottom: '1px solid var(--border-subtle, #2a2e39)',
+          borderBottom: '1px solid var(--border-subtle)',
           padding: '0 12px',
-          background: 'var(--bg-surface-elevated, #1e222d)',
+          background: 'var(--bg-surface-elevated)',
         }}
       >
         <div style={{ display: 'flex', gap: 2 }}>
@@ -342,7 +343,7 @@ export const WorkbenchTabs: React.FC<WorkbenchTabsProps> = ({ engineState, onCle
             ) : (
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
                 <thead>
-                  <tr style={{ background: 'rgba(255,255,255,0.03)', color: 'var(--text-muted)', textAlign: 'left' }}>
+                  <tr style={{ background: 'var(--bg-surface-elevated)', color: 'var(--text-muted)', textAlign: 'left' }}>
                     <th style={{ padding: '6px 10px' }}>Time</th>
                     <th style={{ padding: '6px 10px' }}>Price</th>
                     <th style={{ padding: '6px 10px' }}>Confluence Score</th>
@@ -353,7 +354,7 @@ export const WorkbenchTabs: React.FC<WorkbenchTabsProps> = ({ engineState, onCle
                 </thead>
                 <tbody>
                   {engineState.confluenceHistory.map((conf, idx) => (
-                    <tr key={`${conf.barIndex}-${idx}`} style={{ borderTop: '1px solid var(--border-subtle, #2a2e39)' }}>
+                    <tr key={`${conf.barIndex}-${idx}`} style={{ borderTop: '1px solid var(--border-subtle)' }}>
                       <td style={{ padding: '6px 10px' }}>{conf.timeStr}</td>
                       <td style={{ padding: '6px 10px' }}>₹{conf.price.toFixed(2)}</td>
                       <td style={{ padding: '6px 10px' }}>
@@ -388,7 +389,9 @@ export const WorkbenchTabs: React.FC<WorkbenchTabsProps> = ({ engineState, onCle
                                 key={s.id}
                                 style={{
                                   fontSize: 10,
-                                  background: 'rgba(255, 255, 255, 0.08)',
+                                  background: 'var(--bg-surface-elevated)',
+                                  border: '1px solid var(--border-subtle)',
+                                  color: 'var(--text-secondary)',
                                   padding: '1px 5px',
                                   borderRadius: 3,
                                 }}
