@@ -3,6 +3,7 @@ import type {
   InstrumentId,
   Money,
   PortfolioAccount,
+  PortfolioGreeks,
   PortfolioHolding,
   PortfolioMode,
   PortfolioPosition,
@@ -20,6 +21,7 @@ export type {
   InstrumentId,
   Money,
   PortfolioAccount,
+  PortfolioGreeks,
   PortfolioHolding,
   PortfolioMode,
   PortfolioPosition,
@@ -44,4 +46,5 @@ export type PortfolioTab =
 export interface PortfolioFilterState {
   searchQuery: string;
   modeFilter: 'all' | 'sandbox' | 'live';
+  groupFilter?: string;
 }

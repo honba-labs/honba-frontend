@@ -162,16 +162,42 @@ export const HoldingsTable: React.FC = () => {
                 }}
               >
                 <td style={{ padding: '6px 8px' }}>
-                  <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{sym}</span>
-                  <span
-                    style={{
-                      fontSize: 9.5,
-                      color: 'var(--text-muted)',
-                      marginLeft: 6,
-                    }}
-                  >
-                    {exch}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{sym}</span>
+                    <span style={{ fontSize: 9.5, color: 'var(--text-muted)' }}>{exch}</span>
+                    {h.group_name && (
+                      <span
+                        style={{
+                          fontSize: 8.5,
+                          padding: '1px 5px',
+                          borderRadius: 3,
+                          background: 'var(--accent-subtle, rgba(99, 102, 241, 0.15))',
+                          color: 'var(--accent-primary)' ,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {h.group_name}
+                      </span>
+                    )}
+                  </div>
+                  {h.tags && h.tags.length > 0 && (
+                    <div style={{ display: 'flex', gap: 3, marginTop: 2 }}>
+                      {h.tags.map((t) => (
+                        <span
+                          key={t}
+                          style={{
+                            fontSize: 8,
+                            padding: '0 4px',
+                            borderRadius: 2,
+                            background: 'var(--border-subtle)',
+                            color: 'var(--text-muted)',
+                          }}
+                        >
+                          #{t}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </td>
                 <td style={{ padding: '6px 8px', textAlign: 'right', color: 'var(--text-primary)' }}>
                   {h.quantity}

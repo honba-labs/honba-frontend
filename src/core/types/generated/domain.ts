@@ -372,6 +372,7 @@ export interface PortfolioAccount {
   cash: Money;
   currency: Currency;
   equity: Money;
+  greeks?: PortfolioGreeks | null;
   holdings: PortfolioHolding[];
   id: string;
   leverage: number;
@@ -390,13 +391,22 @@ export interface PortfolioAccountsResponse {
   accounts: PortfolioAccount[];
 }
 
+export interface PortfolioGreeks {
+  delta: number;
+  gamma: number;
+  theta: number;
+  vega: number;
+}
+
 export interface PortfolioHolding {
   avg_price: number;
+  group_name?: string | null;
   instrument_id: InstrumentId;
   mark: number;
   market_value: Money;
   quantity: number;
   realized_pnl: Money;
+  tags?: string[];
   unrealized_pnl: Money;
 }
 
@@ -408,6 +418,7 @@ export type PortfolioMode = "live" | "sandbox";
 
 export interface PortfolioPosition {
   avg_price: number;
+  group_name?: string | null;
   instrument_id: InstrumentId;
   mark: number;
   market_value: Money;
@@ -415,6 +426,8 @@ export interface PortfolioPosition {
   quantity: number;
   realized_pnl: Money;
   side: PositionSide;
+  strategy_id?: string | null;
+  tags?: string[];
   unrealized_pnl: Money;
 }
 

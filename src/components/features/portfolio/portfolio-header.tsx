@@ -306,6 +306,25 @@ export const PortfolioHeader: React.FC = () => {
           </span>
         </div>
 
+        {activeAccount.greeks && (
+          <div
+            title="Net Options Greeks (OpenAlgo Strategy Risk)"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '2px 8px',
+              borderRadius: 4,
+              background: 'var(--accent-subtle, rgba(99, 102, 241, 0.1))',
+              border: '1px solid var(--border-subtle)',
+              fontSize: 10,
+            }}
+          >
+            <span>Δ: <strong>{activeAccount.greeks.delta.toFixed(2)}</strong></span>
+            <span>Θ: <strong>{activeAccount.greeks.theta.toFixed(1)}</strong></span>
+          </div>
+        )}
+
         {/* Total Day P&L Pill */}
         <div
           style={{
