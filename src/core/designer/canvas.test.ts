@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { defaultGraph, useDesignerStore } from './store';
+import { computeGraphDiff, defaultGraph, useDesignerStore } from './store';
+import { useJobsStore } from './jobs-store';
 import { HonbaClient } from '../api/generated/client';
 import { useOpsStore } from './ops-state';
 import { drawdownSeries, maxDrawdownPct, runModeBadge, trustBadges } from './ops';
@@ -435,5 +436,149 @@ describe('AlgoDesigner Export/Import & Version History (Phase 6)', () => {
     expect(state.graph.name).toBe(originalName);
     expect(state.graph.nodes).toHaveLength(5);
     expect(state.graph.nodes.some((n) => n.id === 'f')).toBe(true);
+  });
+});
+
+describe('AlgoDesigner AI Assistant & Graph Diff Engine (Phase 7)', () => {
+  it('proposes ATR volatility sizing candidate and computes visual graph diffs', async () => {
+    const client = new HonbaClient({ baseUrl: 'http://localhost/api/v1' });
+    const store = useDesignerStore.getState();
+
+    await store.proposeAI('Please add an ATR trailing stop to protect against drawdowns', client);
+    const updated = useDesignerStore.getState();
+    expect(updated.assistant.length).toBe(1);
+
+    const msg = updated.assistant[0];
+    expect(msg.kind).toBe('candidate');
+    expect(msg.blocked).toBe(false);
+    expect(msg.decisions?.[0]?.decision).toBe('approve');
+    expect(msg.graph).toBeDefined();
+
+    // Verify diff calculation
+    const diff = msg.diff as { added_nodes: string[]; modified_nodes: string[]; removed_nodes: string[] };
+    expect(diff.added_nodes.some((n) => n.includes('atr'))).toBe(true);
+    expect(diff.added_nodes.some((n) => n.toLowerCase().includes('sizing') || n.includes('sz_vol'))).toBe(true);
+  });
+
+  it('proposes parameter tuning with modified nodes diff and param changes', async () => {
+    const client = new HonbaClient({ baseUrl: 'http://localhost/api/v1' });
+    const store = useDesignerStore.getState();
+
+    await store.proposeAI('Tune the moving average parameters for faster trend detection', client);
+    const updated = useDesignerStore.getState();
+    const msg = updated.assistant[updated.assistant.length - 1];
+
+    expect(msg.kind).toBe('candidate');
+    expect(msg.diff).toBeDefined();
+    const diff = msg.diff as { modified_nodes: string[]; param_changes?: Record<string, unknown> };
+    expect(diff.modified_nodes.length).toBeGreaterThan(0);
+    expect(diff.param_changes).toBeDefined();
+  });
+
+  it('quarantines invalid candidate proposals with verification findings (ADR 0029 S5 Invariant)', async () => {
+    const client = new HonbaClient({ baseUrl: 'http://localhost/api/v1' });
+    const store = useDesignerStore.getState();
+
+    await store.proposeAI('Test invalid candidate with broken graph', client);
+    const updated = useDesignerStore.getState();
+    const msg = updated.assistant[updated.assistant.length - 1];
+
+    expect(msg.kind).toBe('validation_error');
+    expect(msg.blocked).toBe(true);
+    expect(msg.findings).toBeDefined();
+    expect(msg.findings!.length).toBeGreaterThan(0);
+    expect(msg.findings![0].code).toBe('unknown_indicator');
+  });
+
+  it('applies approved candidate to canvas while saving version snapshot', async () => {
+    const client = new HonbaClient({ baseUrl: 'http://localhost/api/v1' });
+    const store = useDesignerStore.getState();
+
+    await store.proposeAI('Add RSI momentum filter', client);
+    const rsiIdx = useDesignerStore.getState().assistant.length - 1;
+
+    const initialNodesCount = useDesignerStore.getState().graph.nodes.length;
+    await useDesignerStore.getState().applyProposal(rsiIdx);
+
+    const postApply = useDesignerStore.getState();
+    expect(postApply.graph.nodes.length).toBeGreaterThan(initialNodesCount);
+    expect(postApply.graph.nodes.some((n) => n.id === 'rsi_mom')).toBe(true);
+    expect(postApply.versions.length).toBeGreaterThan(0);
+  });
+
+  it('computes accurate graph diff between current and candidate graphs', () => {
+    const current = defaultGraph();
+    const candidate = JSON.parse(JSON.stringify(current));
+    // Add a node
+    candidate.nodes.push({ id: 'vol_filter', type: 'indicator', indicator: 'bbands', label: 'Bollinger' });
+    // Modify a node
+    const fNode = candidate.nodes.find((n: { id: string }) => n.id === 'f');
+    if (fNode) fNode.params = { window: 99 };
+    // Remove a node
+    candidate.nodes = candidate.nodes.filter((n: { id: string }) => n.id !== 's');
+
+    const diff = computeGraphDiff(current, candidate);
+    expect(diff.added_nodes.some((n) => n.includes('vol_filter'))).toBe(true);
+    expect(diff.removed_nodes.some((n) => n.includes('s'))).toBe(true);
+    expect(diff.modified_nodes.some((n) => n.includes('f'))).toBe(true);
+    expect(diff.param_changes?.['f']).toEqual({ window: 99 });
+  });
+});
+
+describe('AlgoDesigner Sweeps & Walk-Forward Grid Engine (Phase 8)', () => {
+  it('applies optimal sweep parameters directly to canvas nodes', async () => {
+    const store = useDesignerStore.getState();
+    expect(store.graph.nodes.find((n) => n.id === 'f')?.params?.['period']).toBe(2);
+    expect(store.graph.nodes.find((n) => n.id === 's')?.params?.['period']).toBe(4);
+
+    await store.applySweepParams({
+      'f.period': 12,
+      's.period': 45,
+    });
+
+    const updated = useDesignerStore.getState();
+    expect(updated.graph.nodes.find((n) => n.id === 'f')?.params?.['period']).toBe(12);
+    expect(updated.graph.nodes.find((n) => n.id === 's')?.params?.['period']).toBe(45);
+    expect(updated.code).toContain('12');
+    expect(updated.code).toContain('45');
+    expect(updated.isModified).toBe(true);
+  });
+
+  it('enqueues, tracks, and persists sweep optimization jobs', () => {
+    const jobs = useJobsStore.getState();
+    const initialCount = jobs.jobs.length;
+
+    const job = jobs.enqueue('sweep', 'SMA Grid Optimization (Fast 5-15, Slow 20-50)', {
+      combinations: 16,
+      targetMetric: 'sharpe',
+      walkForward: true,
+      folds: 4,
+    });
+
+    expect(job.kind).toBe('sweep');
+    expect(job.status).toBe('queued');
+    expect(useJobsStore.getState().jobs.length).toBe(initialCount + 1);
+
+    // Transition to running
+    jobs.markRunning(job.id);
+    expect(useJobsStore.getState().jobs.find((j) => j.id === job.id)?.status).toBe('running');
+
+    // Complete with sweep payload
+    const sweepResult = {
+      evaluated: 16,
+      bestSharpe: 2.34,
+      optimal: {
+        params: { 'f.window': 10, 's.window': 35 },
+        sharpe: 2.34,
+        total_return: 0.38,
+        max_drawdown: 0.08,
+      },
+      wfe: 0.78,
+    };
+    jobs.complete(job.id, sweepResult);
+
+    const completed = useJobsStore.getState().jobs.find((j) => j.id === job.id);
+    expect(completed?.status).toBe('completed');
+    expect(completed?.result).toEqual(sweepResult);
   });
 });

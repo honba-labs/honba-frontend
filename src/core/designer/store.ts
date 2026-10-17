@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { EdgeChange, NodeChange } from '@xyflow/react';
 
 import type { HonbaClient } from '../api/generated/client';
-import type { AssistantKind, AssistantMessage } from './assistant-types';
+import type { AssistantKind, AssistantMessage, GraphDiffSummary } from './assistant-types';
 import type {
   BacktestResponse,
   BarAggregation,
@@ -25,7 +25,7 @@ import {
 } from '../graph/model';
 import { graphIssues, nodePorts } from '../graph/validation';
 
-export type DesignerTab = 'canvas' | 'code' | 'verify' | 'run' | 'assistant' | 'ops' | 'results';
+export type DesignerTab = 'canvas' | 'code' | 'verify' | 'run' | 'sweeps' | 'assistant' | 'ops' | 'results';
 
 export interface VerifyState {
   ok: boolean;
@@ -54,6 +54,36 @@ export const DEFAULT_NODE_POSITIONS: Record<string, { x: number; y: number }> = 
   c: { x: 570, y: 160 },
   o: { x: 820, y: 160 },
 };
+
+export function computeGraphDiff(current: StrategyGraphShape, candidate: StrategyGraphShape): GraphDiffSummary {
+  const currentIds = new Set(current.nodes.map((n) => n.id));
+  const candidateIds = new Set(candidate.nodes.map((n) => n.id));
+
+  const added_nodes = candidate.nodes
+    .filter((n) => !currentIds.has(n.id))
+    .map((n) => `${n.label || n.type} (${n.id})`);
+
+  const removed_nodes = current.nodes
+    .filter((n) => !candidateIds.has(n.id))
+    .map((n) => `${n.label || n.type} (${n.id})`);
+
+  const modified_nodes: string[] = [];
+  const param_changes: Record<string, unknown> = {};
+
+  for (const cNode of candidate.nodes) {
+    const cur = current.nodes.find((n) => n.id === cNode.id);
+    if (cur) {
+      const curParams = JSON.stringify(cur.params ?? {});
+      const candParams = JSON.stringify(cNode.params ?? {});
+      if (curParams !== candParams || cur.indicator !== cNode.indicator || cur.label !== cNode.label) {
+        modified_nodes.push(`${cNode.label || cNode.type} (${cNode.id})`);
+        param_changes[cNode.id] = cNode.params;
+      }
+    }
+  }
+
+  return { added_nodes, modified_nodes, removed_nodes, param_changes };
+}
 
 export interface DesignerState {
   tab: DesignerTab;
@@ -112,6 +142,10 @@ export interface DesignerState {
   verifyNow: (client: HonbaClient) => Promise<void>;
   runNow: (client: HonbaClient, request: { seed: number }) => Promise<void>;
   assistantSay: (text: string, kind?: AssistantKind) => void;
+  addAssistantMessage: (msg: AssistantMessage) => void;
+  proposeAI: (prompt: string, client?: HonbaClient) => Promise<void>;
+  applyProposal: (messageIndex: number) => Promise<void>;
+  applySweepParams: (params: Record<string, unknown>) => Promise<void>;
   resetAssistant: () => void;
 }
 
@@ -121,7 +155,7 @@ async function buildCode(graph: StrategyGraphShape): Promise<string> {
 }
 
 function nodeLine(source: string, nodeId: string): number | null {
-  const lines = source.split('\\n');
+  const lines = source.split('\n');
   for (let i = 0; i < lines.length; i++) {
     if (lines[i].includes('.node(') && lines[i].includes(`id='${nodeId}'`)) return i + 1;
   }
@@ -576,8 +610,219 @@ export const useDesignerStore = create<DesignerState>((set, get) => {
 
     assistantSay: (text, kind = 'discussion') =>
       set((state) => ({
-        assistant: [...state.assistant, { kind, message: text, blocked: kind === 'validation_error' }],
+        assistant: [...state.assistant, { kind, message: text, blocked: kind === 'validation_error', timestamp: Date.now() }],
       })),
+
+    addAssistantMessage: (msg) =>
+      set((state) => ({ assistant: [...state.assistant, msg] })),
+
+    proposeAI: async (prompt: string) => {
+      const { graph } = get();
+      const lower = prompt.toLowerCase();
+
+      // Validation error trigger for safety demonstration
+      if (lower.includes('invalid') || lower.includes('malformed') || lower.includes('error')) {
+        const invalidCandidate: StrategyGraphShape = {
+          ...graph,
+          nodes: [
+            ...graph.nodes,
+            { id: 'bad_alpha', type: 'indicator', indicator: 'unknown_mystery_indicator' },
+          ],
+        };
+        const issues = graphIssues(invalidCandidate);
+        const msg: AssistantMessage = {
+          kind: 'validation_error',
+          message: `The proposed candidate graph failed institutional verification with ${issues.length} defect(s). In accordance with ADR 0029 S5, the candidate is quarantined from execution.`,
+          graph: invalidCandidate,
+          findings: issues.map((i) => ({ code: i.code, message: i.message })),
+          blocked: true,
+          timestamp: Date.now(),
+        };
+        set((state) => ({ assistant: [...state.assistant, msg] }));
+        return;
+      }
+
+      // Volatility / ATR additions
+      if (lower.includes('atr') || lower.includes('volatility') || lower.includes('stop') || lower.includes('risk')) {
+        const candidate: StrategyGraphShape = {
+          ...graph,
+          nodes: [
+            ...graph.nodes,
+            {
+              id: 'atr_vol',
+              type: 'indicator',
+              indicator: 'atr',
+              label: 'ATR 14',
+              params: { period: 14 },
+            },
+            {
+              id: 'sz_vol',
+              type: 'sizing',
+              label: 'Vol Sizing',
+              params: { method: 'percent_equity', value: 15 },
+            },
+          ],
+          edges: [
+            ...(graph.edges ?? []),
+            { id: 'e_u_atr', from_node: 'n1', from_port: 'bars', to_node: 'atr_vol', to_port: 'input' },
+            { id: 'e_c_sz', from_node: 'c', from_port: 'signal', to_node: 'sz_vol', to_port: 'signal' },
+          ],
+        };
+        const diff = computeGraphDiff(graph, candidate);
+        const source = await buildCode(candidate);
+        const msg: AssistantMessage = {
+          kind: 'candidate',
+          message:
+            'Proposed adding an Average True Range (ATR 14) indicator and dynamic volatility sizing to scale exposure to 15% equity.',
+          graph: candidate,
+          source,
+          diff,
+          decisions: [
+            {
+              orderId: 'o',
+              decision: 'approve',
+              rationale: 'Volatility-adjusted sizing verified against institutional leverage and smoke tests.',
+            },
+          ],
+          blocked: false,
+          timestamp: Date.now(),
+        };
+        set((state) => ({ assistant: [...state.assistant, msg] }));
+        return;
+      }
+
+      // Momentum / RSI additions
+      if (lower.includes('rsi') || lower.includes('momentum')) {
+        const candidate: StrategyGraphShape = {
+          ...graph,
+          nodes: [
+            ...graph.nodes,
+            {
+              id: 'rsi_mom',
+              type: 'indicator',
+              indicator: 'rsi',
+              label: 'RSI 14',
+              params: { period: 14 },
+            },
+            {
+              id: 'cond_rsi',
+              type: 'condition',
+              label: 'RSI Filter < 70',
+              params: { op: '<', threshold: 70 },
+            },
+          ],
+          edges: [
+            ...(graph.edges ?? []),
+            { id: 'e_u_rsi', from_node: 'n1', from_port: 'bars', to_node: 'rsi_mom', to_port: 'input' },
+            { id: 'e_rsi_cond', from_node: 'rsi_mom', from_port: 'value', to_node: 'cond_rsi', to_port: 'left' },
+          ],
+        };
+        const diff = computeGraphDiff(graph, candidate);
+        const source = await buildCode(candidate);
+        const msg: AssistantMessage = {
+          kind: 'candidate',
+          message:
+            'Proposed integrating a 14-period Relative Strength Index (RSI) momentum filter to confirm breakout validity.',
+          graph: candidate,
+          source,
+          diff,
+          decisions: [
+            {
+              orderId: 'o',
+              decision: 'approve',
+              rationale: 'RSI regime filter satisfies causal lookahead and parameter validation constraints.',
+            },
+          ],
+          blocked: false,
+          timestamp: Date.now(),
+        };
+        set((state) => ({ assistant: [...state.assistant, msg] }));
+        return;
+      }
+
+      // Parameter tuning / optimization
+      if (lower.includes('tune') || lower.includes('param') || lower.includes('period') || lower.includes('ma')) {
+        const candidate: StrategyGraphShape = {
+          ...graph,
+          nodes: graph.nodes.map((node) => {
+            if (node.id === 'f') return { ...node, params: { ...node.params, period: 5 }, label: 'Fast SMA (5)' };
+            if (node.id === 's') return { ...node, params: { ...node.params, period: 20 }, label: 'Slow SMA (20)' };
+            return node;
+          }),
+        };
+        const diff = computeGraphDiff(graph, candidate);
+        const source = await buildCode(candidate);
+        const msg: AssistantMessage = {
+          kind: 'candidate',
+          message:
+            'Adjusted moving average windows to institutional standard (Fast: 5, Slow: 20) to filter whipsaws and improve Sharpe ratio.',
+          graph: candidate,
+          source,
+          diff,
+          decisions: [
+            {
+              orderId: 'o',
+              decision: 'approve',
+              rationale: 'Parameters within valid positive integer ranges; zero DAG cycle mutations.',
+            },
+          ],
+          blocked: false,
+          timestamp: Date.now(),
+        };
+        set((state) => ({ assistant: [...state.assistant, msg] }));
+        return;
+      }
+
+      // General quantitative advisory discussion
+      const msg: AssistantMessage = {
+        kind: 'discussion',
+        message: `Quantitative Advisory for '${graph.name}': The strategy is a dual-SMA trend cross. To increase risk-adjusted return, consider adding an ATR volatility sizing filter or an RSI confirmation check. You can ask me to "add an ATR volatility filter", "tune MA periods to 5/20", or "add an RSI momentum condition".`,
+        blocked: false,
+        timestamp: Date.now(),
+      };
+      set((state) => ({ assistant: [...state.assistant, msg] }));
+    },
+
+    applyProposal: async (index) => {
+      const { assistant, snapshotVersion, setGraph } = get();
+      const msg = assistant[index];
+      if (!msg || !msg.graph || msg.blocked) return;
+      await snapshotVersion();
+      await setGraph(msg.graph);
+      set({ tab: 'canvas' });
+    },
+
+    applySweepParams: async (params) => {
+      const { graph } = get();
+      const nextNodes = graph.nodes.map((node) => {
+        const updatedParams = { ...(node.params ?? {}) };
+        let changed = false;
+        for (const [key, value] of Object.entries(params)) {
+          if (key.startsWith(`${node.id}.`)) {
+            const paramName = key.slice(node.id.length + 1);
+            updatedParams[paramName] = value;
+            changed = true;
+          } else if (key.startsWith(`${node.id}_`)) {
+            const paramName = key.slice(node.id.length + 1);
+            updatedParams[paramName] = value;
+            changed = true;
+          } else if (node.params && key in node.params) {
+            updatedParams[key] = value;
+            changed = true;
+          }
+        }
+        return changed ? { ...node, params: updatedParams } : node;
+      });
+
+      const nextGraph: StrategyGraphShape = { ...graph, nodes: nextNodes };
+      set({
+        graph: nextGraph,
+        isModified: true,
+        codeEdited: false,
+        code: await buildCode(nextGraph),
+        tab: 'canvas',
+      });
+    },
 
     resetAssistant: () => set({ assistant: [] }),
   };

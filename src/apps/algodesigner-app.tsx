@@ -12,12 +12,14 @@ import { defaultGraph, useDesignerStore, type DesignerTab } from '../core/design
 import { useOpsStore } from '../core/designer/ops-state';
 import { DesignerCanvas } from './algodesigner/canvas';
 import { AssistantPanel, CodePane, OpsPanel, ResultsPanel, RunPanel, VerifyPanel } from './algodesigner/panels';
+import { SweepsPanel } from './algodesigner/sweeps-panel';
 
 const TABS: Array<{ id: DesignerTab; label: string }> = [
   { id: 'canvas', label: 'Canvas' },
   { id: 'code', label: 'Code' },
   { id: 'verify', label: 'Verify' },
   { id: 'run', label: 'Run' },
+  { id: 'sweeps', label: 'Sweeps' },
   { id: 'assistant', label: 'Assistant' },
   { id: 'ops', label: 'Ops' },
   { id: 'results', label: 'Results' },
@@ -92,10 +94,12 @@ const AlgoDesigner: React.FC = () => {
               onViewResults={() => store.setTab('results')}
             />
           ) : null}
+          {store.tab === 'sweeps' ? <SweepsPanel /> : null}
           {store.tab === 'assistant' ? (
             <AssistantPanel
               messages={store.assistant}
-              onPropose={(text) => store.assistantSay(text)}
+              onPropose={(text) => void store.proposeAI(text, client)}
+              onApplyProposal={(idx) => void store.applyProposal(idx)}
               onClear={store.resetAssistant}
             />
           ) : null}
