@@ -14,6 +14,7 @@ import { designerHandoffUrl, stashDesignerHandoff } from '../core/designer/hando
 import { SimulationControls } from './simulator/components/simulation-controls';
 import { SimulatorChart } from './simulator/components/interactive-chart';
 import { ReplayToolbar } from './simulator/components/replay-toolbar';
+import { ResultsPanel } from './simulator/components/results-panel';
 import { WorkbenchTabs } from './simulator/components/workbench-tabs';
 import { useSimulatorStore } from './simulator/store/simulator-store';
 import { useSimulationEngine } from '../core/simulator/engine/use-simulation-engine';
@@ -38,6 +39,10 @@ const Simulator: React.FC = () => {
   const [selectedAccountId, setSelectedAccountId] = useState('acc-sandbox-primary');
   const [multiTimeframe, setMultiTimeframe] = useState(false);
   const [secondaryTimeframe, setSecondaryTimeframe] = useState('1h');
+  // The dock shows either the client-side replay bench or the server run report
+  // (Phase 8); both read their own source and never disagree (the bench reads
+  // the engine, the report reads the POST /backtests payload + journal).
+  const [dockView, setDockView] = useState<'bench' | 'report'>('bench');
 
   useEffect(() => {
     themeEngine.applyToDOM();
@@ -168,7 +173,13 @@ const Simulator: React.FC = () => {
                   engine.toggleMultiTimeframe();
                 }
               }}
-              onRun={() => engine.instant()}
+              onRun={() => {
+                // `[Run Backtest]` submits POST /backtests and fills the run
+                // report; the replay bench keeps its own engine controls (the
+                // toolbar and the header buttons), so the two paths stay apart.
+                setDockView('report');
+                void store.execute(client);
+              }}
               onSweeps={() => {
                 const stashed = stashDesignerHandoff(store.strategy, 'sweeps');
                 if (!stashed) {
@@ -211,12 +222,33 @@ const Simulator: React.FC = () => {
               />
             </div>
 
-            {/* Institutional Tabs (Overview, Sandboxed Portfolio, Trades, Signals) */}
+            {/* Bottom dock: the client-side replay bench and the server run report. */}
             <div style={{ flex: '0 0 45%', minHeight: 220, display: 'flex', flexDirection: 'column' }}>
-              <WorkbenchTabs
-                engineState={engine.engineState}
-                onClearPortfolio={engine.clearPortfolio}
-              />
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 2,
+                  padding: '0 8px',
+                  borderBottom: '1px solid var(--border-subtle, #2a2e39)',
+                  background: 'var(--bg-surface-elevated, #1e222d)',
+                }}
+              >
+                <DockTab active={dockView === 'bench'} onClick={() => setDockView('bench')} label="Replay Bench" />
+                <DockTab
+                  active={dockView === 'report'}
+                  onClick={() => setDockView('report')}
+                  label="Run Report"
+                  badge={store.run.response ? 'ready' : undefined}
+                />
+              </div>
+              <div style={{ flex: 1, minHeight: 0 }}>
+                {dockView === 'bench' ? (
+                  <WorkbenchTabs engineState={engine.engineState} onClearPortfolio={engine.clearPortfolio} />
+                ) : (
+                  <ResultsPanel client={client} />
+                )}
+              </div>
             </div>
           </div>
         </section>
@@ -224,6 +256,47 @@ const Simulator: React.FC = () => {
     </AppShell>
   );
 };
+
+/** A dock-level tab that switches between the replay bench and the run report. */
+const DockTab: React.FC<{ active: boolean; onClick: () => void; label: string; badge?: string }> = ({
+  active,
+  onClick,
+  label,
+  badge,
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 6,
+      padding: '8px 12px',
+      fontSize: 11,
+      fontWeight: active ? 600 : 400,
+      color: active ? 'var(--accent-primary, #4f8cff)' : 'var(--text-muted)',
+      background: 'transparent',
+      border: 'none',
+      borderBottom: `2px solid ${active ? 'var(--accent-primary, #4f8cff)' : 'transparent'}`,
+      cursor: 'pointer',
+    }}
+  >
+    <span>{label}</span>
+    {badge ? (
+      <span
+        style={{
+          fontSize: 9,
+          padding: '1px 5px',
+          borderRadius: 3,
+          background: 'rgba(79, 140, 255, 0.15)',
+          color: 'var(--accent-primary, #4f8cff)',
+        }}
+      >
+        {badge}
+      </span>
+    ) : null}
+  </button>
+);
 
 const container = document.getElementById('root');
 if (container) {
