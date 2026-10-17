@@ -6,6 +6,9 @@ import {
   FILL_MODELS,
   PERIOD_PRESETS,
   TIMEFRAMES,
+  formatTimeframe,
+  presetRange,
+  resolveRange,
   type PeriodPreset,
 } from '../../../core/simulator/controls';
 import { useSimulatorStore } from '../store/simulator-store';
@@ -129,54 +132,131 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({
         />
       </label>
 
-      <span style={labelStyle}>Period</span>
-      <div style={{ display: 'flex', gap: 4, marginBottom: 12, flexWrap: 'wrap' }}>
-        {PERIOD_PRESETS.map((preset) => (
-          <button
-            key={preset}
-            type="button"
-            className={controls.period === preset ? 'shortlist-btn shortlist-btn-primary' : 'shortlist-btn'}
-            style={{ fontSize: 11, padding: '3px 10px' }}
-            onClick={() => setControls({ period: preset as PeriodPreset })}
-          >
-            {preset}
-          </button>
-        ))}
-      </div>
+      {/* Date Range Section */}
+      {(() => {
+        const effectiveRange = resolveRange(controls);
+        const startDate = controls.start || effectiveRange.start;
+        const endDate = controls.end || effectiveRange.end;
 
-      {controls.period === 'Custom' ? (
-        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-          <label style={{ ...fieldStyle, flex: 1, marginBottom: 0 }}>
-            <span style={labelStyle}>Start</span>
-            <input
-              type="date"
-              style={inputStyle}
-              value={controls.start ?? ''}
-              onChange={(event) => setControls({ start: event.target.value || null })}
-            />
-          </label>
-          <label style={{ ...fieldStyle, flex: 1, marginBottom: 0 }}>
-            <span style={labelStyle}>End</span>
-            <input
-              type="date"
-              style={inputStyle}
-              value={controls.end ?? ''}
-              onChange={(event) => setControls({ end: event.target.value || null })}
-            />
-          </label>
+        return (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={labelStyle}>Date Range</span>
+              <span style={{ fontSize: 10, color: 'var(--accent-primary, #4f8cff)', fontWeight: 600 }}>
+                {controls.period !== 'Custom' ? `${controls.period} Active` : 'Custom Range'}
+              </span>
+            </div>
+
+            {/* Quick Presets */}
+            <div style={{ display: 'flex', gap: 4, marginBottom: 8, flexWrap: 'wrap' }}>
+              {PERIOD_PRESETS.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  className={controls.period === preset ? 'shortlist-btn shortlist-btn-primary' : 'shortlist-btn'}
+                  style={{ fontSize: 10, padding: '2px 8px' }}
+                  onClick={() => {
+                    if (preset === 'Custom') {
+                      setControls({ period: 'Custom', start: startDate, end: endDate });
+                    } else {
+                      const range = presetRange(preset, new Date());
+                      setControls({ period: preset, start: range.start, end: range.end });
+                    }
+                  }}
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
+
+            {/* Always Editable Start & End Date Inputs */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.3 }}>
+                  Start Date
+                </span>
+                <input
+                  type="date"
+                  style={inputStyle}
+                  value={startDate}
+                  onChange={(event) => {
+                    const val = event.target.value;
+                    setControls({ period: 'Custom', start: val || null, end: endDate });
+                  }}
+                />
+              </label>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.3 }}>
+                  End Date
+                </span>
+                <input
+                  type="date"
+                  style={inputStyle}
+                  value={endDate}
+                  onChange={(event) => {
+                    const val = event.target.value;
+                    setControls({ period: 'Custom', start: startDate, end: val || null });
+                  }}
+                />
+              </label>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Timeframe Section */}
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+          <span style={labelStyle}>Timeframe</span>
+          <span style={{ fontSize: 10, color: 'var(--accent-gold, #f7a600)', fontWeight: 600 }}>
+            {formatTimeframe(controls.timeframe)}
+          </span>
         </div>
-      ) : null}
 
-      <label style={fieldStyle}>
-        <span style={labelStyle}>Timeframe</span>
-        <select style={inputStyle} value={controls.timeframe} onChange={(event) => setControls({ timeframe: event.target.value })}>
-          {(TIMEFRAMES.includes(controls.timeframe) ? TIMEFRAMES : [controls.timeframe, ...TIMEFRAMES]).map((tf) => (
-            <option key={tf} value={tf}>
+        {/* Quick Chips for Popular Timeframes */}
+        <div style={{ display: 'flex', gap: 4, marginBottom: 6, flexWrap: 'wrap' }}>
+          {['1m', '5m', '15m', '1h', '4h', '1d', '1w', '1mo'].map((tf) => (
+            <button
+              key={tf}
+              type="button"
+              className={controls.timeframe === tf ? 'shortlist-btn shortlist-btn-primary' : 'shortlist-btn'}
+              style={{ fontSize: 10, padding: '2px 7px' }}
+              onClick={() => setControls({ timeframe: tf })}
+            >
               {tf}
-            </option>
+            </button>
           ))}
+        </div>
+
+        {/* Full Grouped Timeframe Select */}
+        <select
+          style={inputStyle}
+          value={controls.timeframe}
+          onChange={(event) => setControls({ timeframe: event.target.value })}
+        >
+          <optgroup label="Minutes">
+            <option value="1m">1m (1 Minute)</option>
+            <option value="2m">2m (2 Minutes)</option>
+            <option value="3m">3m (3 Minutes)</option>
+            <option value="5m">5m (5 Minutes)</option>
+            <option value="10m">10m (10 Minutes)</option>
+            <option value="15m">15m (15 Minutes)</option>
+            <option value="30m">30m (30 Minutes)</option>
+            <option value="45m">45m (45 Minutes)</option>
+          </optgroup>
+          <optgroup label="Hours">
+            <option value="1h">1h (1 Hour)</option>
+            <option value="2h">2h (2 Hours)</option>
+            <option value="3h">3h (3 Hours)</option>
+            <option value="4h">4h (4 Hours)</option>
+          </optgroup>
+          <optgroup label="Daily / Weekly / Monthly">
+            <option value="1d">1d (1 Day - Daily)</option>
+            <option value="1w">1w (1 Week - Weekly)</option>
+            <option value="1mo">1mo (1 Month - Monthly)</option>
+          </optgroup>
         </select>
-      </label>
+      </div>
 
       <NumberField label="Initial capital" value={controls.capital} onChange={(capital) => setControls({ capital })} suffix="INR" />
 
@@ -231,11 +311,18 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({
                 onToggleMultiTf?.(true, e.target.value);
               }}
             >
-              <option value="15m">15 Minutes</option>
-              <option value="30m">30 Minutes</option>
-              <option value="1h">1 Hour</option>
-              <option value="4h">4 Hours</option>
-              <option value="1d">1 Day (Daily)</option>
+              <optgroup label="Intraday / Hours">
+                <option value="15m">15 Minutes</option>
+                <option value="30m">30 Minutes</option>
+                <option value="1h">1 Hour</option>
+                <option value="2h">2 Hours</option>
+                <option value="4h">4 Hours</option>
+              </optgroup>
+              <optgroup label="Daily / Weekly / Monthly">
+                <option value="1d">1 Day (Daily)</option>
+                <option value="1w">1 Week (Weekly)</option>
+                <option value="1mo">1 Month (Monthly)</option>
+              </optgroup>
             </select>
           </div>
         )}

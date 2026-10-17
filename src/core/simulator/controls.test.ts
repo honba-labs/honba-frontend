@@ -24,6 +24,10 @@ describe('simulator controls — period presets', () => {
     expect(presetRange('3M', NOW)).toEqual({ start: '2026-07-17', end: '2026-10-17' });
     expect(presetRange('6M', NOW)).toEqual({ start: '2026-04-17', end: '2026-10-17' });
     expect(presetRange('1Y', NOW)).toEqual({ start: '2025-10-17', end: '2026-10-17' });
+    expect(presetRange('2Y', NOW)).toEqual({ start: '2024-10-17', end: '2026-10-17' });
+    expect(presetRange('3Y', NOW)).toEqual({ start: '2023-10-17', end: '2026-10-17' });
+    expect(presetRange('5Y', NOW)).toEqual({ start: '2021-10-17', end: '2026-10-17' });
+    expect(presetRange('YTD', NOW)).toEqual({ start: '2026-01-01', end: '2026-10-17' });
   });
 
   it('clamps the day when subtracting months (Mar 31 → Feb 28)', () => {

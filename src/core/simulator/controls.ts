@@ -13,15 +13,52 @@ import type { BacktestRequest } from '../types/generated/domain';
  * fabricated (risk R5).
  */
 
-export type PeriodPreset = '1M' | '3M' | '6M' | '1Y' | 'Custom';
+export type PeriodPreset = '1M' | '3M' | '6M' | '1Y' | '2Y' | '3Y' | '5Y' | 'YTD' | 'Custom';
 
-export const PERIOD_PRESETS: ReadonlyArray<PeriodPreset> = ['1M', '3M', '6M', '1Y', 'Custom'];
+export const PERIOD_PRESETS: ReadonlyArray<PeriodPreset> = ['1M', '3M', '6M', '1Y', '2Y', '3Y', '5Y', 'YTD', 'Custom'];
 
 /** Server spellings, pinned equal to `honba-api`'s `FILL_MODELS`. */
 export const FILL_MODELS: ReadonlyArray<string> = ['bar_fill', 'bar_fill_through', 'l2', 'none'];
 
 /** Bar specifications the run contract accepts (`parse_timeframe`). */
-export const TIMEFRAMES: ReadonlyArray<string> = ['1m', '5m', '15m', '30m', '1h', '1d'];
+export const TIMEFRAMES: ReadonlyArray<string> = [
+  '1m',
+  '2m',
+  '3m',
+  '5m',
+  '10m',
+  '15m',
+  '30m',
+  '45m',
+  '1h',
+  '2h',
+  '3h',
+  '4h',
+  '1d',
+  '1w',
+  '1mo',
+];
+
+export function formatTimeframe(tf: string): string {
+  switch (tf) {
+    case '1m': return '1m (1 Min)';
+    case '2m': return '2m (2 Mins)';
+    case '3m': return '3m (3 Mins)';
+    case '5m': return '5m (5 Mins)';
+    case '10m': return '10m (10 Mins)';
+    case '15m': return '15m (15 Mins)';
+    case '30m': return '30m (30 Mins)';
+    case '45m': return '45m (45 Mins)';
+    case '1h': return '1h (1 Hour)';
+    case '2h': return '2h (2 Hours)';
+    case '3h': return '3h (3 Hours)';
+    case '4h': return '4h (4 Hours)';
+    case '1d': return '1d (Daily)';
+    case '1w': return '1w (Weekly)';
+    case '1mo': return '1mo (Monthly)';
+    default: return tf;
+  }
+}
 
 export const DEFAULT_BENCHMARK = 'NIFTY 50';
 export const DEFAULT_CAPITAL = 100_000;
@@ -88,10 +125,20 @@ export function minusMonths(date: Date, months: number): Date {
 /** Window for a fixed preset, relative to `now` (inclusive start, exclusive end = today). */
 export function presetRange(preset: Exclude<PeriodPreset, 'Custom'>, now: Date): { start: string; end: string } {
   const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const start =
-    preset === '1Y'
-      ? new Date(Date.UTC(end.getUTCFullYear() - 1, end.getUTCMonth(), end.getUTCDate()))
-      : minusMonths(end, preset === '1M' ? 1 : preset === '3M' ? 3 : 6);
+  let start: Date;
+  if (preset === '1Y') {
+    start = new Date(Date.UTC(end.getUTCFullYear() - 1, end.getUTCMonth(), end.getUTCDate()));
+  } else if (preset === '2Y') {
+    start = new Date(Date.UTC(end.getUTCFullYear() - 2, end.getUTCMonth(), end.getUTCDate()));
+  } else if (preset === '3Y') {
+    start = new Date(Date.UTC(end.getUTCFullYear() - 3, end.getUTCMonth(), end.getUTCDate()));
+  } else if (preset === '5Y') {
+    start = new Date(Date.UTC(end.getUTCFullYear() - 5, end.getUTCMonth(), end.getUTCDate()));
+  } else if (preset === 'YTD') {
+    start = new Date(Date.UTC(end.getUTCFullYear(), 0, 1));
+  } else {
+    start = minusMonths(end, preset === '1M' ? 1 : preset === '3M' ? 3 : 6);
+  }
   return { start: isoDate(start), end: isoDate(end) };
 }
 
